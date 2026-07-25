@@ -53,10 +53,21 @@ The id encodes density: updating `sm-one` always means a small glance surface.
 | `get_canvas` / `list_canvases` | Read state + layout hints |
 | `get_layout_guide` | Size budgets for agents |
 | `preview_canvas` | PNG snapshot (host must be running) |
-| `share_canvas` / `update_shared_canvas` / `unshare_canvas` / `list_shared` | Publish to canvas cloud (PLAT-82) |
+| `share_canvas` / `update_shared_canvas` / `unshare_canvas` / `list_shared` | Publish to canvas cloud (**dev only**, see below) |
 | `clear_canvas` | Empty a surface |
 
-Cloud API base: `AGENT_CANVAS_API_URL` (default `https://canvas.velox.test`). Edit tokens stay in **macOS Keychain** (not plaintext under `~/.velox`).
+**Cloud publish (pre-release):** off by default. Tools error with `cloud_publish_disabled` unless:
+
+1. **Debug build** (or `cargo build --features cloud-publish` for a release binary), and  
+2. **`AGENT_CANVAS_CLOUD_PUBLISH=1`**
+
+```bash
+export AGENT_CANVAS_CLOUD_PUBLISH=1
+export AGENT_CANVAS_API_URL=https://canvas.velox.test   # optional; this is the default
+cargo run -p agent-canvas-mcp -- stdio
+```
+
+Stock **release** builds never enable publish (even with the env set) unless you pass `--features cloud-publish`. Edit tokens stay in **macOS Keychain**.
 
 Keep the **host app running** so widgets reload when the agent writes. Closing windows does not quit—use **Quit** from the menu bar.
 

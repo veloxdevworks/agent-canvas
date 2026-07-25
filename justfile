@@ -28,7 +28,8 @@ mcp-serve *args:
 mcp-paths:
     cargo run --quiet --manifest-path {{root}}/Cargo.toml -p agent-canvas-mcp -- paths
 
-# Example: point MCP at local platform canvas service
+# Cloud publish (debug MCP only — not in release app builds):
+#   export AGENT_CANVAS_CLOUD_PUBLISH=1
 #   export AGENT_CANVAS_API_URL=https://canvas.velox.test
 
 # Seed sample content into a canvas (default: md-one)

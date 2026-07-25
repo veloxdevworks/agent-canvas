@@ -9,6 +9,11 @@ description = "MCP server (stdio) for Agent Canvas"
 name = "agent-canvas-mcp"
 path = "src/main.rs"
 
+[features]
+default = []
+# Compile share_* MCP tools into non-debug builds (still needs AGENT_CANVAS_CLOUD_PUBLISH=1).
+cloud-publish = ["agent-canvas-core/cloud-publish"]
+
 [dependencies]
 agent-canvas-core = { workspace = true }
 serde = { workspace = true }

@@ -233,6 +233,18 @@ fn tool_error(v: Value) -> Result<CallToolResult, McpError> {
     Ok(CallToolResult::error(vec![ContentBlock::text(text)]))
 }
 
+/// Soft-disable for pre-release cloud publish (see CloudConfig::cloud_publish_enabled).
+fn cloud_publish_disabled() -> Result<CallToolResult, McpError> {
+    tool_error(json!({
+        "ok": false,
+        "error": "cloud_publish_disabled",
+        "message": "Cloud publish tools are not enabled in this build/config.",
+        "hint": "Debug builds: export AGENT_CANVAS_CLOUD_PUBLISH=1 (and optionally AGENT_CANVAS_API_URL). \
+    Release builds omit these tools unless compiled with --features cloud-publish.",
+        "env": CloudConfig::ENV_CLOUD_PUBLISH,
+    }))
+}
+
 fn map_err(e: impl std::fmt::Display) -> McpError {
     McpError::invalid_params(e.to_string(), None)
 }
@@ -735,14 +747,17 @@ HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. 
     }
 
     #[tool(
-        description = "Publish a local canvas to Agent Canvas Cloud (anonymous Phase 1). \
-Returns publicUrl + editToken (token also stored in macOS Keychain; shown once — treat as a secret). \
-Requires canvas cloud API (AGENT_CANVAS_API_URL). canvas: local id (md-one); optional slug."
+        description = "DEV ONLY — requires AGENT_CANVAS_CLOUD_PUBLISH=1 (debug builds; release needs --features cloud-publish). \
+Publish a local canvas to Agent Canvas Cloud. Returns publicUrl + editToken (Keychain). \
+AGENT_CANVAS_API_URL. canvas: local id (md-one); optional slug."
     )]
     async fn share_canvas(
         &self,
         Parameters(args): Parameters<ShareCanvasArgs>,
     ) -> Result<CallToolResult, McpError> {
+        if !CloudConfig::cloud_publish_enabled() {
+            return cloud_publish_disabled();
+        }
         let id = match CanvasId::parse(&args.canvas) {
             Ok(id) => id,
             Err(e) => {
@@ -793,13 +808,16 @@ Requires canvas cloud API (AGENT_CANVAS_API_URL). canvas: local id (md-one); opt
     }
 
     #[tool(
-        description = "Push the latest local canvas JSON to an already-shared cloud slug (uses stored edit token). \
+        description = "DEV ONLY — AGENT_CANVAS_CLOUD_PUBLISH=1. Push latest local canvas JSON to a shared slug (stored edit token). \
 canvas: local id previously passed to share_canvas."
     )]
     async fn update_shared_canvas(
         &self,
         Parameters(args): Parameters<UpdateSharedArgs>,
     ) -> Result<CallToolResult, McpError> {
+        if !CloudConfig::cloud_publish_enabled() {
+            return cloud_publish_disabled();
+        }
         let id = match CanvasId::parse(&args.canvas) {
             Ok(id) => id,
             Err(e) => {
@@ -834,12 +852,15 @@ canvas: local id previously passed to share_canvas."
     }
 
     #[tool(
-        description = "Unpublish a shared canvas (DELETE). target: slug or local canvas id. Clears Keychain edit token."
+        description = "DEV ONLY — AGENT_CANVAS_CLOUD_PUBLISH=1. Unpublish a shared canvas (DELETE). target: slug or local canvas id. Clears Keychain token."
     )]
     async fn unshare_canvas(
         &self,
         Parameters(args): Parameters<UnshareArgs>,
     ) -> Result<CallToolResult, McpError> {
+        if !CloudConfig::cloud_publish_enabled() {
+            return cloud_publish_disabled();
+        }
         match self
             .cloud
             .unshare_canvas(&args.target, args.edit_token.as_deref())
@@ -859,12 +880,15 @@ canvas: local id previously passed to share_canvas."
     }
 
     #[tool(
-        description = "List canvases this machine has published (local share index). Does not list the global cloud directory (none in Phase 1)."
+        description = "DEV ONLY — AGENT_CANVAS_CLOUD_PUBLISH=1. List canvases this machine has published (local share index)."
     )]
     async fn list_shared(
         &self,
         Parameters(_args): Parameters<EmptyArgs>,
     ) -> Result<CallToolResult, McpError> {
+        if !CloudConfig::cloud_publish_enabled() {
+            return cloud_publish_disabled();
+        }
         match self.cloud.list_shared() {
             Ok(list) => json_result(json!({
                 "ok": true,
@@ -1020,14 +1044,19 @@ Returns image/png plus JSON meta (truncated, droppedTypes, path). canvas: size-f
 impl ServerHandler for AgentCanvasMcp {
     fn get_info(&self) -> ServerInfo {
         let mut info = ServerInfo::default();
+        let cloud_hint = if CloudConfig::cloud_publish_enabled() {
+            " Cloud publish (dev): share_canvas / update_shared_canvas / unshare_canvas / list_shared \
+             (AGENT_CANVAS_API_URL; edit tokens in Keychain)."
+        } else {
+            ""
+        };
         info.instructions = Some(
             format!(
                 "Agent Canvas: 12 fixed-size desktop widgets. Ids: {ID_HELP}. \
                  PREFERRED simple path: update_canvas_simple(canvas=\"sm-one\", header=\"Hello World\", status=\"OK\"). \
                  Full path: update_canvas with content object — minimal example: {MINIMAL_EXAMPLE}. \
-                 After updates call preview_canvas(canvas) to get a PNG of the real widget layout (host app must be running). \
-                 Cloud publish: share_canvas → publicUrl; update_shared_canvas; unshare_canvas; list_shared \
-                 (AGENT_CANVAS_API_URL; edit tokens in Keychain). \
+                 After updates call preview_canvas(canvas) to get a PNG of the real widget layout (host app must be running).\
+                 {cloud_hint} \
                  Do NOT omit sections[].type. Do NOT send content as a bare string unless it is JSON. \
                  HARD budgets: sm≤2 sections (no charts); md≤4/4/8; lg≤6/8/12; xl≤8/12/20. \
                  If a call fails, read the error JSON (example + tip) and retry once. \

@@ -5,6 +5,11 @@ edition.workspace = true
 license.workspace = true
 description = "Shared storage, validation, and canvas model for Agent Canvas"
 
+[features]
+default = []
+# Aligns with agent-canvas-mcp; enables CloudConfig::cloud_publish_enabled in release.
+cloud-publish = []
+
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }

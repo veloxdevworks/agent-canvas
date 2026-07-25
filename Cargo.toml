@@ -9,7 +9,11 @@ members = [
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/velox/agent-canvas"
+repository = "https://github.com/veloxdevworks/agent-canvas"
+
+# Optional: force-include cloud publish tools in release builds (default: debug only).
+#   cargo build -p agent-canvas-mcp --features cloud-publish
+# Runtime still requires AGENT_CANVAS_CLOUD_PUBLISH=1.
 
 [workspace.dependencies]
 agent-canvas-core = { path = "crates/agent-canvas-core" }

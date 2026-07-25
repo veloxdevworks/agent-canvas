@@ -12,8 +12,32 @@ pub struct CloudConfig {
 
 impl CloudConfig {
     pub const ENV_API_URL: &'static str = "AGENT_CANVAS_API_URL";
+    /// Opt-in gate for share/update/unshare MCP tools (PLAT-82 pre-release).
+    pub const ENV_CLOUD_PUBLISH: &'static str = "AGENT_CANVAS_CLOUD_PUBLISH";
     pub const DEFAULT_LOCAL: &'static str = "https://canvas.velox.test";
     pub const DEFAULT_PROD: &'static str = "https://canvas.veloxdevworks.com";
+
+    /// Whether cloud publish tools may run.
+    ///
+    /// - **Release builds:** always `false` unless built with `--features cloud-publish`.
+    /// - **Debug (or `cloud-publish` feature):** requires `AGENT_CANVAS_CLOUD_PUBLISH=1`
+    ///   (or `true` / `yes` / `on`). Unset or `0`/`false` → disabled.
+    pub fn cloud_publish_enabled() -> bool {
+        #[cfg(not(any(debug_assertions, feature = "cloud-publish")))]
+        {
+            return false;
+        }
+        #[cfg(any(debug_assertions, feature = "cloud-publish"))]
+        {
+            match std::env::var(Self::ENV_CLOUD_PUBLISH) {
+                Ok(v) => {
+                    let v = v.trim().to_ascii_lowercase();
+                    matches!(v.as_str(), "1" | "true" | "yes" | "on")
+                }
+                Err(_) => false,
+            }
+        }
+    }
 
     pub fn from_env() -> Result<Self> {
         let raw = std::env::var(Self::ENV_API_URL)
@@ -78,5 +102,21 @@ mod tests {
         assert!(CloudConfig::parse("https://canvas.veloxdevworks.com").is_ok());
         assert!(CloudConfig::parse("http://localhost:4005").is_ok());
         assert!(CloudConfig::parse("https://canvas.velox.test/").is_ok());
+    }
+
+    #[test]
+    fn cloud_publish_respects_env() {
+        let prev = std::env::var(CloudConfig::ENV_CLOUD_PUBLISH).ok();
+        std::env::set_var(CloudConfig::ENV_CLOUD_PUBLISH, "0");
+        assert!(!CloudConfig::cloud_publish_enabled());
+        std::env::set_var(CloudConfig::ENV_CLOUD_PUBLISH, "1");
+        #[cfg(any(debug_assertions, feature = "cloud-publish"))]
+        assert!(CloudConfig::cloud_publish_enabled());
+        #[cfg(not(any(debug_assertions, feature = "cloud-publish")))]
+        assert!(!CloudConfig::cloud_publish_enabled());
+        match prev {
+            Some(v) => std::env::set_var(CloudConfig::ENV_CLOUD_PUBLISH, v),
+            None => std::env::remove_var(CloudConfig::ENV_CLOUD_PUBLISH),
+        }
     }
 }
