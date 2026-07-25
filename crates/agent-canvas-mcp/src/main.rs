@@ -6,8 +6,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use agent_canvas_core::{
-    demo_document_kind, density_report, layout_guide_document, matching_ids, predict_clip,
-    CanvasDocument, CanvasId, CanvasSlot, CanvasStore, DemoKind, WidgetSize, default_store,
+    default_store, demo_document_kind, density_report, layout_guide_document, matching_ids,
+    predict_clip, CanvasDocument, CanvasId, CanvasSlot, CanvasStore, DemoKind, WidgetSize,
 };
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use clap::{Parser, Subcommand};
@@ -99,16 +99,16 @@ async fn main() -> anyhow::Result<()> {
                         id.size.display_label(),
                         id.slot.as_str()
                     )),
-                priority: None,
-            },
+                    priority: None,
+                },
                 agent_canvas_core::Section::Text {
                     content: format!(
                         "Seed for fixed size {}. Use update_canvas(\"{}\", …).",
                         id.size.short(),
                         id.as_str()
                     ),
-                priority: None,
-            },
+                    priority: None,
+                },
             ];
             let written = store.write(id, doc)?;
             println!(
@@ -384,7 +384,8 @@ struct UpdateCanvasSimpleArgs {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct EmptyArgs {}
 
-const ID_HELP: &str = "sm-one|sm-two|sm-three|md-one|md-two|md-three|lg-one|lg-two|lg-three|xl-one|xl-two|xl-three";
+const ID_HELP: &str =
+    "sm-one|sm-two|sm-three|md-one|md-two|md-three|lg-one|lg-two|lg-three|xl-one|xl-two|xl-three";
 
 #[tool_router]
 impl AgentCanvasMcp {
@@ -609,9 +610,7 @@ HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. 
         }))
     }
 
-    #[tool(
-        description = "Clear a canvas. canvas: size-first id (sm-one, md-two, …)."
-    )]
+    #[tool(description = "Clear a canvas. canvas: size-first id (sm-one, md-two, …).")]
     async fn clear_canvas(
         &self,
         Parameters(args): Parameters<CanvasArgs>,
@@ -757,10 +756,7 @@ Returns image/png plus JSON meta (truncated, droppedTypes, path). canvas: size-f
                             if let Some(obj) = out.as_object_mut() {
                                 obj.insert("ok".into(), json!(true));
                                 obj.insert("canvas".into(), json!(id.as_str()));
-                                obj.insert(
-                                    "path".into(),
-                                    json!(png_path.to_string_lossy()),
-                                );
+                                obj.insert("path".into(), json!(png_path.to_string_lossy()));
                                 obj.insert(
                                     "note".into(),
                                     json!("PNG is a host-side snapshot of CanvasView at fixed family size — not a live desktop screencap."),
@@ -784,7 +780,8 @@ Returns image/png plus JSON meta (truncated, droppedTypes, path). canvas: size-f
                         Err(_) => {
                             // meta may still report failure
                             if let Some(meta) = store.read_preview_meta(id) {
-                                if meta.get("token").and_then(|t| t.as_str()) == Some(token.as_str())
+                                if meta.get("token").and_then(|t| t.as_str())
+                                    == Some(token.as_str())
                                     && meta.get("ok") == Some(&json!(false))
                                 {
                                     return tool_error(json!({

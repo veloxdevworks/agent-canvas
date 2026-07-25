@@ -101,7 +101,8 @@ impl CanvasStore {
     }
 
     pub fn preview_meta_path(&self, id: CanvasId) -> PathBuf {
-        self.previews_dir().join(format!("{}.meta.json", id.as_str()))
+        self.previews_dir()
+            .join(format!("{}.meta.json", id.as_str()))
     }
 
     pub fn preview_request_path(&self) -> PathBuf {
@@ -143,7 +144,9 @@ impl CanvasStore {
     pub fn write_last_render(&self, render: &LastRender) -> Result<()> {
         self.ensure_layout()?;
         // Path is derived from canvas id string already validated by the writer.
-        let path = self.canvases_dir().join(format!("{}.render.json", render.canvas));
+        let path = self
+            .canvases_dir()
+            .join(format!("{}.render.json", render.canvas));
         let tmp = path.with_extension("json.tmp");
         let json = serde_json::to_string_pretty(render)?;
         fs::write(&tmp, json)?;
@@ -197,7 +200,6 @@ impl CanvasStore {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -218,8 +220,8 @@ mod tests {
                 value: "1".into(),
                 trend: None,
             }],
-                priority: None,
-            });
+            priority: None,
+        });
         store.write(id, doc).unwrap();
         assert!(store.path_for(id).ends_with("sm-one.json"));
         let loaded = store.read(id).unwrap();

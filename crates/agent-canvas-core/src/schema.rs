@@ -141,7 +141,9 @@ impl Section {
             }
             Section::Text { content, .. } => {
                 if content.trim().is_empty() {
-                    return Err(Error::Validation(format!("{ctx}.text: content is required")));
+                    return Err(Error::Validation(format!(
+                        "{ctx}.text: content is required"
+                    )));
                 }
             }
             Section::Metrics { items, .. } => {
@@ -172,7 +174,9 @@ impl Section {
             }
             Section::Image { source, .. } => {
                 if source.trim().is_empty() {
-                    return Err(Error::Validation(format!("{ctx}.image: source is required")));
+                    return Err(Error::Validation(format!(
+                        "{ctx}.image: source is required"
+                    )));
                 }
                 // Remote https deferred; warn via validation for v1 local-only.
                 if source.starts_with("http://") || source.starts_with("https://") {

@@ -269,10 +269,7 @@ pub fn density_report(doc: &CanvasDocument, size: WidgetSize) -> DensityReport {
         ));
     }
     if has_chart && !b.allow_chart {
-        warnings.push(format!(
-            "charts discouraged on {} — prefer metrics",
-            b.size
-        ));
+        warnings.push(format!("charts discouraged on {} — prefer metrics", b.size));
     }
     let chart_sections = doc
         .sections
@@ -358,7 +355,10 @@ pub fn density_warnings(
         ));
     }
     if has_chart && !b.allow_chart {
-        w.push(format!("chart on {} often looks cramped; prefer metrics", b.size));
+        w.push(format!(
+            "chart on {} often looks cramped; prefer metrics",
+            b.size
+        ));
     }
     if section_count == 0 {
         w.push("empty sections — widget will show empty state".into());
@@ -384,7 +384,11 @@ pub fn predict_clip(doc: &CanvasDocument, size: WidgetSize) -> PredictedClip {
 
     let mut kept = std::collections::BTreeSet::new();
     // Always keep first header.
-    if let Some(i) = doc.sections.iter().position(|s| matches!(s, Section::Header { .. })) {
+    if let Some(i) = doc
+        .sections
+        .iter()
+        .position(|s| matches!(s, Section::Header { .. }))
+    {
         kept.insert(i);
     }
 
@@ -434,7 +438,9 @@ pub struct PredictedClip {
 
 /// Lower score = keep first. Explicit section.priority wins; else type default.
 pub fn section_sort_key(section: &Section, index: usize) -> (u32, usize) {
-    let p = section.priority().unwrap_or_else(|| section.default_priority());
+    let p = section
+        .priority()
+        .unwrap_or_else(|| section.default_priority());
     (p, index)
 }
 
@@ -444,6 +450,44 @@ pub fn rank_section_indices(doc: &CanvasDocument) -> Vec<usize> {
         section_sort_key(&doc.sections[a], a).cmp(&section_sort_key(&doc.sections[b], b))
     });
     idx
+}
+
+impl Section {
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            Section::Header { .. } => "header",
+            Section::Text { .. } => "text",
+            Section::Metrics { .. } => "metrics",
+            Section::Chart { .. } => "chart",
+            Section::List { .. } => "list",
+            Section::Image { .. } => "image",
+            Section::Spacer { .. } => "spacer",
+        }
+    }
+
+    pub fn priority(&self) -> Option<u32> {
+        match self {
+            Section::Header { priority, .. }
+            | Section::Text { priority, .. }
+            | Section::Metrics { priority, .. }
+            | Section::Chart { priority, .. }
+            | Section::List { priority, .. }
+            | Section::Image { priority, .. }
+            | Section::Spacer { priority, .. } => *priority,
+        }
+    }
+
+    pub fn default_priority(&self) -> u32 {
+        match self {
+            Section::Header { .. } => 10,
+            Section::Metrics { .. } => 20,
+            Section::Chart { .. } => 30,
+            Section::List { .. } => 40,
+            Section::Text { .. } => 50,
+            Section::Image { .. } => 60,
+            Section::Spacer { .. } => 70,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -543,47 +587,12 @@ mod tests {
         ];
         let clip = predict_clip(&doc, WidgetSize::Medium);
         assert!(clip.will_truncate_sections);
-        assert!(clip.dropped_types.contains(&"chart".to_string()) || clip.dropped_types.contains(&"text".to_string()));
+        assert!(
+            clip.dropped_types.contains(&"chart".to_string())
+                || clip.dropped_types.contains(&"text".to_string())
+        );
         // At most one chart kept among shown path — dropped should include a chart or text/list.
         let charts_dropped = clip.dropped_types.iter().filter(|t| *t == "chart").count();
         assert!(charts_dropped >= 1, "md should drop at least one chart");
-    }
-}
-
-impl Section {
-    pub fn type_name(&self) -> &'static str {
-        match self {
-            Section::Header { .. } => "header",
-            Section::Text { .. } => "text",
-            Section::Metrics { .. } => "metrics",
-            Section::Chart { .. } => "chart",
-            Section::List { .. } => "list",
-            Section::Image { .. } => "image",
-            Section::Spacer { .. } => "spacer",
-        }
-    }
-
-    pub fn priority(&self) -> Option<u32> {
-        match self {
-            Section::Header { priority, .. }
-            | Section::Text { priority, .. }
-            | Section::Metrics { priority, .. }
-            | Section::Chart { priority, .. }
-            | Section::List { priority, .. }
-            | Section::Image { priority, .. }
-            | Section::Spacer { priority, .. } => *priority,
-        }
-    }
-
-    pub fn default_priority(&self) -> u32 {
-        match self {
-            Section::Header { .. } => 10,
-            Section::Metrics { .. } => 20,
-            Section::Chart { .. } => 30,
-            Section::List { .. } => 40,
-            Section::Text { .. } => 50,
-            Section::Image { .. } => 60,
-            Section::Spacer { .. } => 70,
-        }
     }
 }

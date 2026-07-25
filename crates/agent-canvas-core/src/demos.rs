@@ -3,9 +3,7 @@
 
 use crate::id::{CanvasId, CanvasSlot};
 use crate::layout::WidgetSize;
-use crate::schema::{
-    CanvasDocument, ChartPoint, ChartType, ListItem, MetricItem, Section,
-};
+use crate::schema::{CanvasDocument, ChartPoint, ChartType, ListItem, MetricItem, Section};
 
 /// What content recipe to write onto the selected canvas(es).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -142,10 +140,7 @@ fn metrics_only(id: CanvasId) -> CanvasDocument {
         title: Some("Metrics".into()),
         sections: vec![Section::Metrics {
             items: match id.size {
-                WidgetSize::Small => vec![
-                    m("A", "12", Some("+2")),
-                    m("B", "4", Some("-1")),
-                ],
+                WidgetSize::Small => vec![m("A", "12", Some("+2")), m("B", "4", Some("-1"))],
                 _ => vec![
                     m("Closed", "47", Some("+12%")),
                     m("Cycle", "2.3d", Some("-0.4d")),
@@ -153,8 +148,8 @@ fn metrics_only(id: CanvasId) -> CanvasDocument {
                     m("Bugs", "6", Some("-2")),
                 ],
             },
-                priority: None,
-            }],
+            priority: None,
+        }],
     }
 }
 
@@ -166,8 +161,8 @@ fn header_only(id: CanvasId) -> CanvasDocument {
         sections: vec![Section::Header {
             text: format!("{} header", id.size.display_label()),
             subtitle: Some(format!("slot {} · header-only seed", id.slot.as_str())),
-                priority: None,
-            }],
+            priority: None,
+        }],
     }
 }
 
@@ -246,7 +241,13 @@ fn chart_only(id: CanvasId, chart_type: ChartType, title: &str) -> CanvasDocumen
             p("Jobs", 7.0),
         ],
         ChartType::Line => match id.size {
-            WidgetSize::Small => vec![p("M", 4.0), p("T", 7.0), p("W", 5.0), p("T", 8.0), p("F", 6.0)],
+            WidgetSize::Small => vec![
+                p("M", 4.0),
+                p("T", 7.0),
+                p("W", 5.0),
+                p("T", 8.0),
+                p("F", 6.0),
+            ],
             _ => vec![
                 p("00", 12.0),
                 p("04", 8.0),
@@ -258,7 +259,13 @@ fn chart_only(id: CanvasId, chart_type: ChartType, title: &str) -> CanvasDocumen
             ],
         },
         ChartType::Bar => match id.size {
-            WidgetSize::Small => vec![p("M", 3.0), p("T", 5.0), p("W", 2.0), p("T", 6.0), p("F", 4.0)],
+            WidgetSize::Small => vec![
+                p("M", 3.0),
+                p("T", 5.0),
+                p("W", 2.0),
+                p("T", 6.0),
+                p("F", 4.0),
+            ],
             _ => vec![
                 p("Mon", 8.0),
                 p("Tue", 12.0),
@@ -284,7 +291,8 @@ fn chart_only(id: CanvasId, chart_type: ChartType, title: &str) -> CanvasDocumen
                 chart_type,
                 title: Some(title.into()),
                 data,
-             priority: None, },
+                priority: None,
+            },
         ],
     }
 }
@@ -308,7 +316,8 @@ fn full_board(id: CanvasId) -> CanvasDocument {
                     m("WIP", "11", Some("+1")),
                     m("Bugs", "6", Some("-2")),
                 ],
-             priority: None, },
+                priority: None,
+            },
             Section::Chart {
                 chart_type: ChartType::Bar,
                 title: Some("Daily".into()),
@@ -319,7 +328,8 @@ fn full_board(id: CanvasId) -> CanvasDocument {
                     p("T", 9.0),
                     p("F", 12.0),
                 ],
-             priority: None, },
+                priority: None,
+            },
             Section::Chart {
                 chart_type: ChartType::Line,
                 title: Some("Trend".into()),
@@ -330,7 +340,8 @@ fn full_board(id: CanvasId) -> CanvasDocument {
                     p("4", 18.0),
                     p("5", 16.0),
                 ],
-             priority: None, },
+                priority: None,
+            },
             Section::List {
                 title: Some("Queue".into()),
                 items: vec![
@@ -338,10 +349,12 @@ fn full_board(id: CanvasId) -> CanvasDocument {
                     li("SSO flake", "ENG-4902", "P2"),
                     li("Search timeout", "ENG-4888", "P2"),
                 ],
-             priority: None, },
+                priority: None,
+            },
             Section::Text {
                 content: "Full-board seed mixes metrics, charts, list, and text.".into(),
-             priority: None, },
+                priority: None,
+            },
         ],
     }
 }
@@ -385,7 +398,10 @@ fn demo_small(slot: CanvasSlot) -> CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
         title: Some(title.into()),
-        sections: vec![Section::Metrics { items: metrics, priority: None, }],
+        sections: vec![Section::Metrics {
+            items: metrics,
+            priority: None,
+        }],
     }
 }
 
@@ -399,14 +415,16 @@ fn demo_medium(slot: CanvasSlot) -> CanvasDocument {
                 Section::Header {
                     text: "Sprint 24".into(),
                     subtitle: Some("3 days left".into()),
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Metrics {
                     items: vec![
                         m("Done", "18", Some("+4")),
                         m("WIP", "7", Some("-1")),
                         m("Blocked", "2", Some("+1")),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::List {
                     title: Some("Focus".into()),
                     items: vec![
@@ -414,7 +432,8 @@ fn demo_medium(slot: CanvasSlot) -> CanvasDocument {
                         li("SSO flake", "ENG-4902", "P2"),
                         li("Docs for MCP", "ENG-5010", "P3"),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
             ],
         },
         CanvasSlot::Two => CanvasDocument {
@@ -425,7 +444,8 @@ fn demo_medium(slot: CanvasSlot) -> CanvasDocument {
                 Section::Header {
                     text: "Traffic mix".into(),
                     subtitle: Some("Share of requests".into()),
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Chart {
                     chart_type: ChartType::Pie,
                     title: Some("By surface".into()),
@@ -435,10 +455,15 @@ fn demo_medium(slot: CanvasSlot) -> CanvasDocument {
                         p("Mobile", 18.0),
                         p("Jobs", 7.0),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Metrics {
-                    items: vec![m("RPS", "1.2k", Some("+8%")), m("Cache", "91%", Some("+2%"))],
-                 priority: None, },
+                    items: vec![
+                        m("RPS", "1.2k", Some("+8%")),
+                        m("Cache", "91%", Some("+2%")),
+                    ],
+                    priority: None,
+                },
             ],
         },
         CanvasSlot::Three => CanvasDocument {
@@ -449,14 +474,16 @@ fn demo_medium(slot: CanvasSlot) -> CanvasDocument {
                 Section::Header {
                     text: "Agent sessions".into(),
                     subtitle: Some("Today".into()),
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Metrics {
                     items: vec![
                         m("Active", "6", Some("+2")),
                         m("Tokens", "1.1M", Some("+12%")),
                         m("Tools", "84", Some("+9")),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Chart {
                     chart_type: ChartType::Bar,
                     title: Some("Calls / hour".into()),
@@ -467,7 +494,8 @@ fn demo_medium(slot: CanvasSlot) -> CanvasDocument {
                         p("3p", 35.0),
                         p("5p", 18.0),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
             ],
         },
     }
@@ -483,7 +511,8 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
                 Section::Header {
                     text: "Jira throughput".into(),
                     subtitle: Some("Last 7 days".into()),
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Metrics {
                     items: vec![
                         m("Closed", "47", Some("+12%")),
@@ -491,7 +520,8 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
                         m("WIP", "11", Some("+1")),
                         m("Bugs", "6", Some("-2")),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Chart {
                     chart_type: ChartType::Bar,
                     title: Some("Daily closures".into()),
@@ -504,7 +534,8 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
                         p("Sat", 3.0),
                         p("Sun", 2.0),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::List {
                     title: Some("Open high priority".into()),
                     items: vec![
@@ -524,14 +555,16 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
                 Section::Header {
                     text: "Review queue".into(),
                     subtitle: Some("Engineering".into()),
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Metrics {
                     items: vec![
                         m("Open", "14", Some("+3")),
                         m("Stale >2d", "5", Some("+1")),
                         m("Avg age", "1.4d", Some("-0.2d")),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Chart {
                     chart_type: ChartType::Bar,
                     title: Some("PRs opened / day".into()),
@@ -542,7 +575,8 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
                         p("T", 9.0),
                         p("F", 6.0),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::List {
                     title: Some("Needs review".into()),
                     items: vec![
@@ -550,7 +584,8 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
                         li("fix: widget reload", "alex · 1d", "REVIEW"),
                         li("chore: bump deps", "bot · 3d", "STALE"),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
             ],
         },
         CanvasSlot::Three => CanvasDocument {
@@ -561,14 +596,16 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
                 Section::Header {
                     text: "API latency".into(),
                     subtitle: Some("p50 / p95".into()),
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Metrics {
                     items: vec![
                         m("p50", "42ms", Some("-3ms")),
                         m("p95", "180ms", Some("+8ms")),
                         m("p99", "410ms", Some("+20ms")),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Chart {
                     chart_type: ChartType::Line,
                     title: Some("p95 over day".into()),
@@ -580,10 +617,12 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
                         p("16", 190.0),
                         p("20", 150.0),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Text {
                     content: "Spike at noon coincides with batch export job.".into(),
-                 priority: None, },
+                    priority: None,
+                },
             ],
         },
     }
@@ -599,7 +638,8 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
                 Section::Header {
                     text: "Platform health".into(),
                     subtitle: Some("Prod · last 24h".into()),
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Metrics {
                     items: vec![
                         m("Uptime", "99.97%", Some("+0.01")),
@@ -607,7 +647,8 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
                         m("Errors", "0.12%", Some("-0.03")),
                         m("Deploys", "4", Some("+1")),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Chart {
                     chart_type: ChartType::Line,
                     title: Some("Request rate (k/min)".into()),
@@ -620,22 +661,26 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
                         p("20", 19.0),
                         p("24", 14.0),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Chart {
                     chart_type: ChartType::Gauge,
                     title: Some("Error budget remaining".into()),
                     data: vec![p("Budget", 78.0), p("Max", 100.0)],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::List {
                     title: Some("Active incidents".into()),
                     items: vec![
                         li("Elevated 5xx on payments", "INC-204", "P1"),
                         li("CDN cache miss spike", "INC-201", "P2"),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Text {
                     content: "On-call: Alex · Secondary: Jordan.".into(),
-                 priority: None, },
+                    priority: None,
+                },
             ],
         },
         CanvasSlot::Two => CanvasDocument {
@@ -646,7 +691,8 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
                 Section::Header {
                     text: "Cloud spend".into(),
                     subtitle: Some("MTD vs forecast".into()),
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Metrics {
                     items: vec![
                         m("MTD", "$48k", Some("+6%")),
@@ -654,7 +700,8 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
                         m("GPU", "$12k", Some("+18%")),
                         m("Idle", "9%", Some("-2%")),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Chart {
                     chart_type: ChartType::Bar,
                     title: Some("Daily $".into()),
@@ -666,7 +713,8 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
                         p("20", 3.1),
                         p("25", 2.9),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Chart {
                     chart_type: ChartType::Pie,
                     title: Some("By service".into()),
@@ -676,14 +724,16 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
                         p("GPU", 25.0),
                         p("Net", 13.0),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::List {
                     title: Some("Top cost drivers".into()),
                     items: vec![
                         li("training-job-7", "GPU · $4.2k", "HOT"),
                         li("logs-hot-tier", "Storage · $1.1k", "WATCH"),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
             ],
         },
         CanvasSlot::Three => CanvasDocument {
@@ -694,7 +744,8 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
                 Section::Header {
                     text: "Release train".into(),
                     subtitle: Some("v2.8.0".into()),
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Metrics {
                     items: vec![
                         m("RC", "rc.3", None),
@@ -702,17 +753,14 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
                         m("Blockers", "1", Some("-2")),
                         m("ETA", "Thu", None),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Chart {
                     chart_type: ChartType::Line,
                     title: Some("Flake rate %".into()),
-                    data: vec![
-                        p("W1", 2.1),
-                        p("W2", 1.8),
-                        p("W3", 1.4),
-                        p("W4", 1.1),
-                    ],
-                 priority: None, },
+                    data: vec![p("W1", 2.1), p("W2", 1.8), p("W3", 1.4), p("W4", 1.1)],
+                    priority: None,
+                },
                 Section::List {
                     title: Some("Checklist".into()),
                     items: vec![
@@ -720,10 +768,12 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
                         li("Security review", "pending", "P2"),
                         li("Comms draft", "in review", "P3"),
                     ],
-                 priority: None, },
+                    priority: None,
+                },
                 Section::Text {
                     content: "Ship window: Thu 14:00 PT · rollback plan linked in runbook.".into(),
-                 priority: None, },
+                    priority: None,
+                },
             ],
         },
     }

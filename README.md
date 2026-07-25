@@ -63,13 +63,17 @@ Keep the **host app running** so widgets reload when the agent writes. Closing w
 
 Rough direction (not a commitment to dates):
 
-- **Public GitHub Releases** — notarized app builds, changelog, installable artifacts  
+- **GitHub Releases** — version tags, changelog, installable artifacts (MCP binary today; notarized `.app` next)  
 - **In-app updates** — Sparkle (“Check for Updates…” + optional auto-check)  
 - **Polished onboarding & packaging** — MCP bundled with the app for end users  
 - **Schema / density** — more reliable agent recipes without bloating the primitive set  
 - **Cross-platform** — shared schema + MCP; native shells beyond macOS later  
 
 Design notes and older architecture drafts live in [`plan.md`](./plan.md) (some sections still use early naming).
+
+### CI
+
+Linux validation runs on PRs/pushes (fmt, clippy, tests, MCP build). **macOS Xcode jobs are manual / opt-in** to control Actions cost until a self-hosted Mac runner is available. See [`.github/CI.md`](./.github/CI.md).
 
 ---
 

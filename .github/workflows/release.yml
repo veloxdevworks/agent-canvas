@@ -1,0 +1,158 @@
+# Tag-driven GitHub Release (lean).
+#
+#   git tag v0.2.0 && git push origin v0.2.0
+#
+# Always: create a GitHub Release + attach Linux MCP binary (ubuntu).
+# Optional macOS app archive: set ENABLE_MACOS_RELEASE=true (or run workflow_dispatch
+# with input build_macos=true). Prefer self-hosted MACOS_RUNNER before enabling.
+#
+# Kill-switch: CI_DISABLED=true still allows manual workflow_dispatch releases
+# unless you also skip below — adjust if you want a hard pause.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.2.0). Leave empty to use the pushed tag."
+        required: false
+        type: string
+      build_macos:
+        description: "Build unsigned macOS .app zip (expensive on GitHub-hosted)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  mcp-linux:
+    name: MCP binary (linux)
+    if: ${{ vars.CI_DISABLED != 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+
+      - name: Build release MCP
+        run: cargo build --release -p agent-canvas-mcp
+
+      - name: Stage artifact
+        run: |
+          mkdir -p dist
+          cp target/release/agent-canvas-mcp "dist/agent-canvas-mcp-linux-x86_64"
+          chmod +x "dist/agent-canvas-mcp-linux-x86_64"
+          (cd dist && sha256sum agent-canvas-mcp-linux-x86_64 > SHA256SUMS-linux.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcp-linux
+          path: dist/
+          retention-days: 14
+
+  macos-app:
+    name: macOS app (optional)
+    if: >-
+      ${{
+        (github.event_name == 'workflow_dispatch' && inputs.build_macos == true) ||
+        (github.event_name == 'push' && vars.ENABLE_MACOS_RELEASE == 'true')
+      }}
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-14' }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Install tools
+        run: brew install xcodegen
+
+      - name: Generate + build (unsigned)
+        working-directory: platforms/macos
+        run: |
+          xcodegen generate
+          xcodebuild \
+            -project AgentCanvas.xcodeproj \
+            -scheme AgentCanvas \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath ../../build/ci-macos-release \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Zip .app
+        run: |
+          mkdir -p dist
+          APP=$(find build/ci-macos-release/Build/Products/Release -name 'AgentCanvas.app' -type d | head -1)
+          test -n "$APP"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" dist/AgentCanvas-macos-unsigned.zip
+          (cd dist && shasum -a 256 AgentCanvas-macos-unsigned.zip > SHA256SUMS-macos.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: dist/
+          retention-days: 14
+
+  publish:
+    name: GitHub Release
+    needs: [mcp-linux]
+    # macos-app is optional — don't block release if skipped
+    if: ${{ always() && needs.mcp-linux.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag
+        id: meta
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.tag }}" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG"
+
+      - name: Download Linux MCP
+        uses: actions/download-artifact@v4
+        with:
+          name: mcp-linux
+          path: dist/
+
+      - name: Download macOS app (if present)
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-app
+          path: dist/
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            dist/**
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

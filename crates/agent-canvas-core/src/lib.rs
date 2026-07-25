@@ -15,4 +15,4 @@ pub use layout::{
     PredictedClip, WidgetSize,
 };
 pub use schema::*;
-pub use storage::{CanvasStore, canvas_data_dir, default_store};
+pub use storage::{canvas_data_dir, default_store, CanvasStore};

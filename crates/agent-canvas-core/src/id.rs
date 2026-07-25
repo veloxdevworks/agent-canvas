@@ -132,14 +132,16 @@ impl CanvasId {
         let raw = s.trim().to_ascii_lowercase().replace('_', "-");
         // Prefer size-first: sm-one
         if let Some((size_s, slot_s)) = raw.split_once('-') {
-            if let (Some(size), Some(slot)) = (WidgetSize::parse_short(size_s), CanvasSlot::parse(slot_s))
+            if let (Some(size), Some(slot)) =
+                (WidgetSize::parse_short(size_s), CanvasSlot::parse(slot_s))
             {
                 return Ok(CanvasId::new(size, slot));
             }
         }
         // Also accept slot-first legacy confusion: one-sm
         if let Some((slot_s, size_s)) = raw.split_once('-') {
-            if let (Some(slot), Some(size)) = (CanvasSlot::parse(slot_s), WidgetSize::parse_short(size_s))
+            if let (Some(slot), Some(size)) =
+                (CanvasSlot::parse(slot_s), WidgetSize::parse_short(size_s))
             {
                 return Ok(CanvasId::new(size, slot));
             }
@@ -163,13 +165,18 @@ impl std::fmt::Display for CanvasId {
 }
 
 impl Serialize for CanvasId {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
         serializer.serialize_str(self.as_str())
     }
 }
 
 impl<'de> Deserialize<'de> for CanvasId {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
         CanvasId::parse(&s).map_err(serde::de::Error::custom)
     }
