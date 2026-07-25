@@ -32,7 +32,7 @@ struct CloudSettingsView: View {
                     subscribeSection
                     subscriptionsList
                 } else {
-                    Text("Enable cloud features above (or set \(CloudFeature.envName)=1 in the environment) to publish and subscribe.")
+                    Text("Turn on “Enable cloud features (debug)” above, or launch with \(CloudFeature.envName)=1, to show publish and subscribe.")
                         .foregroundStyle(.secondary)
                         .font(.callout)
                 }

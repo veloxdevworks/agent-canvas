@@ -11,10 +11,10 @@ struct AgentCanvasApp: App {
     var body: some Scene {
         // Optional windows — not required for the host to stay alive.
         Window("Agent Canvas", id: "main") {
-            StatusView()
+            SettingsView()
                 .environmentObject(reloadWatcher)
         }
-        .defaultSize(width: 620, height: 640)
+        .defaultSize(width: 900, height: 620)
         .commands {
             AgentCanvasCommands(reloadWatcher: reloadWatcher)
         }

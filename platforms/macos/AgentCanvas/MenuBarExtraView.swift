@@ -56,11 +56,9 @@ struct MenuBarExtraView: View {
             }
 
             #if DEBUG
-            if CloudFeature.isEnabled {
-                Button("Cloud…") {
-                    openWindow(id: "cloud")
-                    activateApp()
-                }
+            Button("Cloud…") {
+                openWindow(id: "cloud")
+                activateApp()
             }
             #endif
 
