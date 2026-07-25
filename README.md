@@ -53,7 +53,10 @@ The id encodes density: updating `sm-one` always means a small glance surface.
 | `get_canvas` / `list_canvases` | Read state + layout hints |
 | `get_layout_guide` | Size budgets for agents |
 | `preview_canvas` | PNG snapshot (host must be running) |
+| `share_canvas` / `update_shared_canvas` / `unshare_canvas` / `list_shared` | Publish to canvas cloud (PLAT-82) |
 | `clear_canvas` | Empty a surface |
+
+Cloud API base: `AGENT_CANVAS_API_URL` (default `https://canvas.velox.test`). Edit tokens stay in **macOS Keychain** (not plaintext under `~/.velox`).
 
 Keep the **host app running** so widgets reload when the agent writes. Closing windows does not quit—use **Quit** from the menu bar.
 

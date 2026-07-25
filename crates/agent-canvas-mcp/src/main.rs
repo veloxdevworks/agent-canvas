@@ -7,7 +7,8 @@ use std::time::Duration;
 
 use agent_canvas_core::{
     default_store, demo_document_kind, density_report, layout_guide_document, matching_ids,
-    predict_clip, CanvasDocument, CanvasId, CanvasSlot, CanvasStore, DemoKind, WidgetSize,
+    predict_clip, CanvasCloudClient, CanvasDocument, CanvasId, CanvasSlot, CanvasStore,
+    CloudConfig, DemoKind, WidgetSize,
 };
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use clap::{Parser, Subcommand};
@@ -29,6 +30,10 @@ struct Cli {
     /// Override data directory (default: ~/.velox/canvas)
     #[arg(long, global = true)]
     data_dir: Option<std::path::PathBuf>,
+
+    /// Canvas cloud API base URL (default: AGENT_CANVAS_API_URL or https://canvas.velox.test)
+    #[arg(long, global = true, env = "AGENT_CANVAS_API_URL")]
+    api_url: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -73,10 +78,18 @@ async fn main() -> anyhow::Result<()> {
     store.ensure_layout()?;
 
     match cli.command.unwrap_or(Commands::Stdio) {
-        Commands::Stdio => serve_stdio(store).await?,
+        Commands::Stdio => serve_stdio(store, cli.api_url.clone()).await?,
         Commands::Paths => {
             println!("data_dir={}", store.root().display());
             println!("canvases_dir={}", store.canvases_dir().display());
+            let cloud = match &cli.api_url {
+                Some(u) => CloudConfig::parse(u),
+                None => CloudConfig::from_env(),
+            };
+            match cloud {
+                Ok(c) => println!("api_url={}", c.api_base),
+                Err(e) => println!("api_url=(invalid: {e})"),
+            }
             for id in CanvasId::ALL {
                 println!(
                     "  {} -> {} (kind={} size={})",
@@ -184,8 +197,8 @@ fn parse_slot_filter(s: &str) -> anyhow::Result<Option<CanvasSlot>> {
     }
 }
 
-async fn serve_stdio(store: CanvasStore) -> anyhow::Result<()> {
-    let server = AgentCanvasMcp::new(store);
+async fn serve_stdio(store: CanvasStore, api_url: Option<String>) -> anyhow::Result<()> {
+    let server = AgentCanvasMcp::new(store, api_url)?;
     let service = server
         .serve(rmcp::transport::stdio())
         .await
@@ -332,6 +345,7 @@ fn parse_canvas_content(raw: Value) -> Result<CanvasDocument, String> {
 #[derive(Clone)]
 struct AgentCanvasMcp {
     store: Arc<Mutex<CanvasStore>>,
+    cloud: Arc<CanvasCloudClient>,
     #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
 }
@@ -384,16 +398,49 @@ struct UpdateCanvasSimpleArgs {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct EmptyArgs {}
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct ShareCanvasArgs {
+    /// Local size-first canvas id (sm-one, md-one, …).
+    canvas: String,
+    /// Optional human-readable slug (a-z0-9-). Default: derived from title or canvas id.
+    #[serde(default)]
+    slug: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct UpdateSharedArgs {
+    /// Local canvas id that was previously shared.
+    canvas: String,
+    /// Optional edit token override (otherwise Keychain / token store).
+    #[serde(default)]
+    edit_token: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct UnshareArgs {
+    /// Slug or local canvas id of the shared board.
+    target: String,
+    #[serde(default)]
+    edit_token: Option<String>,
+}
+
 const ID_HELP: &str =
     "sm-one|sm-two|sm-three|md-one|md-two|md-three|lg-one|lg-two|lg-three|xl-one|xl-two|xl-three";
 
 #[tool_router]
 impl AgentCanvasMcp {
-    fn new(store: CanvasStore) -> Self {
-        Self {
+    fn new(store: CanvasStore, api_url: Option<String>) -> anyhow::Result<Self> {
+        let config = match api_url {
+            Some(u) => CloudConfig::parse(&u)?,
+            None => CloudConfig::from_env()?,
+        };
+        let tokens = agent_canvas_core::default_token_store(store.root());
+        let cloud = CanvasCloudClient::new(config, store.clone(), tokens)?;
+        Ok(Self {
             store: Arc::new(Mutex::new(store)),
+            cloud: Arc::new(cloud),
             tool_router: Self::tool_router(),
-        }
+        })
     }
 
     #[tool(
@@ -688,6 +735,151 @@ HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. 
     }
 
     #[tool(
+        description = "Publish a local canvas to Agent Canvas Cloud (anonymous Phase 1). \
+Returns publicUrl + editToken (token also stored in macOS Keychain; shown once — treat as a secret). \
+Requires canvas cloud API (AGENT_CANVAS_API_URL). canvas: local id (md-one); optional slug."
+    )]
+    async fn share_canvas(
+        &self,
+        Parameters(args): Parameters<ShareCanvasArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let id = match CanvasId::parse(&args.canvas) {
+            Ok(id) => id,
+            Err(e) => {
+                return tool_error(json!({
+                    "ok": false,
+                    "error": "invalid_canvas_id",
+                    "message": e.to_string(),
+                    "hint": format!("canvas must be one of: {ID_HELP}"),
+                }));
+            }
+        };
+        match self.cloud.share_canvas(id, args.slug.as_deref()).await {
+            Ok(res) => {
+                {
+                    let store = self.store.lock().await;
+                    log_tool_call(
+                        &store,
+                        json!({
+                            "ts": chrono::Utc::now().to_rfc3339(),
+                            "tool": "share_canvas",
+                            "ok": true,
+                            "canvas": id.as_str(),
+                            "slug": res.slug,
+                        }),
+                    );
+                }
+                json_result(json!({
+                    "ok": true,
+                    "canvas": id.as_str(),
+                    "slug": res.slug,
+                    "publicUrl": res.public_url,
+                    "apiUrl": res.api_url,
+                    "editToken": res.edit_token,
+                    "version": res.version,
+                    "etag": res.etag,
+                    "note": "editToken is also stored in Keychain (macOS). Others subscribe via publicUrl / GET apiUrl. Keep the token secret.",
+                    "apiBase": self.cloud.config().api_base,
+                }))
+            }
+            Err(e) => tool_error(json!({
+                "ok": false,
+                "error": "share_failed",
+                "message": e.to_string(),
+                "canvas": id.as_str(),
+                "hint": "Is canvas cloud running? Set AGENT_CANVAS_API_URL (default https://canvas.velox.test). Ensure local canvas has content.",
+            })),
+        }
+    }
+
+    #[tool(
+        description = "Push the latest local canvas JSON to an already-shared cloud slug (uses stored edit token). \
+canvas: local id previously passed to share_canvas."
+    )]
+    async fn update_shared_canvas(
+        &self,
+        Parameters(args): Parameters<UpdateSharedArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let id = match CanvasId::parse(&args.canvas) {
+            Ok(id) => id,
+            Err(e) => {
+                return tool_error(json!({
+                    "ok": false,
+                    "error": "invalid_canvas_id",
+                    "message": e.to_string(),
+                }));
+            }
+        };
+        match self
+            .cloud
+            .update_shared_canvas(id, args.edit_token.as_deref())
+            .await
+        {
+            Ok(res) => json_result(json!({
+                "ok": true,
+                "canvas": id.as_str(),
+                "slug": res.slug,
+                "publicUrl": res.public_url,
+                "apiUrl": res.api_url,
+                "version": res.version,
+                "etag": res.etag,
+            })),
+            Err(e) => tool_error(json!({
+                "ok": false,
+                "error": "update_shared_failed",
+                "message": e.to_string(),
+                "canvas": id.as_str(),
+            })),
+        }
+    }
+
+    #[tool(
+        description = "Unpublish a shared canvas (DELETE). target: slug or local canvas id. Clears Keychain edit token."
+    )]
+    async fn unshare_canvas(
+        &self,
+        Parameters(args): Parameters<UnshareArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        match self
+            .cloud
+            .unshare_canvas(&args.target, args.edit_token.as_deref())
+            .await
+        {
+            Ok(()) => json_result(json!({
+                "ok": true,
+                "target": args.target,
+            })),
+            Err(e) => tool_error(json!({
+                "ok": false,
+                "error": "unshare_failed",
+                "message": e.to_string(),
+                "target": args.target,
+            })),
+        }
+    }
+
+    #[tool(
+        description = "List canvases this machine has published (local share index). Does not list the global cloud directory (none in Phase 1)."
+    )]
+    async fn list_shared(
+        &self,
+        Parameters(_args): Parameters<EmptyArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        match self.cloud.list_shared() {
+            Ok(list) => json_result(json!({
+                "ok": true,
+                "shares": list,
+                "apiBase": self.cloud.config().api_base,
+            })),
+            Err(e) => tool_error(json!({
+                "ok": false,
+                "error": "list_shared_failed",
+                "message": e.to_string(),
+            })),
+        }
+    }
+
+    #[tool(
         description = "Render a PNG snapshot of a canvas using the same SwiftUI view as the live widget (clipping, density, hierarchy). \
 Call after update_canvas to verify the design is workable. Requires the Agent Canvas host app running in the menu bar. \
 Returns image/png plus JSON meta (truncated, droppedTypes, path). canvas: size-first id (sm-one, md-two, …)."
@@ -834,6 +1026,8 @@ impl ServerHandler for AgentCanvasMcp {
                  PREFERRED simple path: update_canvas_simple(canvas=\"sm-one\", header=\"Hello World\", status=\"OK\"). \
                  Full path: update_canvas with content object — minimal example: {MINIMAL_EXAMPLE}. \
                  After updates call preview_canvas(canvas) to get a PNG of the real widget layout (host app must be running). \
+                 Cloud publish: share_canvas → publicUrl; update_shared_canvas; unshare_canvas; list_shared \
+                 (AGENT_CANVAS_API_URL; edit tokens in Keychain). \
                  Do NOT omit sections[].type. Do NOT send content as a bare string unless it is JSON. \
                  HARD budgets: sm≤2 sections (no charts); md≤4/4/8; lg≤6/8/12; xl≤8/12/20. \
                  If a call fails, read the error JSON (example + tip) and retry once. \
