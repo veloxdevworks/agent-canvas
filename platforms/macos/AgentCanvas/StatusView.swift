@@ -175,6 +175,21 @@ struct StatusView: View {
                     UserGuide.copyUpdatePrompt(for: s.id)
                     statusNote = "Prompt for \(s.id) copied"
                 }
+                #if DEBUG
+                if CloudFeature.isEnabled {
+                    Divider()
+                    Button("Cloud settings…") {
+                        openWindow(id: "cloud")
+                    }
+                    if let share = CloudShareIndex.record(forCanvas: s.id) {
+                        Button("Copy public URL") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(share.publicUrl, forType: .string)
+                            statusNote = "Copied \(share.publicUrl)"
+                        }
+                    }
+                }
+                #endif
                 Divider()
                 Button("Clear this canvas", role: .destructive) {
                     if let address = CanvasAddress(rawValue: s.id) {
@@ -212,6 +227,13 @@ struct StatusView: View {
             Button("How to use…") {
                 showHowTo = true
             }
+            #if DEBUG
+            if CloudFeature.isEnabled || CloudFeature.userToggleEnabled {
+                Button("Cloud…") {
+                    openWindow(id: "cloud")
+                }
+            }
+            #endif
             Button("Clear all", role: .destructive) {
                 try? CanvasStorage.clearAll()
                 refresh()

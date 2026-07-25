@@ -31,6 +31,12 @@ struct AgentCanvasApp: App {
         }
         .defaultSize(width: 640, height: 680)
 
+        Window("Cloud", id: "cloud") {
+            CloudSettingsView()
+                .environmentObject(reloadWatcher)
+        }
+        .defaultSize(width: 600, height: 640)
+
         // Primary UI: menu bar agent. Survives with zero open windows.
         // Custom concentric-frame glyph (template) — not the SF Symbol grid.
         MenuBarExtra {
@@ -61,6 +67,7 @@ extension Notification.Name {
     static let agentCanvasShowHowTo = Notification.Name("agentCanvasShowHowTo")
     static let agentCanvasOpenConnect = Notification.Name("agentCanvasOpenConnect")
     static let agentCanvasOpenSeed = Notification.Name("agentCanvasOpenSeed")
+    static let agentCanvasOpenCloud = Notification.Name("agentCanvasOpenCloud")
 }
 
 /// App menu commands with `openWindow` access.
@@ -86,6 +93,11 @@ struct AgentCanvasCommands: Commands {
             Button("Seed Demos…") {
                 openWindow(id: "seed")
             }
+            #if DEBUG
+            Button("Cloud (publish / subscribe)…") {
+                openWindow(id: "cloud")
+            }
+            #endif
             Button("Reload All Widgets") {
                 CanvasStorage.mirrorAllAndReload()
                 reloadWatcher.noteManualReload()
@@ -120,6 +132,8 @@ final class ReloadWatcher: ObservableObject {
 
     private var timer: Timer?
     private var started = false
+    /// Last poll time per canvas id for cloud subscriptions.
+    private var lastSubscriptionPoll: [String: Date] = [:]
 
     var canvasFillSummary: String {
         "\(filledCount)/\(totalCount) filled"
@@ -230,6 +244,35 @@ final class ReloadWatcher: ObservableObject {
                 )
             }
             refreshCanvasCounts()
+        }
+
+        pollCloudSubscriptionsIfNeeded()
+    }
+
+    /// PLAT-83-lite: when cloud feature is on, poll enabled URL subscriptions.
+    private func pollCloudSubscriptionsIfNeeded() {
+        guard CloudFeature.isEnabled else { return }
+        let now = Date()
+        for sub in CloudSubscriptionStore.load() where sub.enabled {
+            let interval = TimeInterval(max(15, sub.pollIntervalSeconds))
+            if let last = lastSubscriptionPoll[sub.canvas],
+               now.timeIntervalSince(last) < interval
+            {
+                continue
+            }
+            lastSubscriptionPoll[sub.canvas] = now
+            let captured = sub
+            Task { @MainActor in
+                do {
+                    try await CloudAPIClient.fetchSubscription(captured)
+                    self.setStatusLine("Synced subscription \(captured.canvas)")
+                    self.refreshCanvasCounts()
+                } catch {
+                    NSLog(
+                        "AgentCanvas: subscription \(captured.canvas): \(error.localizedDescription)"
+                    )
+                }
+            }
         }
     }
 }

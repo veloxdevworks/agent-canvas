@@ -13,6 +13,11 @@ enum AgentCanvasConstants {
     /// MCP → host: request a PNG snapshot of a canvas.
     static let previewRequestFileName = ".preview-request"
     static let previewsSubdir = "previews"
+    static let sharesFileName = "shares.json"
+    static let subscriptionsFileName = "subscriptions.json"
+    static let cloudConfigFileName = "cloud-config.json"
+    /// Matches Rust Keychain service (agent-canvas-core).
+    static let editTokenKeychainService = "com.velox.agentcanvas.canvas-edit-token"
 }
 
 /// Size-first canvas address: `sm-one`, `md-two`, `lg-three`, `xl-one`, …

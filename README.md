@@ -56,18 +56,22 @@ The id encodes density: updating `sm-one` always means a small glance surface.
 | `share_canvas` / `update_shared_canvas` / `unshare_canvas` / `list_shared` | Publish to canvas cloud (**dev only**, see below) |
 | `clear_canvas` | Empty a surface |
 
-**Cloud publish (pre-release):** off by default. Tools error with `cloud_publish_disabled` unless:
+**Cloud publish / subscribe (pre-release, debug only)**
 
-1. **Debug build** (or `cargo build --features cloud-publish` for a release binary), and  
-2. **`AGENT_CANVAS_CLOUD_PUBLISH=1`**
+| Surface | Gate |
+|---------|------|
+| MCP `share_*` tools | Debug + `AGENT_CANVAS_CLOUD_PUBLISH=1` (release needs `--features cloud-publish` too) |
+| Host **Cloud** window | Debug + env **or** in-app toggle in Cloud settings |
 
 ```bash
 export AGENT_CANVAS_CLOUD_PUBLISH=1
-export AGENT_CANVAS_API_URL=https://canvas.velox.test   # optional; this is the default
+export AGENT_CANVAS_API_URL=https://canvas.velox.test   # optional
+# MCP:
 cargo run -p agent-canvas-mcp -- stdio
+# Host (Debug): Developer → Cloud…  or open Cloud window and enable the toggle
 ```
 
-Stock **release** builds never enable publish (even with the env set) unless you pass `--features cloud-publish`. Edit tokens stay in **macOS Keychain**.
+UI: API base URL, publish/push/unshare, public URL copy, per-slot URL subscription + Fetch now (host polls when enabled). Edit tokens in **macOS Keychain**.
 
 Keep the **host app running** so widgets reload when the agent writes. Closing windows does not quit—use **Quit** from the menu bar.
 
