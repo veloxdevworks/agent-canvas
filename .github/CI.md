@@ -25,19 +25,24 @@ Settings → Secrets and variables → Actions → **Variables**
 
 ### Targeting the self-hosted MacBook
 
-GitHub matches **all** labels in the array. Default self-hosted Mac install usually has:
+GitHub matches **all** labels in the array. This org’s MacBookPro runner (Intel) has:
 
 ```text
 self-hosted
 macOS
-ARM64          # or X64 on Intel
+X64
 ```
 
-Set (adjust labels to match **Settings → Actions → Runners** on the repo or org):
+(Apple Silicon machines use `ARM64` instead of `X64`.)
 
 ```bash
+# Intel (current veloxdevworks MacBookPro)
 gh variable set MACOS_RUNS_ON --repo veloxdevworks/agent-canvas \
-  --body '["self-hosted","macOS","ARM64"]'
+  --body '["self-hosted","macOS","X64"]'
+
+# Apple Silicon
+# gh variable set MACOS_RUNS_ON --repo veloxdevworks/agent-canvas \
+#   --body '["self-hosted","macOS","ARM64"]'
 ```
 
 Optional: turn on automatic macOS builds for Swift changes:
