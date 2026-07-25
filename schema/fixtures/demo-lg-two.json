@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "title": "PR queue",
+  "sections": [
+    {
+      "type": "header",
+      "text": "Review queue",
+      "subtitle": "Engineering"
+    },
+    {
+      "type": "metrics",
+      "items": [
+        { "label": "Open", "value": "14", "trend": "+3" },
+        { "label": "Stale >2d", "value": "5", "trend": "+1" },
+        { "label": "Avg age", "value": "1.4d", "trend": "-0.2d" }
+      ]
+    },
+    {
+      "type": "chart",
+      "chartType": "bar",
+      "title": "PRs opened / day",
+      "data": [
+        { "label": "M", "value": 4 },
+        { "label": "T", "value": 7 },
+        { "label": "W", "value": 5 },
+        { "label": "T", "value": 9 },
+        { "label": "F", "value": 6 }
+      ]
+    },
+    {
+      "type": "list",
+      "title": "Needs review",
+      "items": [
+        { "primary": "feat: canvas size-first ids", "secondary": "you · 2h", "badge": "NEW" },
+        { "primary": "fix: widget reload path", "secondary": "alex · 1d", "badge": "REVIEW" },
+        { "primary": "chore: bump deps", "secondary": "bot · 3d", "badge": "STALE" }
+      ]
+    }
+  ]
+}

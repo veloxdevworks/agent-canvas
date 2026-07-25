@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "title": "Sprint pulse",
+  "sections": [
+    {
+      "type": "header",
+      "text": "Sprint 24",
+      "subtitle": "3 days left"
+    },
+    {
+      "type": "metrics",
+      "items": [
+        { "label": "Done", "value": "18", "trend": "+4" },
+        { "label": "WIP", "value": "7", "trend": "-1" },
+        { "label": "Blocked", "value": "2", "trend": "+1" }
+      ]
+    },
+    {
+      "type": "list",
+      "title": "Focus",
+      "items": [
+        { "primary": "Ship rate-limit fix", "secondary": "ENG-4821", "badge": "P1" },
+        { "primary": "SSO flake", "secondary": "ENG-4902", "badge": "P2" },
+        { "primary": "Docs for MCP", "secondary": "ENG-5010", "badge": "P3" }
+      ]
+    }
+  ]
+}

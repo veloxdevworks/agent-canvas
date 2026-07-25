@@ -1,0 +1,22 @@
+[package]
+name = "agent-canvas-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "MCP server (stdio) for Agent Canvas"
+
+[[bin]]
+name = "agent-canvas-mcp"
+path = "src/main.rs"
+
+[dependencies]
+agent-canvas-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "sync", "time"] }
+rmcp = { version = "2.2.0", features = ["server", "macros", "transport-io"] }
+schemars = "1"
+base64 = "0.22"

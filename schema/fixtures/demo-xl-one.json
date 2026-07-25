@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "title": "Platform health",
+  "sections": [
+    {
+      "type": "header",
+      "text": "Platform health",
+      "subtitle": "Prod · last 24h"
+    },
+    {
+      "type": "metrics",
+      "items": [
+        { "label": "Uptime", "value": "99.97%", "trend": "+0.01" },
+        { "label": "p95 lat", "value": "142ms", "trend": "-12ms" },
+        { "label": "Errors", "value": "0.12%", "trend": "-0.03" },
+        { "label": "Deploys", "value": "4", "trend": "+1" }
+      ]
+    },
+    {
+      "type": "chart",
+      "chartType": "line",
+      "title": "Request rate (k/min)",
+      "data": [
+        { "label": "00", "value": 12 },
+        { "label": "04", "value": 8 },
+        { "label": "08", "value": 22 },
+        { "label": "12", "value": 31 },
+        { "label": "16", "value": 28 },
+        { "label": "20", "value": 19 },
+        { "label": "24", "value": 14 }
+      ]
+    },
+    {
+      "type": "chart",
+      "chartType": "gauge",
+      "title": "Error budget remaining",
+      "data": [
+        { "label": "Budget", "value": 78 },
+        { "label": "Max", "value": 100 }
+      ]
+    },
+    {
+      "type": "list",
+      "title": "Active incidents",
+      "items": [
+        { "primary": "Elevated 5xx on payments", "secondary": "INC-204", "badge": "P1" },
+        { "primary": "CDN cache miss spike", "secondary": "INC-201", "badge": "P2" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "On-call: Alex · Secondary: Jordan. Demo content from agent-canvas seed-demos."
+    }
+  ]
+}

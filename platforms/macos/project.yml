@@ -1,0 +1,113 @@
+# XcodeGen spec — regenerate with: just macos-gen
+# https://github.com/yonaskolb/XcodeGen
+name: AgentCanvas
+options:
+  bundleIdPrefix: com.velox
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  developmentLanguage: en
+  xcodeVersion: "16.0"
+
+settings:
+  base:
+    # Bump CURRENT_PROJECT_VERSION whenever widget kinds/names change so WidgetKit re-indexes.
+    MARKETING_VERSION: "0.2.0"
+    CURRENT_PROJECT_VERSION: 2
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    # DEVELOPMENT_TEAM comes from Config/Local.xcconfig (gitignored) or env via scripts.
+    CODE_SIGN_STYLE: Automatic
+    # Modern cert name — avoid Xcode defaulting to legacy "Mac Development"
+    CODE_SIGN_IDENTITY: "Apple Development"
+    "CODE_SIGN_IDENTITY[sdk=macosx*]": "Apple Development"
+    ENABLE_HARDENED_RUNTIME: YES
+    DEAD_CODE_STRIPPING: YES
+    # Helps widget extension + app share consistent build products.
+    ONLY_ACTIVE_ARCH: YES
+
+
+configs:
+  Debug: debug
+  Release: release
+
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+
+targets:
+  AgentCanvas:
+    type: application
+    platform: macOS
+    sources:
+      - path: AgentCanvas
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_NAME: AgentCanvas
+        PRODUCT_BUNDLE_IDENTIFIER: com.velox.agentcanvas
+        INFOPLIST_FILE: AgentCanvas/Info.plist
+        CODE_SIGN_ENTITLEMENTS: AgentCanvas/AgentCanvas.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        COMBINE_HIDPI_IMAGES: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Avoid "App Icon not found" as hard failure while icon assets are placeholders.
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: NO
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+        # Required so Launch Services / WidgetKit discover the extension after install.
+        SKIP_INSTALL: NO
+        # Register URL scheme for future deep-link reload (optional).
+        INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright © Velox"
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.developer-tools"
+        INFOPLIST_KEY_LSMinimumSystemVersion: "14.0"
+    entitlements:
+      path: AgentCanvas/AgentCanvas.entitlements
+      # Host: unsandboxed so it shares Application Support with the MCP process.
+      # App Groups (portal + provisioning profiles) can be re-enabled later for
+      # Mac App Store; v1 uses AS + widget temporary-exception for reliability.
+      properties:
+        com.apple.security.app-sandbox: false
+    dependencies:
+      - target: AgentCanvasWidget
+        embed: true
+        codeSign: true
+    scheme:
+      testTargets: []
+      gatherCoverageData: false
+
+  AgentCanvasWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: AgentCanvasWidget
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_NAME: AgentCanvasWidget
+        PRODUCT_BUNDLE_IDENTIFIER: com.velox.agentcanvas.widget
+        INFOPLIST_FILE: AgentCanvasWidget/Info.plist
+        CODE_SIGN_ENTITLEMENTS: AgentCanvasWidget/AgentCanvasWidget.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks"
+        # Widget extensions must use the app-extension product type (XcodeGen sets this).
+        APPLICATION_EXTENSION_API_ONLY: YES
+    entitlements:
+      path: AgentCanvasWidget/AgentCanvasWidget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        # Read canvas JSON + write layout meta (last WidgetFamily) for MCP size hints.
+        # Paths are relative to the user's home directory.
+        com.apple.security.temporary-exception.files.home-relative-path.read-write:
+          - /.velox/canvas/
+
+schemes:
+  AgentCanvas:
+    build:
+      targets:
+        AgentCanvas: all
+        AgentCanvasWidget: all
+    run:
+      config: Debug
+      executable: AgentCanvas

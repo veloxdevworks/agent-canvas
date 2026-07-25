@@ -1,0 +1,13 @@
+[package]
+name = "agent-canvas-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Shared storage, validation, and canvas model for Agent Canvas"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+directories = { workspace = true }

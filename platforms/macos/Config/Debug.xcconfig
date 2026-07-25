@@ -1,0 +1,9 @@
+// Shared Debug settings. Team ID: create Config/Local.xcconfig (see Local.xcconfig.example).
+#include? "Local.xcconfig"
+
+SWIFT_OPTIMIZATION_LEVEL = -Onone
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG
+DEBUG_INFORMATION_FORMAT = dwarf
+ONLY_ACTIVE_ARCH = YES
+COPY_PHASE_STRIP = NO
+MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE

@@ -1,0 +1,15 @@
+// Copy to Local.xcconfig and set your Apple Development Team ID.
+//   just macos-team TEAM=XXXXXXXXXX
+//
+// IMPORTANT: Use the Team ID from Xcode → Settings → Accounts → Team ID
+// (or the OU field on your Apple Development certificate).
+// Do NOT use the number in parentheses after your name on the cert —
+// that is often a user id and will fail with:
+//   No signing certificate "Mac Development" found … team ID "…"
+//
+// `just macos-ensure-team` auto-detects the cert OU when possible.
+
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = Apple Development
+CODE_SIGN_IDENTITY[sdk=macosx*] = Apple Development
