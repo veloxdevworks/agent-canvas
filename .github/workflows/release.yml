@@ -3,8 +3,8 @@
 #   git tag v0.2.0 && git push origin v0.2.0
 #
 # Always: create a GitHub Release + attach Linux MCP binary (ubuntu).
-# Optional macOS app archive: set ENABLE_MACOS_RELEASE=true (or run workflow_dispatch
-# with input build_macos=true). Prefer self-hosted MACOS_RUNNER before enabling.
+# Optional macOS app archive: set ENABLE_MACOS_RELEASE=true (or workflow_dispatch
+# build_macos=true). Prefer self-hosted via MACOS_RUNS_ON before enabling on tags.
 #
 # Kill-switch: CI_DISABLED=true still allows manual workflow_dispatch releases
 # unless you also skip below — adjust if you want a hard pause.
@@ -21,7 +21,7 @@ on:
         required: false
         type: string
       build_macos:
-        description: "Build unsigned macOS .app zip (expensive on GitHub-hosted)"
+        description: "Build unsigned macOS .app zip (use self-hosted Mac via MACOS_RUNS_ON)"
         required: false
         type: boolean
         default: false
@@ -71,16 +71,26 @@ jobs:
         (github.event_name == 'workflow_dispatch' && inputs.build_macos == true) ||
         (github.event_name == 'push' && vars.ENABLE_MACOS_RELEASE == 'true')
       }}
-    runs-on: ${{ vars.MACOS_RUNNER || 'macos-14' }}
+    runs-on: ${{ fromJSON(vars.MACOS_RUNS_ON || '["macos-14"]') }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: Ensure Xcode CLI path
+        run: |
+          if [[ -d /Applications/Xcode.app ]]; then
+            if [[ "$(xcode-select -p 2>/dev/null)" != "/Applications/Xcode.app/Contents/Developer" ]]; then
+              sudo xcode-select -s /Applications/Xcode.app/Contents/Developer || \
+                sudo xcode-select -s /Applications/Xcode.app
+            fi
+          fi
+          xcodebuild -version
 
-      - name: Install tools
-        run: brew install xcodegen
+      - name: Ensure XcodeGen
+        run: |
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
 
       - name: Generate + build (unsigned)
         working-directory: platforms/macos

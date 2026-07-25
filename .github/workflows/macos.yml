@@ -1,8 +1,10 @@
-# macOS / Xcode validation — expensive on GitHub-hosted runners (~10–30× Linux).
+# macOS / Xcode validation.
 #
 # Default: manual only (workflow_dispatch).
-# Opt-in on every PR/push: set repo variable ENABLE_MACOS_CI=true
-# Self-hosted later: set MACOS_RUNNER to your runner label (e.g. self-hosted-macos)
+# Opt-in on PR/push: repo variable ENABLE_MACOS_CI=true
+# Runner: repo variable MACOS_RUNS_ON (JSON label array). Prefer self-hosted Mac.
+#   gh variable set MACOS_RUNS_ON --body '["self-hosted","macOS","ARM64"]'
+# Fallback without the variable: GitHub-hosted macos-14 (paid).
 # Kill-switch: CI_DISABLED=true
 
 name: macOS
@@ -33,17 +35,31 @@ jobs:
         vars.CI_DISABLED != 'true' &&
         (github.event_name == 'workflow_dispatch' || vars.ENABLE_MACOS_CI == 'true')
       }}
-    runs-on: ${{ vars.MACOS_RUNNER || 'macos-14' }}
+    # Self-hosted needs an array of labels, e.g. ["self-hosted","macOS","ARM64"].
+    runs-on: ${{ fromJSON(vars.MACOS_RUNS_ON || '["macos-14"]') }}
     timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: Ensure Xcode CLI path
+        run: |
+          if [[ -d /Applications/Xcode.app ]]; then
+            if [[ "$(xcode-select -p 2>/dev/null)" != "/Applications/Xcode.app/Contents/Developer" ]]; then
+              sudo xcode-select -s /Applications/Xcode.app/Contents/Developer || \
+                sudo xcode-select -s /Applications/Xcode.app
+            fi
+          fi
+          xcodebuild -version
+          swift --version
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
+      - name: Ensure XcodeGen
+        run: |
+          if command -v xcodegen >/dev/null 2>&1; then
+            xcodegen --version
+          else
+            brew install xcodegen
+          fi
 
       - name: Generate project
         working-directory: platforms/macos
