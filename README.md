@@ -73,7 +73,10 @@ Design notes and older architecture drafts live in [`plan.md`](./plan.md) (some 
 
 ### CI
 
-Linux validation runs on PRs/pushes (fmt, clippy, tests, MCP build). **macOS Xcode jobs are manual / opt-in** to control Actions cost until a self-hosted Mac runner is available. See [`.github/CI.md`](./.github/CI.md).
+- **Public (this repo):** Linux validation on PRs/pushes (fmt, clippy, tests, MCP build).  
+- **Private release:** [`agent-canvas-release`](https://github.com/veloxdevworks/agent-canvas-release) — trusted macOS builds on the org self-hosted runner (no public PR traffic on the Mac).  
+
+See [`.github/CI.md`](./.github/CI.md).
 
 ---
 

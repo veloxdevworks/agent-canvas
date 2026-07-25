@@ -1,7 +1,14 @@
 # CI notes (cost-aware)
 
-Linux jobs stay on GitHub-hosted `ubuntu-latest`. macOS jobs should use a **self-hosted**
-Mac runner when available (avoids expensive `macos-14` minutes).
+Linux jobs stay on GitHub-hosted `ubuntu-latest`.
+
+**macOS / self-hosted Mac:** do **not** attach the org runner to this **public** repo for
+routine CI (untrusted PR risk). Use the private companion:
+
+→ **[`veloxdevworks/agent-canvas-release`](https://github.com/veloxdevworks/agent-canvas-release)**  
+  (checkout a pin of this repo → Xcode build on the org MacBookPro)
+
+Optional manual macOS workflow here remains `workflow_dispatch` only; prefer the private repo.
 
 ## Workflows
 
