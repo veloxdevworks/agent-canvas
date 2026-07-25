@@ -52,10 +52,30 @@ If `MACOS_RUNS_ON` is unset, jobs fall back to GitHub-hosted `macos-14` (paid).
 
 | Where you registered the runner | Check |
 |----------------------------------|--------|
-| **This repository** | Repo → Settings → Actions → Runners — should list the Mac, status **Idle** |
-| **Organization** | Org → Settings → Actions → Runners — runner group must **include** `agent-canvas` |
+| **This repository** | Repo → Settings → Actions → Runners — lists the Mac, status **Idle** |
+| **Organization** (this project) | Org → Settings → Actions → Runners — see below |
 
-Repo API currently reports runners only for **repo-scoped** registration. Org runners need the correct runner group scope.
+#### Org-level runners (veloxdevworks)
+
+Repo APIs only list **repo-scoped** runners (`total_count: 0` is normal when the Mac is org-wide). Org runners still work **if the runner group allows this repo**.
+
+1. Open [github.com/organizations/veloxdevworks/settings/actions/runners](https://github.com/organizations/veloxdevworks/settings/actions/runners)  
+2. Confirm the MacBook is **Idle** (green). Note its **labels** (must match `MACOS_RUNS_ON`).  
+3. Open the **runner group** that contains it (often **Default**).  
+4. Under **Repository access**:
+   - **All repositories**, or  
+   - **Selected repositories** → include **`agent-canvas`**  
+5. Under **Workflow access** / **Allow public repositories** (wording varies): if `agent-canvas` is **public**, the group must allow **public** repos. Many defaults only allow private — that’s a common “Waiting for a runner” trap.  
+6. Optional: Workflow permissions → ensure self-hosted runners aren’t restricted in org Actions policy.
+
+Then:
+
+```bash
+gh workflow run macos.yml --repo veloxdevworks/agent-canvas
+gh run list --repo veloxdevworks/agent-canvas --workflow=macos.yml --limit 3
+```
+
+Job state **in_progress** on your Mac = wired correctly. **Queued / Waiting for a runner** = labels or group access.
 
 ### Self-hosted machine checklist
 
