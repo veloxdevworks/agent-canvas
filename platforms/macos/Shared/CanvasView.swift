@@ -105,29 +105,67 @@ struct CanvasView: View {
     @ViewBuilder
     private func detailCoverStack(cover: CanvasCover) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            let maxPx = Self.idealDetailCoverWidth * 2
-            let mode: ContentMode = cover.resolvedFit == .contain ? .fit : .fill
-            if CanvasImageLoader.load(source: cover.source, maxPixelSize: maxPx) != nil {
-                CanvasRemoteImage(
-                    source: cover.source,
-                    alt: cover.alt,
-                    maxPixelSize: maxPx,
-                    contentMode: mode
-                )
-                .frame(maxWidth: .infinity)
-                .frame(height: 220)
-                .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            } else {
-                Label(cover.alt, systemImage: "photo")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            // Detail always shows the full bitmap (glance `fit: cover` is tile-only).
+            detailSizedImage(
+                source: cover.source,
+                alt: cover.alt,
+                cornerRadius: 12,
+                maxHeight: Self.idealDetailCoverWidth
+            )
             contentStack(clip: entry.clip, fillTile: false)
         }
     }
 
     private static let idealDetailCoverWidth: CGFloat = 480
+
+    /// Content width inside the detail window (ideal − host padding − canvas edge inset).
+    private var detailContentWidth: CGFloat {
+        max(160, Self.idealDetailCoverWidth - 48 - ContentClip.edgeInset(for: size) * 2)
+    }
+
+    /// Detail window: width-bound, height from the image’s intrinsic aspect (never center-crop).
+    @ViewBuilder
+    private func detailSizedImage(
+        source: String,
+        alt: String,
+        cornerRadius: CGFloat,
+        maxHeight: CGFloat
+    ) -> some View {
+        let width = detailContentWidth
+        let maxPx = max(width, maxHeight) * 2
+        if let ns = CanvasImageLoader.load(source: source, maxPixelSize: maxPx) {
+            let aspect = max(ns.size.width, 1) / max(ns.size.height, 1)
+            let height = min(maxHeight, width / aspect)
+            CanvasRemoteImage(
+                source: source,
+                alt: alt,
+                maxPixelSize: maxPx,
+                contentMode: .fit
+            )
+            .frame(width: width, height: height)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        } else {
+            Label(alt.isEmpty ? "Image unavailable" : alt, systemImage: "photo")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        }
+    }
+
+    /// Detail window: width-bound (host ideal − padding − edge inset), height from aspect.
+    @ViewBuilder
+    private func detailImage(
+        source: String,
+        caption: String?,
+        maxHeight: CGFloat
+    ) -> some View {
+        detailSizedImage(
+            source: source,
+            alt: caption ?? "Image",
+            cornerRadius: 6,
+            maxHeight: maxHeight
+        )
+    }
 
     private var previewCornerRadius: CGFloat {
         switch size {
@@ -357,19 +395,26 @@ struct CanvasView: View {
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         case let .image(source, caption, height, _):
-            let h = ContentClip.imageHeight(for: size, height: height)
-            let maxPx = max(h, size == .sm ? 170 : 364) * 2
+            // Glance: fixed height tokens + fill (density). Detail: show the whole
+            // image — tokens are tile budgets, not detail crop boxes.
+            let glanceH = ContentClip.imageHeight(for: size, height: height)
+            let detailMaxH: CGFloat = 280
+            let maxPx = max(disableClipping ? detailMaxH : glanceH, size == .sm ? 170 : 364) * 2
             VStack(alignment: .leading, spacing: 2) {
-                CanvasRemoteImage(
-                    source: source,
-                    alt: caption ?? "Image",
-                    maxPixelSize: maxPx,
-                    contentMode: .fill
-                )
-                .frame(maxWidth: .infinity)
-                .frame(height: h)
-                .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                if disableClipping {
+                    detailImage(source: source, caption: caption, maxHeight: detailMaxH)
+                } else {
+                    CanvasRemoteImage(
+                        source: source,
+                        alt: caption ?? "Image",
+                        maxPixelSize: maxPx,
+                        contentMode: .fill
+                    )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: glanceH)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
                 if let caption, !caption.isEmpty {
                     Text(caption)
                         .font(.caption2)
@@ -377,6 +422,7 @@ struct CanvasView: View {
                         .lineLimit(1)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         case let .spacer(spacerSize, _):
             Color.clear.frame(height: spacerSize?.gapPoints ?? 4)
         case let .group(direction, gap, align, children, _, _):
