@@ -1,169 +1,651 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://velox.dev/schemas/agent-canvas/v1/canvas.schema.json",
-  "title": "AgentCanvasDocument",
-  "description": "Declarative content for one Agent Canvas desktop widget (schema version 1).",
-  "type": "object",
-  "required": ["version", "sections"],
-  "additionalProperties": false,
-  "properties": {
-    "version": {
-      "type": "integer",
-      "const": 1
-    },
-    "updatedAt": {
-      "type": "string",
-      "format": "date-time",
-      "description": "ISO-8601 timestamp; server may overwrite on write."
-    },
-    "title": {
-      "type": "string",
-      "maxLength": 120
-    },
-    "sections": {
-      "type": "array",
-      "maxItems": 12,
-      "items": { "$ref": "#/$defs/section" }
-    }
-  },
   "$defs": {
-    "section": {
+    "action": {
       "oneOf": [
-        { "$ref": "#/$defs/header" },
-        { "$ref": "#/$defs/text" },
-        { "$ref": "#/$defs/metrics" },
-        { "$ref": "#/$defs/chart" },
-        { "$ref": "#/$defs/list" },
-        { "$ref": "#/$defs/image" },
-        { "$ref": "#/$defs/spacer" }
+        {
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "expand"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "url"
+            },
+            "url": {
+              "description": "http, https, or mailto only. No credentials.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "url"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "description": "Absolute local path. Host reveals in Finder; does not launch.",
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": {
+              "const": "file"
+            }
+          },
+          "required": [
+            "type",
+            "path"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "noop"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
       ]
     },
-    "header": {
-      "type": "object",
-      "required": ["type", "text"],
+    "badges": {
       "additionalProperties": false,
       "properties": {
-        "type": { "const": "header" },
-        "text": { "type": "string", "minLength": 1, "maxLength": 80 },
-        "subtitle": { "type": "string", "maxLength": 120 },
-        "priority": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Lower = more important when the widget clips to size budget."
-        }
-      }
-    },
-    "text": {
-      "type": "object",
-      "required": ["type", "content"],
-      "additionalProperties": false,
-      "properties": {
-        "type": { "const": "text" },
-        "content": { "type": "string", "minLength": 1, "maxLength": 2000 }
-      }
-    },
-    "metrics": {
-      "type": "object",
-      "required": ["type", "items"],
-      "additionalProperties": false,
-      "properties": {
-        "type": { "const": "metrics" },
         "items": {
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 4,
           "items": {
-            "type": "object",
-            "required": ["label", "value"],
             "additionalProperties": false,
             "properties": {
-              "label": { "type": "string" },
-              "value": { "type": "string" },
-              "trend": { "type": "string" }
-            }
-          }
+              "text": {
+                "type": "string"
+              },
+              "tone": {
+                "$ref": "#/$defs/tone"
+              }
+            },
+            "required": [
+              "text"
+            ],
+            "type": "object"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "type": "array"
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "type": {
+          "const": "badges"
         }
-      }
+      },
+      "required": [
+        "type",
+        "items"
+      ],
+      "type": "object"
     },
     "chart": {
-      "type": "object",
-      "required": ["type", "chartType", "data"],
       "additionalProperties": false,
       "properties": {
-        "type": { "const": "chart" },
         "chartType": {
-          "type": "string",
-          "enum": ["bar", "line", "pie", "gauge"]
+          "enum": [
+            "bar",
+            "line",
+            "pie",
+            "gauge"
+          ],
+          "type": "string"
         },
-        "title": { "type": "string" },
         "data": {
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 32,
           "items": {
-            "type": "object",
-            "required": ["label", "value"],
             "additionalProperties": false,
             "properties": {
-              "label": { "type": "string" },
-              "value": { "type": "number" }
-            }
-          }
+              "label": {
+                "type": "string"
+              },
+              "value": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "label",
+              "value"
+            ],
+            "type": "object"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "type": "array"
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "const": "chart"
         }
-      }
+      },
+      "required": [
+        "type",
+        "chartType",
+        "data"
+      ],
+      "type": "object"
     },
-    "list": {
-      "type": "object",
-      "required": ["type", "items"],
+    "divider": {
       "additionalProperties": false,
       "properties": {
-        "type": { "const": "list" },
-        "title": { "type": "string" },
-        "items": {
-          "type": "array",
-          "maxItems": 20,
-          "items": {
-            "type": "object",
-            "required": ["primary"],
-            "additionalProperties": false,
-            "properties": {
-              "primary": { "type": "string" },
-              "secondary": { "type": "string" },
-              "badge": { "type": "string" }
-            }
-          }
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "type": {
+          "const": "divider"
         }
-      }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "emphasis": {
+      "description": "Semantic emphasis (maps to system font weights / Adaptive Cards weight).",
+      "enum": [
+        "strong",
+        "normal",
+        "subtle"
+      ],
+      "type": "string"
+    },
+    "glanceSection": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/header"
+        },
+        {
+          "$ref": "#/$defs/text"
+        },
+        {
+          "$ref": "#/$defs/metrics"
+        },
+        {
+          "$ref": "#/$defs/chart"
+        },
+        {
+          "$ref": "#/$defs/list"
+        },
+        {
+          "$ref": "#/$defs/image"
+        },
+        {
+          "$ref": "#/$defs/spacer"
+        },
+        {
+          "$ref": "#/$defs/progress"
+        },
+        {
+          "$ref": "#/$defs/divider"
+        },
+        {
+          "$ref": "#/$defs/keyValue"
+        },
+        {
+          "$ref": "#/$defs/badges"
+        }
+      ]
+    },
+    "group": {
+      "additionalProperties": false,
+      "description": "Flex container. Detail-only (not in glance sections). Depth ≤ 2; children ≤ 6. Atomic for clipping.",
+      "properties": {
+        "align": {
+          "enum": [
+            "start",
+            "center",
+            "end",
+            "stretch"
+          ],
+          "type": "string"
+        },
+        "children": {
+          "items": {
+            "$ref": "#/$defs/section"
+          },
+          "maxItems": 6,
+          "minItems": 1,
+          "type": "array"
+        },
+        "direction": {
+          "enum": [
+            "row",
+            "column"
+          ],
+          "type": "string"
+        },
+        "gap": {
+          "enum": [
+            "sm",
+            "md",
+            "lg"
+          ],
+          "type": "string"
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "type": {
+          "const": "group"
+        },
+        "weight": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "direction",
+        "children"
+      ],
+      "type": "object"
+    },
+    "header": {
+      "additionalProperties": false,
+      "properties": {
+        "emphasis": {
+          "$ref": "#/$defs/emphasis"
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "subtitle": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        },
+        "tone": {
+          "$ref": "#/$defs/tone"
+        },
+        "type": {
+          "const": "header"
+        }
+      },
+      "required": [
+        "type",
+        "text"
+      ],
+      "type": "object"
     },
     "image": {
-      "type": "object",
-      "required": ["type", "source"],
       "additionalProperties": false,
       "properties": {
-        "type": { "const": "image" },
+        "caption": {
+          "type": "string"
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
         "source": {
-          "type": "string",
           "description": "data:image/...;base64,... or file:// under app data. No remote URLs in v1.",
-          "minLength": 1
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": {
+          "const": "image"
         },
         "url": {
-          "type": "string",
-          "description": "Legacy alias for source."
-        },
-        "caption": { "type": "string" }
-      }
+          "description": "Legacy alias for source.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "source"
+      ],
+      "type": "object"
     },
-    "spacer": {
-      "type": "object",
-      "required": ["type"],
+    "keyValue": {
       "additionalProperties": false,
       "properties": {
-        "type": { "const": "spacer" },
-        "size": {
-          "type": "string",
-          "enum": ["sm", "md", "lg"]
+        "items": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "tone": {
+                "$ref": "#/$defs/tone"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "value"
+            ],
+            "type": "object"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "type": "array"
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "type": {
+          "const": "keyValue"
         }
-      }
+      },
+      "required": [
+        "type",
+        "items"
+      ],
+      "type": "object"
+    },
+    "list": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "action": {
+                "$ref": "#/$defs/action"
+              },
+              "badge": {
+                "type": "string"
+              },
+              "emphasis": {
+                "$ref": "#/$defs/emphasis"
+              },
+              "primary": {
+                "type": "string"
+              },
+              "secondary": {
+                "type": "string"
+              },
+              "tone": {
+                "$ref": "#/$defs/tone"
+              }
+            },
+            "required": [
+              "primary"
+            ],
+            "type": "object"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "const": "list"
+        }
+      },
+      "required": [
+        "type",
+        "items"
+      ],
+      "type": "object"
+    },
+    "metrics": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "emphasis": {
+                "$ref": "#/$defs/emphasis"
+              },
+              "label": {
+                "type": "string"
+              },
+              "tone": {
+                "$ref": "#/$defs/tone"
+              },
+              "trend": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "label",
+              "value"
+            ],
+            "type": "object"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "type": "array"
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "type": {
+          "const": "metrics"
+        }
+      },
+      "required": [
+        "type",
+        "items"
+      ],
+      "type": "object"
+    },
+    "priority": {
+      "description": "Lower = more important when the widget clips to size budget.",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "progress": {
+      "additionalProperties": false,
+      "description": "Progress bar. On platforms without a native control, degrade to text (e.g. Adaptive Cards).",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "max": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "tone": {
+          "$ref": "#/$defs/tone"
+        },
+        "type": {
+          "const": "progress"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "type",
+        "value"
+      ],
+      "type": "object"
+    },
+    "section": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/header"
+        },
+        {
+          "$ref": "#/$defs/text"
+        },
+        {
+          "$ref": "#/$defs/metrics"
+        },
+        {
+          "$ref": "#/$defs/chart"
+        },
+        {
+          "$ref": "#/$defs/list"
+        },
+        {
+          "$ref": "#/$defs/image"
+        },
+        {
+          "$ref": "#/$defs/spacer"
+        },
+        {
+          "$ref": "#/$defs/group"
+        },
+        {
+          "$ref": "#/$defs/progress"
+        },
+        {
+          "$ref": "#/$defs/divider"
+        },
+        {
+          "$ref": "#/$defs/keyValue"
+        },
+        {
+          "$ref": "#/$defs/badges"
+        }
+      ]
+    },
+    "spacer": {
+      "additionalProperties": false,
+      "properties": {
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "size": {
+          "enum": [
+            "sm",
+            "md",
+            "lg"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "spacer"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "text": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "emphasis": {
+          "$ref": "#/$defs/emphasis"
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "tone": {
+          "$ref": "#/$defs/tone"
+        },
+        "type": {
+          "const": "text"
+        }
+      },
+      "required": [
+        "type",
+        "content"
+      ],
+      "type": "object"
+    },
+    "tone": {
+      "description": "Semantic tone (maps to system colors / Adaptive Cards color).",
+      "enum": [
+        "critical",
+        "warning",
+        "success",
+        "info",
+        "muted"
+      ],
+      "type": "string"
     }
-  }
+  },
+  "$id": "https://velox.dev/schemas/agent-canvas/v1/canvas.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Declarative content for one Agent Canvas desktop widget (schema version 1). Generated from agent-canvas-core — do not edit by hand; run just gen-schema.",
+  "properties": {
+    "detail": {
+      "additionalProperties": false,
+      "description": "Optional richer layout for the expand detail window. Not counted toward glance density. May include group.",
+      "properties": {
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/section"
+          },
+          "maxItems": 24,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "onOpen": {
+      "$ref": "#/$defs/action",
+      "description": "Action when the user taps the widget tile. Default when omitted: expand (detail window)."
+    },
+    "sections": {
+      "description": "Glance tile sections. type=group is not allowed here (use detail.sections).",
+      "items": {
+        "$ref": "#/$defs/glanceSection"
+      },
+      "maxItems": 12,
+      "type": "array"
+    },
+    "title": {
+      "maxLength": 120,
+      "type": "string"
+    },
+    "updatedAt": {
+      "description": "ISO-8601 timestamp; server may overwrite on write.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "version": {
+      "const": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "sections"
+  ],
+  "title": "AgentCanvasDocument",
+  "type": "object"
 }

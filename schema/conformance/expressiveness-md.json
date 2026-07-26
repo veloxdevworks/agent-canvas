@@ -1,0 +1,22 @@
+{
+  "expected": {
+    "chartHeightScale": 0.85,
+    "droppedSectionCount": 3,
+    "droppedTypes": [
+      "badges",
+      "progress",
+      "divider"
+    ],
+    "listItemsShown": 0,
+    "listItemsTotal": 0,
+    "shownIndices": [
+      0,
+      1,
+      5
+    ],
+    "shownSectionCount": 3,
+    "truncated": true
+  },
+  "fixture": "fixtures/expressiveness.json",
+  "size": "md"
+}

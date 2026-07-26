@@ -1,0 +1,21 @@
+{
+  "expected": {
+    "chartHeightScale": 1.0,
+    "droppedSectionCount": 0,
+    "droppedTypes": [],
+    "listItemsShown": 0,
+    "listItemsTotal": 0,
+    "shownIndices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "shownSectionCount": 6,
+    "truncated": false
+  },
+  "fixture": "fixtures/expressiveness.json",
+  "size": "lg"
+}

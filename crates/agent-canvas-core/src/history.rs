@@ -79,7 +79,9 @@ impl HistoryIndex {
 /// Compare title + sections only (ignore timestamps / schema version churn).
 pub fn content_equal(a: &CanvasDocument, b: &CanvasDocument) -> bool {
     a.title == b.title
+        && serde_json::to_value(&a.on_open).ok() == serde_json::to_value(&b.on_open).ok()
         && serde_json::to_value(&a.sections).ok() == serde_json::to_value(&b.sections).ok()
+        && serde_json::to_value(&a.detail).ok() == serde_json::to_value(&b.detail).ok()
 }
 
 /// Directory for one canvas's history.
@@ -297,6 +299,9 @@ mod tests {
                 label: "V".into(),
                 value: value.into(),
                 trend: None,
+                tone: None,
+                emphasis: None,
+            
             }],
             priority: None,
         });

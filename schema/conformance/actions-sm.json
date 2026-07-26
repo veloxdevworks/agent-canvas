@@ -1,0 +1,17 @@
+{
+  "expected": {
+    "chartHeightScale": 0.9,
+    "droppedSectionCount": 0,
+    "droppedTypes": [],
+    "listItemsShown": 3,
+    "listItemsTotal": 3,
+    "shownIndices": [
+      0,
+      1
+    ],
+    "shownSectionCount": 2,
+    "truncated": false
+  },
+  "fixture": "fixtures/actions.json",
+  "size": "sm"
+}

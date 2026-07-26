@@ -1,0 +1,16 @@
+{
+  "expected": {
+    "chartHeightScale": 1.0,
+    "droppedSectionCount": 0,
+    "droppedTypes": [],
+    "listItemsShown": 0,
+    "listItemsTotal": 0,
+    "shownIndices": [
+      0
+    ],
+    "shownSectionCount": 1,
+    "truncated": false
+  },
+  "fixture": "fixtures/demo-sm-one.json",
+  "size": "lg"
+}

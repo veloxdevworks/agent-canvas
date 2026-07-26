@@ -1,0 +1,18 @@
+{
+  "expected": {
+    "chartHeightScale": 1.0,
+    "droppedSectionCount": 0,
+    "droppedTypes": [],
+    "listItemsShown": 0,
+    "listItemsTotal": 0,
+    "shownIndices": [
+      0,
+      1,
+      2
+    ],
+    "shownSectionCount": 3,
+    "truncated": false
+  },
+  "fixture": "fixtures/demo-md-two.json",
+  "size": "lg"
+}

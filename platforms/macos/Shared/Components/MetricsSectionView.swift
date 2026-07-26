@@ -24,9 +24,11 @@ struct MetricsSectionView: View {
     }
 
     private func fullCell(_ item: MetricItem) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        let valueWeight: Font.Weight = item.emphasis == .subtle ? .medium : .bold
+        return VStack(alignment: .leading, spacing: 2) {
             Text(item.value)
-                .font(size == .sm ? .subheadline.weight(.bold) : .title3.weight(.bold))
+                .font(size == .sm ? .subheadline.weight(valueWeight) : .title3.weight(valueWeight))
+                .foregroundStyle(StyleTokens.foreground(tone: item.tone))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .monospacedDigit()
@@ -37,7 +39,7 @@ struct MetricsSectionView: View {
             if let trend = item.trend, !trend.isEmpty {
                 Text(trend)
                     .font(.caption2.weight(.medium))
-                    .foregroundStyle(trendColor(trend))
+                    .foregroundStyle(StyleTokens.color(for: item.tone) ?? trendColor(trend))
                     .lineLimit(1)
             }
         }
@@ -50,13 +52,14 @@ struct MetricsSectionView: View {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(item.value)
                     .font(.subheadline.weight(.bold))
+                    .foregroundStyle(StyleTokens.foreground(tone: item.tone))
                     .lineLimit(1)
                     .minimumScaleFactor(0.55)
                     .monospacedDigit()
                 if let trend = item.trend, !trend.isEmpty {
                     Text(trend)
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(trendColor(trend))
+                        .foregroundStyle(StyleTokens.color(for: item.tone) ?? trendColor(trend))
                         .lineLimit(1)
                 }
             }

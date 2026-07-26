@@ -1,10 +1,12 @@
 //! Size budgets + density reports for agents.
-//! Keep aligned with `CanvasView` / list / chart caps on macOS.
+//! Packing predictions use the reference packer (`packer`) aligned with macOS ContentClip.
 
 use serde::Serialize;
 use serde_json::{json, Value};
 
+use crate::packer;
 use crate::schema::{CanvasDocument, Section};
+use crate::section_meta::type_defaults_json;
 
 /// Discrete widget sizes (WidgetKit has no freeform resize).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -201,21 +203,37 @@ pub struct DensityReport {
 
 pub fn layout_guide_document() -> Value {
     json!({
-        "version": 2,
-        "note": "Hard glance budgets. Canvas ids are size-first (sm-one…). Widget will clip beyond budgets; use strict=true on update_canvas to reject over-budget content so you can repair.",
+        "version": 3,
+        "note": "Hard glance budgets. Canvas ids are size-first (sm-one…). Widget will clip beyond budgets; use strict=true on update_canvas to reject over-budget content so you can repair. Layout constants live in Rust layout_spec (portable).",
         "idFormat": "sm|md|lg|xl - one|two|three",
         "budgets": WidgetSize::ALL.map(|s| s.budget()),
         "sectionPriority": {
-            "note": "Optional sections[].priority (lower = more important, default by type). Widget keeps highest-priority sections within maxSections.",
-            "typeDefaults": {
-                "header": 10,
-                "metrics": 20,
-                "chart": 30,
-                "list": 40,
-                "text": 50,
-                "image": 60,
-                "spacer": 70
-            }
+            "note": "Optional sections[].priority (lower = more important, default by type). Drop priority ≠ pack rank: pack allocates height to list before chart so charts shrink into remainder.",
+            "typeDefaults": type_defaults_json(),
+            "packRanks": crate::section_meta::pack_ranks_json()
+        },
+        "styleTokens": {
+            "tone": ["critical", "warning", "success", "info", "muted"],
+            "emphasis": ["strong", "normal", "subtle"],
+            "note": "Semantic only — platforms map to system colors/weights. Aligns with Adaptive Cards color/weight."
+        },
+        "actions": {
+            "onOpen": "Document-level tap: expand (default) | url | file | noop.",
+            "listItemAction": "Optional items[].action with the same vocabulary.",
+            "urlSchemes": ["http", "https", "mailto"],
+            "fileBehavior": "Reveal in Finder only; never launches.",
+            "smNote": "systemSmall supports whole-tile onOpen only; per-row taps work on md/lg/xl and in the detail window."
+        },
+        "group": {
+            "note": "type=group is detail.sections only (not glance). direction row|column; depth≤2; children≤6; atomic for clipping.",
+            "direction": ["row", "column"],
+            "align": ["start", "center", "end", "stretch"]
+        },
+        "leaves": {
+            "progress": "label?, value (0…1 or absolute with max), tone?",
+            "divider": "horizontal rule",
+            "keyValue": "items[{key,value,tone?}]",
+            "badges": "items[{text,tone?}]"
         },
         "agentTips": [
             "Call get_layout_guide or trust size in the canvas id before writing.",
@@ -223,7 +241,17 @@ pub fn layout_guide_document() -> Value {
             "If densityReport.overBudget, shrink content and retry (or use strict=true to fail fast).",
             "Prefer fewer high-signal sections; never dump long documents into a tile.",
             "sm: no charts (metrics/header only). md: at most one chart. lg/xl: at most two charts.",
-            "Always put a header first — the widget keeps the first header when clipping."
+            "Always put a header first — the widget keeps the first header when clipping.",
+            "Optional onOpen / list items[].action: expand|url|file|noop. url schemes: http|https|mailto only.",
+            "sm tiles cannot tap individual list rows — put row actions for md+ or the expand detail window.",
+            "Use tone/emphasis tokens (not hex/fonts). Put group layouts in detail.sections only."
+        ],
+        "portabilityGate": [
+            "Expressible in Adaptive Cards and QML (at least degraded)?",
+            "Styling via semantic tokens, never raw colors or point sizes?",
+            "No absolute positioning or platform-only capability?",
+            "Height derivable from layout_spec without platform font metrics?",
+            "Policy lands in Rust; platform Shared/ gains rendering only?"
         ]
     })
 }
@@ -336,10 +364,6 @@ pub fn density_warnings(
     list_item_peak: usize,
     has_chart: bool,
 ) -> Vec<String> {
-    let mut doc = CanvasDocument::empty();
-    // Synthetic report for partial inputs — prefer density_report when full doc available.
-    doc.sections = Vec::new();
-    let _ = (section_count, list_item_peak, has_chart);
     let b = size.budget();
     let mut w = Vec::new();
     if section_count > b.max_sections {
@@ -366,63 +390,14 @@ pub fn density_warnings(
     w
 }
 
-/// Max chart sections retained (aligned with Swift `ContentClip.maxCharts`).
+/// Max chart sections retained (aligned with layout_spec / Swift ContentClip).
 pub fn max_charts(size: WidgetSize) -> usize {
-    match size {
-        WidgetSize::Small => 0,
-        WidgetSize::Medium => 1,
-        WidgetSize::Large | WidgetSize::ExtraLarge => 2,
-    }
+    size.layout_spec().max_charts
 }
 
-/// Predicted clip if the widget applied budgets (for agent awareness before render).
-/// Mirrors Swift: always keep first header; md keeps at most one chart.
+/// Predicted clip via reference packer (matches widget ContentClip).
 pub fn predict_clip(doc: &CanvasDocument, size: WidgetSize) -> PredictedClip {
-    let b = size.budget();
-    let cap = b.max_sections;
-    let chart_cap = max_charts(size);
-
-    let mut kept = std::collections::BTreeSet::new();
-    // Always keep first header.
-    if let Some(i) = doc
-        .sections
-        .iter()
-        .position(|s| matches!(s, Section::Header { .. }))
-    {
-        kept.insert(i);
-    }
-
-    let mut ranked = rank_section_indices(doc);
-    ranked.retain(|i| !kept.contains(i));
-
-    let mut charts = 0usize;
-    for i in ranked {
-        if kept.len() >= cap {
-            break;
-        }
-        if matches!(doc.sections[i], Section::Chart { .. }) {
-            if charts >= chart_cap {
-                continue;
-            }
-            charts += 1;
-        }
-        kept.insert(i);
-    }
-
-    let mut dropped_types = Vec::new();
-    for (i, s) in doc.sections.iter().enumerate() {
-        if !kept.contains(&i) {
-            dropped_types.push(s.type_name().to_string());
-        }
-    }
-    PredictedClip {
-        will_truncate_sections: !dropped_types.is_empty(),
-        shown_section_count: kept.len(),
-        dropped_section_count: dropped_types.len(),
-        dropped_types,
-        list_items_shown: doc.peak_list_items().min(b.max_list_items),
-        list_items_total: doc.peak_list_items(),
-    }
+    packer::predict_clip(doc, size)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -436,7 +411,8 @@ pub struct PredictedClip {
     pub list_items_total: usize,
 }
 
-/// Lower score = keep first. Explicit section.priority wins; else type default.
+/// Lower score = keep first. Explicit section.priority wins; else type default (drop priority).
+#[allow(dead_code)] // used by density tooling / tests
 pub fn section_sort_key(section: &Section, index: usize) -> (u32, usize) {
     let p = section
         .priority()
@@ -444,50 +420,13 @@ pub fn section_sort_key(section: &Section, index: usize) -> (u32, usize) {
     (p, index)
 }
 
+#[allow(dead_code)] // used by density tooling / tests
 pub fn rank_section_indices(doc: &CanvasDocument) -> Vec<usize> {
     let mut idx: Vec<usize> = (0..doc.sections.len()).collect();
     idx.sort_by(|&a, &b| {
         section_sort_key(&doc.sections[a], a).cmp(&section_sort_key(&doc.sections[b], b))
     });
     idx
-}
-
-impl Section {
-    pub fn type_name(&self) -> &'static str {
-        match self {
-            Section::Header { .. } => "header",
-            Section::Text { .. } => "text",
-            Section::Metrics { .. } => "metrics",
-            Section::Chart { .. } => "chart",
-            Section::List { .. } => "list",
-            Section::Image { .. } => "image",
-            Section::Spacer { .. } => "spacer",
-        }
-    }
-
-    pub fn priority(&self) -> Option<u32> {
-        match self {
-            Section::Header { priority, .. }
-            | Section::Text { priority, .. }
-            | Section::Metrics { priority, .. }
-            | Section::Chart { priority, .. }
-            | Section::List { priority, .. }
-            | Section::Image { priority, .. }
-            | Section::Spacer { priority, .. } => *priority,
-        }
-    }
-
-    pub fn default_priority(&self) -> u32 {
-        match self {
-            Section::Header { .. } => 10,
-            Section::Metrics { .. } => 20,
-            Section::Chart { .. } => 30,
-            Section::List { .. } => 40,
-            Section::Text { .. } => 50,
-            Section::Image { .. } => 60,
-            Section::Spacer { .. } => 70,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -504,6 +443,8 @@ mod tests {
                     label: "A".into(),
                     value: "1".into(),
                     trend: None,
+                    tone: None,
+                    emphasis: None,
                 }],
                 priority: None,
             });
@@ -512,8 +453,10 @@ mod tests {
         assert!(r.over_budget);
         assert!(r.repair_hint.is_some());
         let clip = predict_clip(&doc, WidgetSize::Small);
-        assert_eq!(clip.shown_section_count, 2);
-        assert_eq!(clip.dropped_section_count, 3);
+        // Height packer (not max_sections) decides what fits; sm still drops overflow.
+        assert!(clip.shown_section_count < 5);
+        assert!(clip.dropped_section_count >= 1);
+        assert!(clip.will_truncate_sections);
     }
 
     #[test]
@@ -521,6 +464,8 @@ mod tests {
         let mut doc = CanvasDocument::empty();
         doc.sections.push(Section::Text {
             content: "long".into(),
+            tone: None,
+            emphasis: None,
             priority: Some(50),
         });
         doc.sections.push(Section::Metrics {
@@ -528,6 +473,8 @@ mod tests {
                 label: "A".into(),
                 value: "1".into(),
                 trend: None,
+                tone: None,
+                emphasis: None,
             }],
             priority: Some(5),
         });
@@ -543,6 +490,8 @@ mod tests {
             Section::Header {
                 text: "Title".into(),
                 subtitle: Some("sub".into()),
+                tone: None,
+                emphasis: None,
                 priority: None,
             },
             Section::Metrics {
@@ -550,6 +499,8 @@ mod tests {
                     label: "A".into(),
                     value: "1".into(),
                     trend: None,
+                    tone: None,
+                    emphasis: None,
                 }],
                 priority: None,
             },
@@ -577,21 +528,21 @@ mod tests {
                     primary: "x".into(),
                     secondary: None,
                     badge: None,
+                    action: None,
+                    tone: None,
+                    emphasis: None,
                 }],
                 priority: None,
             },
             Section::Text {
                 content: "tail".into(),
+                tone: None,
+                emphasis: None,
                 priority: None,
             },
         ];
         let clip = predict_clip(&doc, WidgetSize::Medium);
         assert!(clip.will_truncate_sections);
-        assert!(
-            clip.dropped_types.contains(&"chart".to_string())
-                || clip.dropped_types.contains(&"text".to_string())
-        );
-        // At most one chart kept among shown path — dropped should include a chart or text/list.
         let charts_dropped = clip.dropped_types.iter().filter(|t| *t == "chart").count();
         assert!(charts_dropped >= 1, "md should drop at least one chart");
     }

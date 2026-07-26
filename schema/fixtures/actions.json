@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "title": "Open items",
+  "onOpen": { "type": "expand" },
+  "sections": [
+    {
+      "type": "header",
+      "text": "Open items",
+      "subtitle": "Tap a row"
+    },
+    {
+      "type": "list",
+      "title": "Queue",
+      "items": [
+        {
+          "primary": "API rate limiting",
+          "secondary": "ENG-4821",
+          "badge": "P1",
+          "action": {
+            "type": "url",
+            "url": "https://example.com/ENG-4821"
+          }
+        },
+        {
+          "primary": "Local notes",
+          "secondary": "~/Notes/standup.md",
+          "badge": "FILE",
+          "action": {
+            "type": "file",
+            "path": "/tmp/agent-canvas-demo.txt"
+          }
+        },
+        {
+          "primary": "No action",
+          "secondary": "plain row",
+          "badge": "—"
+        }
+      ]
+    }
+  ],
+  "detail": {
+    "sections": [
+      {
+        "type": "header",
+        "text": "Open items",
+        "subtitle": "Expanded detail"
+      },
+      {
+        "type": "text",
+        "content": "List rows with actions open in the browser or reveal a file. Small widgets only support whole-tile taps."
+      },
+      {
+        "type": "list",
+        "title": "Queue",
+        "items": [
+          {
+            "primary": "API rate limiting",
+            "secondary": "ENG-4821",
+            "badge": "P1",
+            "action": {
+              "type": "url",
+              "url": "https://example.com/ENG-4821"
+            }
+          },
+          {
+            "primary": "Local notes",
+            "secondary": "~/Notes/standup.md",
+            "badge": "FILE",
+            "action": {
+              "type": "file",
+              "path": "/tmp/agent-canvas-demo.txt"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

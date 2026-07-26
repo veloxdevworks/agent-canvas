@@ -1,0 +1,14 @@
+{
+  "expected": {
+    "chartHeightScale": 1.0,
+    "droppedSectionCount": 0,
+    "droppedTypes": [],
+    "listItemsShown": 0,
+    "listItemsTotal": 0,
+    "shownIndices": [],
+    "shownSectionCount": 0,
+    "truncated": false
+  },
+  "fixture": "fixtures/empty.json",
+  "size": "xl"
+}

@@ -3,7 +3,7 @@
 
 use crate::id::{CanvasId, CanvasSlot};
 use crate::layout::WidgetSize;
-use crate::schema::{CanvasDocument, ChartPoint, ChartType, ListItem, MetricItem, Section};
+use crate::schema::{Action, CanvasDocument, ChartPoint, ChartType, ListItem, MetricItem, Section};
 
 /// What content recipe to write onto the selected canvas(es).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -137,6 +137,8 @@ fn metrics_only(id: CanvasId) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
         title: Some("Metrics".into()),
         sections: vec![Section::Metrics {
             items: match id.size {
@@ -157,10 +159,14 @@ fn header_only(id: CanvasId) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
         title: None,
         sections: vec![Section::Header {
             text: format!("{} header", id.size.display_label()),
             subtitle: Some(format!("slot {} · header-only seed", id.slot.as_str())),
+            tone: None,
+            emphasis: None,
             priority: None,
         }],
     }
@@ -170,11 +176,15 @@ fn text_only(id: CanvasId) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
         title: Some("Text".into()),
         sections: vec![
             Section::Header {
                 text: "Notes".into(),
                 subtitle: Some(id.as_str().into()),
+             tone: None,
+             emphasis: None,
              priority: None, },
             Section::Text {
                 content: match id.size {
@@ -187,6 +197,8 @@ fn text_only(id: CanvasId) -> CanvasDocument {
                          snippets, or incident context here without charts."
                         .into(),
                 },
+                tone: None,
+                emphasis: None,
                 priority: None,
             },
         ],
@@ -197,7 +209,7 @@ fn list_only(id: CanvasId) -> CanvasDocument {
     // Same real queue on every size so sm/md show actual issues, not "Top item" stubs.
     // Row-fit packing decides how many are visible; footer reports "+N more in list".
     let items = vec![
-        li("API rate limiting", "ENG-4821", "P1"),
+        li_action("API rate limiting", "ENG-4821", "P1", Action::Url { url: "https://example.com/ENG-4821".into() }),
         li("Login SSO flake", "ENG-4902", "P2"),
         li("Search timeout", "ENG-4888", "P2"),
         li("Docs for MCP", "ENG-5010", "P3"),
@@ -212,14 +224,40 @@ fn list_only(id: CanvasId) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
+        on_open: Some(Action::Expand),
+        detail: Some(crate::schema::CanvasDetail {
+            sections: vec![
+                Section::Header {
+                    text: "Open items".into(),
+                    subtitle: Some("Expanded queue".into()),
+                    tone: None,
+                    emphasis: None,
+                    priority: None,
+                },
+                Section::Text {
+                    content: "Row actions open in the browser. Small widgets use whole-tile expand only."
+                        .into(),
+                    tone: None,
+                    emphasis: None,
+                    priority: None,
+                },
+                Section::List {
+                    title: Some("Queue".into()),
+                    items: items.clone(),
+                    priority: None,
+                },
+            ],
+        }),
         title: Some("List".into()),
         sections: vec![
             Section::Header {
                 text: "Open items".into(),
                 subtitle: match id.size {
                     WidgetSize::Small => None,
-                    _ => Some("list seed".into()),
+                    _ => Some("Tap a row on md+".into()),
                 },
+                tone: None,
+                emphasis: None,
                 priority: None,
             },
             Section::List {
@@ -280,11 +318,15 @@ fn chart_only(id: CanvasId, chart_type: ChartType, title: &str) -> CanvasDocumen
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
         title: Some(title.into()),
         sections: vec![
             Section::Header {
                 text: title.into(),
                 subtitle: Some(format!("{} chart seed", chart_type_label(chart_type))),
+                tone: None,
+                emphasis: None,
                 priority: None,
             },
             Section::Chart {
@@ -302,11 +344,15 @@ fn full_board(id: CanvasId) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
         title: Some("Full board".into()),
         sections: vec![
             Section::Header {
                 text: "Full board".into(),
                 subtitle: Some(format!("{} · all primitives", id.size.display_label())),
+                tone: None,
+                emphasis: None,
                 priority: None,
             },
             Section::Metrics {
@@ -353,6 +399,8 @@ fn full_board(id: CanvasId) -> CanvasDocument {
             },
             Section::Text {
                 content: "Full-board seed mixes metrics, charts, list, and text.".into(),
+                tone: None,
+                emphasis: None,
                 priority: None,
             },
         ],
@@ -397,6 +445,8 @@ fn demo_small(slot: CanvasSlot) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
         title: Some(title.into()),
         sections: vec![Section::Metrics {
             items: metrics,
@@ -410,11 +460,15 @@ fn demo_medium(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::One => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
             title: Some("Sprint pulse".into()),
             sections: vec![
                 Section::Header {
                     text: "Sprint 24".into(),
                     subtitle: Some("3 days left".into()),
+                    tone: None,
+                    emphasis: None,
                     priority: None,
                 },
                 Section::Metrics {
@@ -439,11 +493,15 @@ fn demo_medium(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::Two => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
             title: Some("Traffic mix".into()),
             sections: vec![
                 Section::Header {
                     text: "Traffic mix".into(),
                     subtitle: Some("Share of requests".into()),
+                    tone: None,
+                    emphasis: None,
                     priority: None,
                 },
                 Section::Chart {
@@ -469,11 +527,15 @@ fn demo_medium(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::Three => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
             title: Some("Agent load".into()),
             sections: vec![
                 Section::Header {
                     text: "Agent sessions".into(),
                     subtitle: Some("Today".into()),
+                    tone: None,
+                    emphasis: None,
                     priority: None,
                 },
                 Section::Metrics {
@@ -506,11 +568,15 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::One => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
             title: Some("Jira throughput".into()),
             sections: vec![
                 Section::Header {
                     text: "Jira throughput".into(),
                     subtitle: Some("Last 7 days".into()),
+                    tone: None,
+                    emphasis: None,
                     priority: None,
                 },
                 Section::Metrics {
@@ -550,11 +616,15 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::Two => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
             title: Some("PR queue".into()),
             sections: vec![
                 Section::Header {
                     text: "Review queue".into(),
                     subtitle: Some("Engineering".into()),
+                    tone: None,
+                    emphasis: None,
                     priority: None,
                 },
                 Section::Metrics {
@@ -591,11 +661,15 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::Three => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
             title: Some("Latency".into()),
             sections: vec![
                 Section::Header {
                     text: "API latency".into(),
                     subtitle: Some("p50 / p95".into()),
+                    tone: None,
+                    emphasis: None,
                     priority: None,
                 },
                 Section::Metrics {
@@ -621,6 +695,8 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
                 },
                 Section::Text {
                     content: "Spike at noon coincides with batch export job.".into(),
+                    tone: None,
+                    emphasis: None,
                     priority: None,
                 },
             ],
@@ -633,11 +709,15 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::One => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
             title: Some("Platform health".into()),
             sections: vec![
                 Section::Header {
                     text: "Platform health".into(),
                     subtitle: Some("Prod · last 24h".into()),
+                    tone: None,
+                    emphasis: None,
                     priority: None,
                 },
                 Section::Metrics {
@@ -679,6 +759,8 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
                 },
                 Section::Text {
                     content: "On-call: Alex · Secondary: Jordan.".into(),
+                    tone: None,
+                    emphasis: None,
                     priority: None,
                 },
             ],
@@ -686,11 +768,15 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::Two => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
             title: Some("Cost & usage".into()),
             sections: vec![
                 Section::Header {
                     text: "Cloud spend".into(),
                     subtitle: Some("MTD vs forecast".into()),
+                    tone: None,
+                    emphasis: None,
                     priority: None,
                 },
                 Section::Metrics {
@@ -739,11 +825,15 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::Three => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+        on_open: None,
+        detail: None,
             title: Some("Release train".into()),
             sections: vec![
                 Section::Header {
                     text: "Release train".into(),
                     subtitle: Some("v2.8.0".into()),
+                    tone: None,
+                    emphasis: None,
                     priority: None,
                 },
                 Section::Metrics {
@@ -772,6 +862,8 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
                 },
                 Section::Text {
                     content: "Ship window: Thu 14:00 PT · rollback plan linked in runbook.".into(),
+                    tone: None,
+                    emphasis: None,
                     priority: None,
                 },
             ],
@@ -784,6 +876,8 @@ fn m(label: &str, value: &str, trend: Option<&str>) -> MetricItem {
         label: label.into(),
         value: value.into(),
         trend: trend.map(str::to_string),
+        tone: None,
+        emphasis: None,
     }
 }
 
@@ -792,6 +886,20 @@ fn li(primary: &str, secondary: &str, badge: &str) -> ListItem {
         primary: primary.into(),
         secondary: Some(secondary.into()),
         badge: Some(badge.into()),
+        action: None,
+        tone: None,
+        emphasis: None,
+    }
+}
+
+fn li_action(primary: &str, secondary: &str, badge: &str, action: Action) -> ListItem {
+    ListItem {
+        primary: primary.into(),
+        secondary: Some(secondary.into()),
+        badge: Some(badge.into()),
+        action: Some(action),
+        tone: None,
+        emphasis: None,
     }
 }
 

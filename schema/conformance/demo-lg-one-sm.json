@@ -1,0 +1,20 @@
+{
+  "expected": {
+    "chartHeightScale": 0.9,
+    "droppedSectionCount": 1,
+    "droppedTypes": [
+      "chart"
+    ],
+    "listItemsShown": 2,
+    "listItemsTotal": 3,
+    "shownIndices": [
+      0,
+      1,
+      3
+    ],
+    "shownSectionCount": 3,
+    "truncated": true
+  },
+  "fixture": "fixtures/demo-lg-one.json",
+  "size": "sm"
+}

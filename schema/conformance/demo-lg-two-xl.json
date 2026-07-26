@@ -1,0 +1,19 @@
+{
+  "expected": {
+    "chartHeightScale": 1.0,
+    "droppedSectionCount": 0,
+    "droppedTypes": [],
+    "listItemsShown": 3,
+    "listItemsTotal": 3,
+    "shownIndices": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "shownSectionCount": 4,
+    "truncated": false
+  },
+  "fixture": "fixtures/demo-lg-two.json",
+  "size": "xl"
+}

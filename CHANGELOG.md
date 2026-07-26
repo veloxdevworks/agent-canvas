@@ -13,6 +13,10 @@ Version tags match GitHub Releases (`vMAJOR.MINOR.PATCH`).
 - Connect wizard for Cursor / Claude Desktop
 - Lean GitHub Actions CI (Linux by default; macOS opt-in)
 - **Cloud publish (PLAT-82):** `share_canvas` / `update_shared_canvas` / `unshare_canvas` / `list_shared`, HTTP client (`AGENT_CANVAS_API_URL`), Keychain edit tokens
+- **Canvas actions:** document `onOpen`, optional `detail` sections, and per-list-item `action` (`expand` / `url` / `file` / `noop`). Widget taps dispatch via `agentcanvas://action…`; `url` allows http/https/mailto only; `file` reveals in Finder. Per-row taps on md/lg/xl; sm is whole-tile only.
+- **Portable layout policy:** Rust `layout_spec` + reference packer; committed `LayoutSpec.generated.swift`; `schema/conformance` goldens verified in Linux CI and Swift unit tests.
+- **Schema expressiveness:** semantic `tone` / `emphasis` tokens; leaf types `progress`, `divider`, `keyValue`, `badges`; detail-only `group` container (depth ≤ 2). JSON Schema generated from core (`just gen-schema`).
+- **Detail window sizing:** expand window hugs content height (min ~200pt, max ~720pt / 85% of screen) and scrolls when full.
 
 ### Planned
 - Notarized app archives on GitHub Releases

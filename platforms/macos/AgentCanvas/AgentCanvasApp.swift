@@ -34,13 +34,16 @@ struct AgentCanvasApp: App {
         .defaultSize(width: 640, height: 680)
         .handlesExternalEvents(matching: [])
 
-        // Claims `agentcanvas://detail…` so widget taps don't fall through to Settings.
+        // Legacy `agentcanvas://detail…` only. Widget taps use `action://` and are opened
+        // via openWindow(value:) so the typed id binding is set (avoids a nil-id spinner).
         WindowGroup("Detail", id: "detail", for: String.self) { $id in
             DetailWindowRoot(id: $id)
                 .environmentObject(reloadWatcher)
         }
         .handlesExternalEvents(matching: Set(arrayLiteral: "detail"))
-        .defaultSize(width: 500, height: 700)
+        // Hug CanvasDetailWindowView ideal size (clamped min/max there).
+        .windowResizability(.contentSize)
+        .defaultSize(width: 480, height: 320)
 
         // Primary UI: menu bar agent. Survives with zero open windows.
         // Custom concentric-frame glyph (template) — not the SF Symbol grid.
@@ -74,10 +77,8 @@ struct MenuBarLabelView: View {
         .labelStyle(.iconOnly)
         .accessibilityLabel("Agent Canvas")
         .onReceive(NotificationCenter.default.publisher(for: .agentCanvasOpenDetail)) { notification in
-            // Widget URLs already spawn Detail via handlesExternalEvents — only openWindow
-            // for in-app requests to avoid a second empty detail window.
-            let fromURL = (notification.userInfo?["fromURL"] as? Bool) == true
-            if let id = notification.object as? String, !fromURL {
+            // Always open with a typed value so the window is never stuck on a nil-id spinner.
+            if let id = notification.object as? String {
                 openWindow(id: "detail", value: id)
             }
             DispatchQueue.main.async {
@@ -97,17 +98,21 @@ private struct DetailWindowRoot: View {
                 CanvasDetailWindowView(address: address)
             } else {
                 ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .controlSize(.regular)
+                    .frame(width: 360, height: 200)
                     .background(Color(nsColor: .windowBackgroundColor))
             }
         }
         .onAppear {
-            applyPendingDetailIdIfNeeded()
+            bindPendingOrURL()
         }
         .onOpenURL { url in
-            if let newId = AppDelegate.canvasId(fromDetailURL: url) {
-                id = newId
+            // Legacy detail:// (and any action:// that still reaches this scene).
+            if let canvasId = Self.expandCanvasId(from: url) {
+                id = canvasId
                 AppDelegate.pendingDetailId = nil
+            } else {
+                bindPendingOrURL()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .agentCanvasOpenDetail)) { notification in
@@ -118,10 +123,38 @@ private struct DetailWindowRoot: View {
         }
     }
 
-    private func applyPendingDetailIdIfNeeded() {
+    private func bindPendingOrURL() {
         guard id == nil, let pending = AppDelegate.pendingDetailId else { return }
         id = pending
         AppDelegate.pendingDetailId = nil
+    }
+
+    /// Canvas id when this URL should show the expand detail window (no side effects).
+    private static func expandCanvasId(from url: URL) -> String? {
+        guard let target = CanvasActionURL.parse(url) else { return nil }
+        switch target {
+        case let .document(canvasId):
+            guard let address = CanvasAddress(rawValue: canvasId) else { return nil }
+            if case .expand = CanvasStorage.load(address: address).resolvedOnOpen {
+                return canvasId
+            }
+            return nil
+        case let .item(canvasId, section, item, version):
+            guard let address = CanvasAddress(rawValue: canvasId) else { return nil }
+            let doc = CanvasStorage.load(address: address)
+            guard section < doc.sections.count,
+                  case let .list(_, items, _) = doc.sections[section],
+                  item < items.count
+            else {
+                return canvasId // stale → expand
+            }
+            let listItem = items[item]
+            let expected = CanvasActionURL.versionDigest(for: listItem.primary)
+            if !version.isEmpty, version != expected { return canvasId }
+            guard let action = listItem.action else { return canvasId }
+            if case .expand = action { return canvasId }
+            return nil
+        }
     }
 }
 
@@ -398,9 +431,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 Task { @MainActor in
                     VeloxOAuthSession.shared.handleCallbackURL(url)
                 }
-            } else if let id = Self.canvasId(fromDetailURL: url) {
-                // Detail WindowGroup claims the URL (handlesExternalEvents). Stash + notify
-                // so the new scene can bind its canvas id even if it appears after this.
+                continue
+            }
+            guard CanvasActionURL.parse(url) != nil else { continue }
+
+            // DetailWindowRoot.onOpenURL also runs for expand; avoid double-opening
+            // browsers by only activating / notifying for expand here when needed.
+            let outcome = CanvasActionDispatcher.handleOpenURL(url)
+            switch outcome {
+            case let .expand(id):
                 Self.pendingDetailId = id
                 NotificationCenter.default.post(
                     name: .agentCanvasOpenDetail,
@@ -414,14 +453,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                     Self.hideSettingsWindows()
                 }
+            case .handledExternally:
+                DispatchQueue.main.async {
+                    Self.hideSettingsWindows()
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    Self.hideSettingsWindows()
+                }
             }
         }
-    }
-
-    static func canvasId(fromDetailURL url: URL) -> String? {
-        guard url.scheme == "agentcanvas", url.host == "detail" else { return nil }
-        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        return components?.queryItems?.first(where: { $0.name == "id" })?.value
     }
 
     /// Settings scene title is "Agent Canvas"; never hide Detail / wizard / seed.

@@ -40,6 +40,38 @@ build-rust:
 test:
     cargo test --manifest-path {{root}}/Cargo.toml
 
+# Regenerate schema/canvas.schema.json from Rust
+gen-schema:
+    cargo run --quiet --manifest-path {{root}}/Cargo.toml -p agent-canvas-core --example gen_artifacts
+    @echo "Wrote schema/canvas.schema.json and LayoutSpec.generated.swift"
+
+# Alias: regenerate layout Swift constants (+ schema)
+gen-layout-spec: gen-schema
+
+# Regenerate schema/conformance goldens from the Rust reference packer
+gen-conformance:
+    cargo run --quiet --manifest-path {{root}}/Cargo.toml -p agent-canvas-core --example gen_conformance
+    @echo "Wrote schema/conformance/*"
+
+# Rust + (when on macOS) Swift packing conformance
+conformance: test
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ "$(uname -s)" != "Darwin" ]]; then
+      echo "Swift conformance skipped (not macOS)"
+      exit 0
+    fi
+    just macos-ensure-team
+    just macos-gen
+    xcodebuild \
+      -project "{{macos}}/AgentCanvas.xcodeproj" \
+      -scheme AgentCanvas \
+      -configuration Debug \
+      -destination 'platform=macOS,arch=arm64' \
+      -derivedDataPath "{{root}}/build/macos" \
+      CODE_SIGNING_ALLOWED=NO \
+      test
+
 # MCP stdio server (for Cursor / Claude Desktop)
 mcp-serve *args:
     cargo run --manifest-path {{root}}/Cargo.toml -p agent-canvas-mcp -- {{args}}

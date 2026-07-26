@@ -41,12 +41,24 @@ A set of glanceable desktop canvases that agents can write to. Users place a sma
 ### Out of scope (v1)
 
 - Unlimited dynamic widget instances
-- Interactive controls inside widgets (buttons, forms, deep links optional later)
 - Complex nested / absolute layout
 - Cloud sync or multi-device
 - Custom fonts beyond system fonts
 - Windows / Linux **native** widget shells (contract only; optional “preview window” in host app)
 - Agent-driven partial JSON patches (full document replace only)
+
+### Actions (shipped)
+
+Declarative intents shared by document `onOpen` and list `items[].action`:
+
+| Type | Behavior |
+|------|----------|
+| `expand` | Open host detail window (`detail.sections` if set, else `sections`). **Default** when `onOpen` omitted. |
+| `url` | Open http/https/mailto in the system handler (no credentials; other schemes rejected). |
+| `file` | Reveal path in Finder (never launches). |
+| `noop` | Do nothing. |
+
+Widget deep links are pointers (`agentcanvas://action?id=…` / `&section=&item=&v=`). Host re-reads JSON and re-validates. `systemSmall` supports whole-tile `onOpen` only; md/lg/xl can tap list rows.
 
 ---
 
@@ -123,6 +135,25 @@ Agents spawn MCP over **stdio** as a child process. That process is **not** sign
 
 **What will not stay portable:** SwiftUI views, Adaptive Card templates, QML. That is expected.
 
+### Portability gate (new primitives)
+
+Every new section type or styling knob must pass before merge:
+
+1. Expressible in Adaptive Cards and QML (at least degraded)?
+2. Styling via semantic tokens (`tone` / `emphasis`), never raw colors or point sizes?
+3. No absolute positioning or platform-only capability in the JSON contract?
+4. Height derivable from Rust `layout_spec` without platform font metrics?
+5. Policy lands in Rust (`section_meta` / `layout_spec` / packer); `platforms/macos/Shared/` gains rendering only?
+
+### Unknown section types (intentional asymmetry)
+
+| Layer | Behavior |
+|-------|----------|
+| **Rust write path** (`update_canvas`) | Strict — unknown `type` fails deserialize / validate |
+| **Swift widget read** | Tolerant — unknown `type` → `.unknown` (forward compatible) |
+
+Agents always go through the validating MCP/core write path; widgets may briefly see newer documents after a host update.
+
 ---
 
 ## Content schema (v1)
@@ -183,11 +214,20 @@ Agents write a full document per canvas (replace, not patch):
 |------|---------|--------|
 | `header` | Title + optional subtitle | Prefer one near the top |
 | `text` | Body copy | v1: plain text; soft-wrap |
+| *(document)* `onOpen` | Tile tap | Optional `Action`; default expand |
+| *(document)* `detail` | Expand layout | Optional `{ sections }`; not in glance density |
+| *(list item)* `action` | Row tap | Optional `Action` |
 | `metrics` | 2–4 key numbers + optional trend | Horizontal on large; stacked on small |
 | `chart` | `bar` \| `line` \| `pie` \| `gauge` | Swift Charts on macOS; degrade gracefully on tiny sizes |
 | `list` | Rows | `primary`, optional `secondary`, optional `badge` |
 | `image` | Contained image | Prefer small base64 or `file://` under app data; cache; size limits |
 | `spacer` | Vertical gap | Optional `size`: `sm` \| `md` \| `lg` |
+| `progress` | Progress bar | `value` (+ optional `max`, `tone`); degrade to text on Adaptive Cards |
+| `divider` | Horizontal rule | |
+| `keyValue` | Label/value rows | Optional per-item `tone` |
+| `badges` | Chip row | Optional per-item `tone` |
+| `group` | Flex row/column | **Detail-only** (not glance); depth ≤ 2; children ≤ 6; atomic for clipping |
+| *(items/sections)* `tone` / `emphasis` | Semantic style | Never hex/fonts; maps to system + Adaptive Cards color/weight |
 
 **Schema rules (enforce in `agent-canvas-core`):**
 

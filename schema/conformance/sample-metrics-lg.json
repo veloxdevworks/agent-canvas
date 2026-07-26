@@ -1,0 +1,20 @@
+{
+  "expected": {
+    "chartHeightScale": 1.0,
+    "droppedSectionCount": 0,
+    "droppedTypes": [],
+    "listItemsShown": 2,
+    "listItemsTotal": 2,
+    "shownIndices": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "shownSectionCount": 5,
+    "truncated": false
+  },
+  "fixture": "fixtures/sample-metrics.json",
+  "size": "lg"
+}

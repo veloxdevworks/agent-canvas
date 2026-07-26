@@ -9,8 +9,8 @@ enum CanvasWidgetFactory {
             kind: address.widgetKind,
             provider: CanvasTimelineProvider(address: address)
         ) { entry in
-            CanvasView(entry: entry)
-                .widgetURL(URL(string: "agentcanvas://detail?id=\(address.rawValue)"))
+            CanvasView(entry: entry, actionInteraction: .widgetLink)
+                .widgetURL(CanvasActionURL.documentURL(canvasId: address.rawValue))
         }
         .configurationDisplayName(address.displayName)
         .description(address.galleryDescription)

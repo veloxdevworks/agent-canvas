@@ -1,0 +1,21 @@
+{
+  "expected": {
+    "chartHeightScale": 1.0,
+    "droppedSectionCount": 1,
+    "droppedTypes": [
+      "text"
+    ],
+    "listItemsShown": 2,
+    "listItemsTotal": 2,
+    "shownIndices": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "shownSectionCount": 4,
+    "truncated": true
+  },
+  "fixture": "fixtures/sample-metrics.json",
+  "size": "xl"
+}

@@ -16,8 +16,17 @@ struct CanvasView: View {
     var isPreview: Bool = false
     /// Bypasses GeometryReader and renders the full clip directly.
     var disableClipping: Bool = false
+    /// How list-row actions are exposed (widget Link / host button / inert).
+    var actionInteraction: CanvasActionInteractionMode = .inert
+    /// Host detail: called with document section index, item index, and item.
+    var onListItemAction: ((Int, Int, ListItem) -> Void)? = nil
 
     private var size: CanvasSize { entry.address.size }
+
+    private var resolvedInteraction: CanvasActionInteractionMode {
+        if isPreview { return .inert }
+        return actionInteraction
+    }
 
     private var edgeInset: CGFloat {
         ContentClip.edgeInset(for: size)
@@ -119,8 +128,9 @@ struct CanvasView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            ForEach(Array(clip.shown.enumerated()), id: \.offset) { _, section in
-                sectionView(section, clip: clip)
+            ForEach(Array(clip.shown.enumerated()), id: \.offset) { offset, section in
+                let docIndex = offset < clip.shownIndices.count ? clip.shownIndices[offset] : offset
+                sectionView(section, clip: clip, documentSectionIndex: docIndex)
             }
 
             if fillTile && (showOverflow || entry.document.updatedAt != nil) {
@@ -205,7 +215,7 @@ struct CanvasView: View {
     }
 
     private func isRedundantTitle(_ title: String, sections: [CanvasSection]) -> Bool {
-        if case let .header(text, _, _)? = sections.first {
+        if case let .header(text, _, _, _, _)? = sections.first {
             return title.localizedCaseInsensitiveContains(text)
                 || text.localizedCaseInsensitiveContains(title)
         }
@@ -223,12 +233,20 @@ struct CanvasView: View {
     }
 
     @ViewBuilder
-    private func sectionView(_ section: CanvasSection, clip: ContentClip.Result) -> some View {
+    private func sectionView(
+        _ section: CanvasSection,
+        clip: ContentClip.Result,
+        documentSectionIndex: Int
+    ) -> some View {
         switch section {
-        case let .header(text, subtitle, _):
+        case let .header(text, subtitle, tone, emphasis, _):
             VStack(alignment: .leading, spacing: 2) {
                 Text(text)
-                    .font(disableClipping ? .title3.weight(.semibold) : .subheadline.weight(.semibold))
+                    .font(
+                        (disableClipping ? Font.title3 : Font.subheadline)
+                            .weight(emphasis == .strong ? .bold : .semibold)
+                    )
+                    .foregroundStyle(StyleTokens.foreground(tone: tone))
                     .lineLimit(disableClipping ? 4 : 2)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
@@ -238,9 +256,13 @@ struct CanvasView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-        case let .text(body, _):
+        case let .text(body, tone, emphasis, _):
             Text(body)
-                .font(disableClipping ? .body : .caption)
+                .font(
+                    (disableClipping ? Font.body : Font.caption)
+                        .weight(StyleTokens.fontWeight(for: emphasis))
+                )
+                .foregroundStyle(StyleTokens.foreground(tone: tone))
                 .lineLimit(disableClipping ? nil : (size == .sm ? 2 : 3))
                 .frame(maxWidth: .infinity, alignment: .leading)
         case let .metrics(items, _):
@@ -268,7 +290,13 @@ struct CanvasView: View {
                 size: sectionLayoutSize,
                 totalBeforeClip: disableClipping
                     ? nil
-                    : (clip.listItemsTotal > items.count ? clip.listItemsTotal : nil)
+                    : (clip.listItemsTotal > items.count ? clip.listItemsTotal : nil),
+                documentSectionIndex: documentSectionIndex,
+                canvasId: entry.address.rawValue,
+                interactionMode: resolvedInteraction,
+                onItemAction: { itemIndex, item in
+                    onListItemAction?(documentSectionIndex, itemIndex, item)
+                }
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         case let .image(_, caption, _):
@@ -276,8 +304,31 @@ struct CanvasView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-        case .spacer:
-            Color.clear.frame(height: 4)
+        case let .spacer(spacerSize, _):
+            Color.clear.frame(height: spacerSize?.gapPoints ?? 4)
+        case let .group(direction, gap, align, children, _, _):
+            GroupSectionView(
+                direction: direction,
+                gap: gap,
+                align: align,
+                childViews: children.map { child in
+                    AnyView(sectionView(child, clip: clip, documentSectionIndex: documentSectionIndex))
+                }
+            )
+        case let .progress(label, value, maximum, tone, _):
+            ProgressSectionView(
+                label: label,
+                value: value,
+                maximum: maximum,
+                tone: tone,
+                size: sectionLayoutSize
+            )
+        case .divider:
+            DividerSectionView()
+        case let .keyValue(items, _):
+            KeyValueSectionView(items: items, size: sectionLayoutSize)
+        case let .badges(items, _):
+            BadgesSectionView(items: items, size: sectionLayoutSize)
         case let .unknown(type):
             Text("Unsupported: \(type)")
                 .font(.caption2)

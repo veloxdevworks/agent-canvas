@@ -112,6 +112,8 @@ async fn main() -> anyhow::Result<()> {
                         id.size.display_label(),
                         id.slot.as_str()
                     )),
+                    tone: None,
+                    emphasis: None,
                     priority: None,
                 },
                 agent_canvas_core::Section::Text {
@@ -120,6 +122,8 @@ async fn main() -> anyhow::Result<()> {
                         id.size.short(),
                         id.as_str()
                     ),
+                    tone: None,
+                    emphasis: None,
                     priority: None,
                 },
             ];
@@ -349,7 +353,9 @@ fn parse_canvas_content(raw: Value) -> Result<CanvasDocument, String> {
         format!(
             "invalid content: {e}. Minimal working example: {MINIMAL_EXAMPLE}. \
              Section types: header|text|metrics|chart|list|image|spacer. \
-             chartType: bar|line|pie|gauge. metrics items need label+value strings."
+             chartType: bar|line|pie|gauge. metrics items need label+value strings. \
+             Optional onOpen / list items[].action: expand|url|file|noop \
+             (url schemes: http|https|mailto only; file reveals in Finder)."
         )
     })
 }
@@ -375,7 +381,9 @@ struct UpdateCanvasArgs {
     /// Full canvas document object (NOT a string). Prefer starting from this minimal shape:
     /// {"version":1,"title":"Hello","sections":[{"type":"header","text":"Hello World","subtitle":"status"},{"type":"metrics","items":[{"label":"Status","value":"OK"}]}]}
     /// Section types: header|text|metrics|chart|list|image|spacer. chartType: bar|line|pie|gauge.
-    /// metrics items: {label, value, trend?}. list items: {primary, secondary?, badge?}.
+    /// metrics items: {label, value, trend?}. list items: {primary, secondary?, badge?, action?}.
+    /// Optional onOpen / items[].action: {type:expand|url|file|noop}. url: http|https|mailto only.
+    /// Optional detail.sections for a richer expand window (not counted in glance density).
     content: Value,
     /// If true, reject over-budget content with repair_hint instead of writing.
     /// Default false: write succeeds but densityReport.overBudget warns; widget still clips.
@@ -507,6 +515,10 @@ For charts/lists/full layouts use update_canvas instead. canvas: size-first id (
         description = "Replace full content of one desktop canvas with a schema v1 document. \
 MINIMAL WORKING content: {\"version\":1,\"title\":\"Hello\",\"sections\":[{\"type\":\"header\",\"text\":\"Hello World\",\"subtitle\":\"status\"},{\"type\":\"metrics\",\"items\":[{\"label\":\"Status\",\"value\":\"OK\"}]}]}. \
 canvas is size-first (sm-one, md-two, …). Prefer update_canvas_simple for text/header/status-only updates. \
+Optional onOpen / list items[].action: expand|url|file|noop (url: http|https|mailto; file reveals in Finder). \
+Optional detail.sections for expand window (may include type=group). \
+Leaves: progress|divider|keyValue|badges; optional tone/emphasis tokens (critical|warning|success|info|muted; strong|normal|subtle). \
+group is detail-only (not glance sections). sm tiles: whole-tile onOpen only (no per-row taps). \
 HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. Full document replace only."
     )]
     async fn update_canvas(
@@ -1058,6 +1070,11 @@ impl ServerHandler for AgentCanvasMcp {
                  After updates call preview_canvas(canvas) to get a PNG of the real widget layout (host app must be running).\
                  {cloud_hint} \
                  Do NOT omit sections[].type. Do NOT send content as a bare string unless it is JSON. \
+                 Optional onOpen / list items[].action: expand|url|file|noop \
+                 (url schemes http|https|mailto only; file reveals in Finder, never launches). \
+                 Optional detail.sections for the expand window (group layouts allowed there only). \
+                 Style with tone/emphasis tokens — never hex colors or point sizes. \
+                 Leaves: progress, divider, keyValue, badges. sm: whole-tile taps only. \
                  HARD budgets: sm≤2 sections (no charts); md≤4/4/8; lg≤6/8/12; xl≤8/12/20. \
                  If a call fails, read the error JSON (example + tip) and retry once. \
                  Canvas is a glanceable headline, not a document."

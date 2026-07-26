@@ -79,3 +79,17 @@ jobs:
             -derivedDataPath ../../build/ci-macos \
             CODE_SIGNING_ALLOWED=NO \
             build
+
+      - name: Conformance tests (ContentClip goldens)
+        working-directory: platforms/macos
+        env:
+          CODE_SIGNING_ALLOWED: NO
+        run: |
+          xcodebuild \
+            -project AgentCanvas.xcodeproj \
+            -scheme AgentCanvas \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath ../../build/ci-macos \
+            CODE_SIGNING_ALLOWED=NO \
+            test

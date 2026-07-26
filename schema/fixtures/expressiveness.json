@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "title": "Expressiveness",
+  "sections": [
+    {
+      "type": "header",
+      "text": "Release health",
+      "subtitle": "Tokens + leaves",
+      "tone": "info",
+      "emphasis": "strong"
+    },
+    {
+      "type": "metrics",
+      "items": [
+        { "label": "Errors", "value": "3", "trend": "+1", "tone": "critical", "emphasis": "strong" },
+        { "label": "Pass", "value": "98%", "tone": "success" }
+      ]
+    },
+    {
+      "type": "badges",
+      "items": [
+        { "text": "beta", "tone": "warning" },
+        { "text": "prod", "tone": "success" }
+      ]
+    },
+    {
+      "type": "progress",
+      "label": "Canary",
+      "value": 0.62,
+      "tone": "info"
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "keyValue",
+      "items": [
+        { "key": "Region", "value": "us-west" },
+        { "key": "SLA", "value": "99.9%", "tone": "success" }
+      ]
+    }
+  ],
+  "detail": {
+    "sections": [
+      {
+        "type": "header",
+        "text": "Expanded layout",
+        "emphasis": "strong"
+      },
+      {
+        "type": "group",
+        "direction": "row",
+        "gap": "md",
+        "children": [
+          {
+            "type": "metrics",
+            "items": [
+              { "label": "p50", "value": "42ms" },
+              { "label": "p95", "value": "110ms", "tone": "warning" }
+            ]
+          },
+          {
+            "type": "progress",
+            "label": "Budget",
+            "value": 0.8,
+            "tone": "success"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "content": "Group is detail-only; glance tiles keep a flat section list.",
+        "tone": "muted"
+      }
+    ]
+  }
+}

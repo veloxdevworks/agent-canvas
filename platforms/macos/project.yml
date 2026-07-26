@@ -14,7 +14,7 @@ settings:
   base:
     # Bump CURRENT_PROJECT_VERSION whenever widget kinds/names change so WidgetKit re-indexes.
     MARKETING_VERSION: "0.2.0"
-    CURRENT_PROJECT_VERSION: 2
+    CURRENT_PROJECT_VERSION: 4
     SWIFT_VERSION: "5.9"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     # DEVELOPMENT_TEAM comes from Config/Local.xcconfig (gitignored) or env via scripts.
@@ -73,8 +73,22 @@ targets:
         embed: true
         codeSign: true
     scheme:
-      testTargets: []
+      testTargets:
+        - AgentCanvasTests
       gatherCoverageData: false
+
+  AgentCanvasTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: AgentCanvasTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.velox.agentcanvas.tests
+        GENERATE_INFOPLIST_FILE: YES
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+    dependencies:
+      - target: AgentCanvas
 
   AgentCanvasWidget:
     type: app-extension
@@ -118,6 +132,11 @@ schemes:
       targets:
         AgentCanvas: all
         AgentCanvasWidget: all
+        AgentCanvasTests: [test]
     run:
       config: Debug
       executable: AgentCanvas
+    test:
+      config: Debug
+      targets:
+        - AgentCanvasTests

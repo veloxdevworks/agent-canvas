@@ -29,8 +29,9 @@ Agents are good at fetching data and drafting summaries, but they have nowhere d
 | **macOS host** | Menu bar app (stays running with zero windows); status, how-to, connect wizard |
 | **Widgets** | 12 WidgetKit kinds: **sm / md / lg / xl** × **one / two / three** |
 | **MCP server** | Local stdio (`agent-canvas-mcp`) for Cursor, Claude Desktop, etc. |
-| **Content** | Schema v1: header, text, metrics, chart, list, image, spacer |
-| **Agent feedback** | Density reports, predicted clip, last-render meta, **`preview_canvas`** (PNG of the real tile) |
+| **Content** | Schema v1: header, text, metrics, chart, list, image, spacer, progress, divider, keyValue, badges; optional `tone`/`emphasis`; detail-only `group`; optional `onOpen` / list `action` and `detail` |
+| **Agent feedback** | Density reports, predicted clip (reference packer), last-render meta, **`preview_canvas`** (PNG of the real tile) |
+| **Portability** | Layout constants + packer live in Rust; macOS renderer consumes generated `LayoutSpec`; `schema/conformance` goldens |
 | **Data** | `~/.velox/canvas/canvases/{id}.json` |
 | **Distribution** | Direct / developer install (not Mac App Store) |
 
@@ -92,8 +93,8 @@ Rough direction (not a commitment to dates):
 - **GitHub Releases** — version tags, changelog, installable artifacts (MCP binary today; notarized `.app` next)  
 - **In-app updates** — Sparkle (“Check for Updates…” + optional auto-check)  
 - **Polished onboarding & packaging** — MCP bundled with the app for end users  
-- **Schema / density** — more reliable agent recipes without bloating the primitive set  
-- **Cross-platform** — shared schema + MCP; native shells beyond macOS later  
+- **Schema / density** — promote proven `group` layouts from detail → glance; more leaves as demand appears  
+- **Cross-platform** — shared schema + MCP + layout_spec; native shells (Windows Adaptive Cards, KDE QML) later  
 
 Design notes and older architecture drafts live in [`plan.md`](./plan.md) (some sections still use early naming).
 

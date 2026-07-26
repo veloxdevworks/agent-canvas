@@ -1,0 +1,22 @@
+{
+  "expected": {
+    "chartHeightScale": 0.9,
+    "droppedSectionCount": 3,
+    "droppedTypes": [
+      "chart",
+      "chart",
+      "text"
+    ],
+    "listItemsShown": 2,
+    "listItemsTotal": 2,
+    "shownIndices": [
+      0,
+      1,
+      4
+    ],
+    "shownSectionCount": 3,
+    "truncated": true
+  },
+  "fixture": "fixtures/demo-xl-one.json",
+  "size": "sm"
+}
