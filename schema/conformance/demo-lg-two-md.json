@@ -1,6 +1,7 @@
 {
   "expected": {
     "chartHeightScale": 0.85,
+    "cover": false,
     "droppedSectionCount": 1,
     "droppedTypes": [
       "chart"

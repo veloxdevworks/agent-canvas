@@ -29,10 +29,10 @@ Agents are good at fetching data and drafting summaries, but they have nowhere d
 | **macOS host** | Menu bar app (stays running with zero windows); status, how-to, connect wizard |
 | **Widgets** | 12 WidgetKit kinds: **sm / md / lg / xl** × **one / two / three** |
 | **MCP server** | Local stdio (`agent-canvas-mcp`) for Cursor, Claude Desktop, etc. |
-| **Content** | Schema v1: header, text, metrics, chart, list, image, spacer, progress, divider, keyValue, badges; optional `tone`/`emphasis`; detail-only `group`; optional `onOpen` / list `action` and `detail` |
-| **Agent feedback** | Density reports, predicted clip (reference packer), last-render meta, **`preview_canvas`** (PNG of the real tile) |
+| **Content** | Schema v1: header, text, metrics, chart, list, image, spacer, progress, divider, keyValue, badges; optional `tone`/`emphasis`; detail-only `group`; optional `onOpen` / list `action` and `detail`; optional full-bleed `cover` |
+| **Agent feedback** | Density reports, predicted clip (reference packer), last-render meta, **`preview_canvas`** (PNG of the real tile); cover aspect warnings from `set_canvas_cover` |
 | **Portability** | Layout constants + packer live in Rust; macOS renderer consumes generated `LayoutSpec`; `schema/conformance` goldens |
-| **Data** | `~/.velox/canvas/canvases/{id}.json` |
+| **Data** | `~/.velox/canvas/canvases/{id}.json`; assets under `~/.velox/canvas/assets/` |
 | **Distribution** | Direct / developer install (not Mac App Store) |
 
 ### Canvas ids
@@ -51,8 +51,9 @@ The id encodes density: updating `sm-one` always means a small glance surface.
 | Tool | Role |
 |------|------|
 | `update_canvas` / `update_canvas_simple` | Write content |
+| `set_canvas_cover` / `clear_canvas_cover` | Full-bleed custom PNG/JPEG (agent-generated) |
 | `get_canvas` / `list_canvases` | Read state + layout hints |
-| `get_layout_guide` | Size budgets for agents |
+| `get_layout_guide` | Size budgets + cover target pixels for agents |
 | `preview_canvas` | PNG snapshot (host must be running) |
 | `share_canvas` / `update_shared_canvas` / `unshare_canvas` / `list_shared` | Publish to canvas cloud (**dev only**, see below) |
 | `clear_canvas` | Empty a surface |

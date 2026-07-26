@@ -47,6 +47,7 @@ fn main() {
                     "chartHeightScale": r.chart_height_scale,
                     "shownSectionCount": r.shown_section_count,
                     "droppedSectionCount": r.dropped_section_count,
+                    "cover": r.cover,
                 }
             });
             let out = out_dir.join(format!("{}-{}.json", name, size.short()));

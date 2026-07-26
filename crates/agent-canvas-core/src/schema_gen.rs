@@ -32,6 +32,10 @@ pub fn generate_canvas_schema() -> Value {
                 "type": "string",
                 "maxLength": 120
             },
+            "cover": {
+                "$ref": "#/$defs/cover",
+                "description": "Full-bleed glance image. When set, the widget renders only this image (no title/timestamp/sections). Prefer set_canvas_cover (base64 → asset:). data: accepted on write and externalized to asset:."
+            },
             "onOpen": {
                 "$ref": "#/$defs/action",
                 "description": "Action when the user taps the widget tile. Default when omitted: expand (detail window)."
@@ -65,6 +69,34 @@ pub fn generate_canvas_schema() -> Value {
                 "type": "string",
                 "enum": ["strong", "normal", "subtle"],
                 "description": "Semantic emphasis (maps to system font weights / Adaptive Cards weight)."
+            },
+            "coverFit": {
+                "type": "string",
+                "enum": ["cover", "contain"],
+                "description": "How the cover fills the tile. cover = fill and crop (default); contain = letterbox."
+            },
+            "imageHeight": {
+                "type": "string",
+                "enum": ["small", "medium", "large"],
+                "description": "Height token for inline image sections (resolved per widget size in layout_spec)."
+            },
+            "cover": {
+                "type": "object",
+                "required": ["source", "alt"],
+                "additionalProperties": false,
+                "properties": {
+                    "source": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "asset:{sha256}.{png|jpg} after write; data:image/png|jpeg;base64,... accepted on input and externalized."
+                    },
+                    "alt": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Accessibility label and decode-failure fallback."
+                    },
+                    "fit": { "$ref": "#/$defs/coverFit" }
+                }
             },
             "action": {
                 "oneOf": [
@@ -258,7 +290,7 @@ pub fn generate_canvas_schema() -> Value {
                     "type": { "const": "image" },
                     "source": {
                         "type": "string",
-                        "description": "data:image/...;base64,... or file:// under app data. No remote URLs in v1.",
+                        "description": "asset:{sha256}.{png|jpg} or data:image/...;base64,... (externalized on write). No remote URLs.",
                         "minLength": 1
                     },
                     "url": {
@@ -266,6 +298,7 @@ pub fn generate_canvas_schema() -> Value {
                         "description": "Legacy alias for source."
                     },
                     "caption": { "type": "string" },
+                    "height": { "$ref": "#/$defs/imageHeight" },
                     "priority": { "$ref": "#/$defs/priority" }
                 }
             },

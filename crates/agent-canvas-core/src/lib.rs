@@ -1,6 +1,7 @@
 //! Agent Canvas core: canvas IDs, schema models, validation, and file storage.
 #![recursion_limit = "512"]
 
+mod assets;
 mod cloud;
 mod conformance;
 mod demos;
@@ -15,6 +16,11 @@ mod schema_gen;
 mod section_meta;
 mod storage;
 
+pub use assets::{
+    assets_dir, collect_asset_refs, decode_image_input, externalize_document, gc as gc_assets,
+    read_dimensions, resolve_asset, sniff_format, validate_image_bytes, validate_image_source,
+    write_asset, ImageFormat, ImageMeta, MAX_IMAGE_BYTES, MAX_IMAGE_PIXELS,
+};
 pub use cloud::{
     default_token_store, normalize_slug, validate_slug, CanvasCloudClient, CloudConfig,
     EditTokenStore, FileTokenStore, KeyringTokenStore, PublishResponse, ShareIndex, ShareRecord,

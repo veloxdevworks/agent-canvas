@@ -55,7 +55,9 @@ enum LayoutSpec {
         let headerHeightNoSubtitle: CGFloat
         let headerHeightWithSubtitle: CGFloat
         let textHeight: CGFloat
-        let imageHeight: CGFloat
+        let imageHeightSmall: CGFloat
+        let imageHeightMedium: CGFloat
+        let imageHeightLarge: CGFloat
         let spacerHeight: CGFloat
         let progressHeight: CGFloat
         let dividerHeight: CGFloat
@@ -86,7 +88,9 @@ enum LayoutSpec {
                 headerHeightNoSubtitle: 16,
                 headerHeightWithSubtitle: 24,
                 textHeight: 26,
-                imageHeight: 16,
+                imageHeightSmall: 40,
+                imageHeightMedium: 60,
+                imageHeightLarge: 80,
                 spacerHeight: 4,
                 progressHeight: 18,
                 dividerHeight: 8,
@@ -114,7 +118,9 @@ enum LayoutSpec {
                 headerHeightNoSubtitle: 16,
                 headerHeightWithSubtitle: 26,
                 textHeight: 34,
-                imageHeight: 16,
+                imageHeightSmall: 44,
+                imageHeightMedium: 72,
+                imageHeightLarge: 110,
                 spacerHeight: 4,
                 progressHeight: 20,
                 dividerHeight: 8,
@@ -142,7 +148,9 @@ enum LayoutSpec {
                 headerHeightNoSubtitle: 18,
                 headerHeightWithSubtitle: 28,
                 textHeight: 34,
-                imageHeight: 16,
+                imageHeightSmall: 56,
+                imageHeightMedium: 96,
+                imageHeightLarge: 150,
                 spacerHeight: 4,
                 progressHeight: 22,
                 dividerHeight: 10,
@@ -170,7 +178,9 @@ enum LayoutSpec {
                 headerHeightNoSubtitle: 18,
                 headerHeightWithSubtitle: 28,
                 textHeight: 34,
-                imageHeight: 16,
+                imageHeightSmall: 56,
+                imageHeightMedium: 96,
+                imageHeightLarge: 150,
                 spacerHeight: 4,
                 progressHeight: 22,
                 dividerHeight: 10,

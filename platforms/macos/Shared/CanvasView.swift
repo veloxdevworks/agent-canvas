@@ -38,6 +38,8 @@ struct CanvasView: View {
             // collapse to zero there.
             if entry.document.isEmptyContent || entry.isPlaceholder {
                 emptyState(fillTile: false)
+            } else if let cover = entry.document.cover {
+                detailCoverStack(cover: cover)
             } else {
                 contentStack(clip: entry.clip, fillTile: false)
             }
@@ -47,6 +49,8 @@ struct CanvasView: View {
                 Group {
                     if entry.document.isEmptyContent || entry.isPlaceholder {
                         emptyState(fillTile: true)
+                    } else if let cover = entry.document.cover {
+                        coverTile(cover: cover, tile: geo.size, clip: clip)
                     } else {
                         contentStack(clip: clip, fillTile: true)
                     }
@@ -71,6 +75,59 @@ struct CanvasView: View {
             }
         }
     }
+
+    /// Full-bleed cover for the glance tile. Falls back to sections if decode fails.
+    @ViewBuilder
+    private func coverTile(cover: CanvasCover, tile: CGSize, clip: ContentClip.Result) -> some View {
+        let maxPx = max(tile.width, tile.height) * 2
+        let mode: ContentMode = cover.resolvedFit == .contain ? .fit : .fill
+        if CanvasImageLoader.load(source: cover.source, maxPixelSize: maxPx) != nil {
+            CanvasRemoteImage(
+                source: cover.source,
+                alt: cover.alt,
+                maxPixelSize: maxPx,
+                contentMode: mode
+            )
+            .frame(width: tile.width, height: tile.height)
+            .clipped()
+        } else {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Cover unavailable")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                contentStack(clip: ContentClip.apply(document: entry.document.withoutCover, size: size, maxHeight: tile.height - 20), fillTile: true)
+            }
+            .padding(edgeInset)
+        }
+    }
+
+    @ViewBuilder
+    private func detailCoverStack(cover: CanvasCover) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            let maxPx = Self.idealDetailCoverWidth * 2
+            let mode: ContentMode = cover.resolvedFit == .contain ? .fit : .fill
+            if CanvasImageLoader.load(source: cover.source, maxPixelSize: maxPx) != nil {
+                CanvasRemoteImage(
+                    source: cover.source,
+                    alt: cover.alt,
+                    maxPixelSize: maxPx,
+                    contentMode: mode
+                )
+                .frame(maxWidth: .infinity)
+                .frame(height: 220)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            } else {
+                Label(cover.alt, systemImage: "photo")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            contentStack(clip: entry.clip, fillTile: false)
+        }
+    }
+
+    private static let idealDetailCoverWidth: CGFloat = 480
 
     private var previewCornerRadius: CGFloat {
         switch size {
@@ -299,11 +356,27 @@ struct CanvasView: View {
                 }
             )
             .frame(maxWidth: .infinity, alignment: .leading)
-        case let .image(_, caption, _):
-            Label(caption ?? "Image", systemImage: "photo")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+        case let .image(source, caption, height, _):
+            let h = ContentClip.imageHeight(for: size, height: height)
+            let maxPx = max(h, size == .sm ? 170 : 364) * 2
+            VStack(alignment: .leading, spacing: 2) {
+                CanvasRemoteImage(
+                    source: source,
+                    alt: caption ?? "Image",
+                    maxPixelSize: maxPx,
+                    contentMode: .fill
+                )
+                .frame(maxWidth: .infinity)
+                .frame(height: h)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                if let caption, !caption.isEmpty {
+                    Text(caption)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
         case let .spacer(spacerSize, _):
             Color.clear.frame(height: spacerSize?.gapPoints ?? 4)
         case let .group(direction, gap, align, children, _, _):

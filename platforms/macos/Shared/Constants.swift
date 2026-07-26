@@ -15,6 +15,11 @@ enum AgentCanvasConstants {
     /// MCP → host: request a PNG snapshot of a canvas.
     static let previewRequestFileName = ".preview-request"
     static let previewsSubdir = "previews"
+    static let assetsSubdir = "assets"
+    /// Matches Rust `MAX_IMAGE_PIXELS`.
+    static let maxImagePixels: Int = 4_000_000
+    /// Matches Rust `MAX_IMAGE_BYTES`.
+    static let maxImageBytes: Int = 2 * 1024 * 1024
     static let sharesFileName = "shares.json"
     static let subscriptionsFileName = "subscriptions.json"
     static let cloudConfigFileName = "cloud-config.json"

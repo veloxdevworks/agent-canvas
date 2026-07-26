@@ -76,9 +76,10 @@ impl HistoryIndex {
     }
 }
 
-/// Compare title + sections only (ignore timestamps / schema version churn).
+/// Compare title + cover + sections only (ignore timestamps / schema version churn).
 pub fn content_equal(a: &CanvasDocument, b: &CanvasDocument) -> bool {
     a.title == b.title
+        && serde_json::to_value(&a.cover).ok() == serde_json::to_value(&b.cover).ok()
         && serde_json::to_value(&a.on_open).ok() == serde_json::to_value(&b.on_open).ok()
         && serde_json::to_value(&a.sections).ok() == serde_json::to_value(&b.sections).ok()
         && serde_json::to_value(&a.detail).ok() == serde_json::to_value(&b.detail).ok()

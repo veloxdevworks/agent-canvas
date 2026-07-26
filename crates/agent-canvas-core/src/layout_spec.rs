@@ -46,7 +46,10 @@ pub struct SizeLayoutSpec {
     pub header_height_no_subtitle: f64,
     pub header_height_with_subtitle: f64,
     pub text_height: f64,
-    pub image_height: f64,
+    /// Inline image height tokens (small / medium / large).
+    pub image_height_small: f64,
+    pub image_height_medium: f64,
+    pub image_height_large: f64,
     pub spacer_height: f64,
     pub progress_height: f64,
     pub divider_height: f64,
@@ -78,7 +81,9 @@ impl WidgetSize {
                 header_height_no_subtitle: 16.0,
                 header_height_with_subtitle: 24.0,
                 text_height: 26.0,
-                image_height: 16.0,
+                image_height_small: 40.0,
+                image_height_medium: 60.0,
+                image_height_large: 80.0,
                 spacer_height: 4.0,
                 progress_height: 18.0,
                 divider_height: 8.0,
@@ -106,7 +111,9 @@ impl WidgetSize {
                 header_height_no_subtitle: 16.0,
                 header_height_with_subtitle: 26.0,
                 text_height: 34.0,
-                image_height: 16.0,
+                image_height_small: 44.0,
+                image_height_medium: 72.0,
+                image_height_large: 110.0,
                 spacer_height: 4.0,
                 progress_height: 20.0,
                 divider_height: 8.0,
@@ -134,7 +141,9 @@ impl WidgetSize {
                 header_height_no_subtitle: 18.0,
                 header_height_with_subtitle: 28.0,
                 text_height: 34.0,
-                image_height: 16.0,
+                image_height_small: 56.0,
+                image_height_medium: 96.0,
+                image_height_large: 150.0,
                 spacer_height: 4.0,
                 progress_height: 22.0,
                 divider_height: 10.0,
@@ -162,7 +171,9 @@ impl WidgetSize {
                 header_height_no_subtitle: 18.0,
                 header_height_with_subtitle: 28.0,
                 text_height: 34.0,
-                image_height: 16.0,
+                image_height_small: 56.0,
+                image_height_medium: 96.0,
+                image_height_large: 150.0,
                 spacer_height: 4.0,
                 progress_height: 22.0,
                 divider_height: 10.0,
@@ -172,6 +183,17 @@ impl WidgetSize {
                 overflow_line_height: 12.0,
                 timestamp_height: 11.0,
             },
+        }
+    }
+}
+
+impl SizeLayoutSpec {
+    pub fn image_height_for(&self, height: crate::schema::ImageHeight) -> f64 {
+        use crate::schema::ImageHeight::*;
+        match height {
+            Small => self.image_height_small,
+            Medium => self.image_height_medium,
+            Large => self.image_height_large,
         }
     }
 }
@@ -242,7 +264,9 @@ pub fn generate_swift_layout_spec() -> String {
     out.push_str("        let headerHeightNoSubtitle: CGFloat\n");
     out.push_str("        let headerHeightWithSubtitle: CGFloat\n");
     out.push_str("        let textHeight: CGFloat\n");
-    out.push_str("        let imageHeight: CGFloat\n");
+    out.push_str("        let imageHeightSmall: CGFloat\n");
+    out.push_str("        let imageHeightMedium: CGFloat\n");
+    out.push_str("        let imageHeightLarge: CGFloat\n");
     out.push_str("        let spacerHeight: CGFloat\n");
     out.push_str("        let progressHeight: CGFloat\n");
     out.push_str("        let dividerHeight: CGFloat\n");
@@ -315,8 +339,16 @@ pub fn generate_swift_layout_spec() -> String {
         ));
         out.push_str(&format!("                textHeight: {},\n", spec.text_height));
         out.push_str(&format!(
-            "                imageHeight: {},\n",
-            spec.image_height
+            "                imageHeightSmall: {},\n",
+            spec.image_height_small
+        ));
+        out.push_str(&format!(
+            "                imageHeightMedium: {},\n",
+            spec.image_height_medium
+        ));
+        out.push_str(&format!(
+            "                imageHeightLarge: {},\n",
+            spec.image_height_large
         ));
         out.push_str(&format!(
             "                spacerHeight: {},\n",

@@ -105,6 +105,7 @@ struct CanvasDetailWindowView: View {
                     version: document.version,
                     updatedAt: document.updatedAt,
                     title: document.title,
+                    cover: document.cover,
                     onOpen: document.onOpen,
                     sections: sections,
                     detail: nil
@@ -116,7 +117,8 @@ struct CanvasDetailWindowView: View {
                     droppedTypes: [],
                     truncated: false,
                     listItemsShown: totalListItems,
-                    listItemsTotal: totalListItems
+                    listItemsTotal: totalListItems,
+                    cover: false
                 ),
                 displaySize: CGSize(width: Self.idealWidth, height: Self.maxHeight)
             )

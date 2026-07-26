@@ -145,6 +145,8 @@ Every new section type or styling knob must pass before merge:
 4. Height derivable from Rust `layout_spec` without platform font metrics?
 5. Policy lands in Rust (`section_meta` / `layout_spec` / packer); `platforms/macos/Shared/` gains rendering only?
 
+**Cover images (2026-07):** Passed. Adaptive Cards `backgroundImage` + `fillMode: cover` / QML `Image { fillMode: PreserveAspectCrop }` map cleanly; `fit` and image `height` are tokens; cover height is the whole tile; asset store + validation live in Rust (`assets`, schema, packer); Swift only decodes/renders. Tradeoff documented for agents: covers are not Dark Mode / Dynamic Type aware.
+
 ### Unknown section types (intentional asymmetry)
 
 | Layer | Behavior |

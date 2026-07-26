@@ -42,6 +42,7 @@ final class ContentClipConformanceTests: XCTestCase {
                 accuracy: 0.0001,
                 file.lastPathComponent
             )
+            XCTAssertEqual(got.cover, caseFile.expected.cover ?? false, file.lastPathComponent)
         }
     }
 
@@ -72,6 +73,7 @@ private struct ConformanceCase: Decodable {
         let chartHeightScale: Double
         let shownSectionCount: Int
         let droppedSectionCount: Int
+        let cover: Bool?
     }
 }
 

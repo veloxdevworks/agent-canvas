@@ -163,6 +163,7 @@ enum CanvasHistory {
 
     static func contentEqual(_ a: CanvasDocument, _ b: CanvasDocument) -> Bool {
         a.title == b.title
+            && a.cover == b.cover
             && a.onOpen == b.onOpen
             && a.sections == b.sections
             && a.detail == b.detail

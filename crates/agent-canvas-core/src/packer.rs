@@ -19,6 +19,8 @@ pub struct PackResult {
     pub chart_height_scale: f64,
     pub shown_section_count: usize,
     pub dropped_section_count: usize,
+    /// True when document has a cover — glance renders full-bleed, sections unused.
+    pub cover: bool,
 }
 
 impl PackResult {
@@ -33,6 +35,20 @@ pub fn pack(
     size: WidgetSize,
     max_height: Option<f64>,
 ) -> PackResult {
+    if document.cover.is_some() {
+        return PackResult {
+            shown_indices: vec![],
+            dropped_types: vec![],
+            truncated: false,
+            list_items_shown: 0,
+            list_items_total: 0,
+            chart_height_scale: 1.0,
+            shown_section_count: 0,
+            dropped_section_count: 0,
+            cover: true,
+        };
+    }
+
     let spec = size.layout_spec();
     let budget = max_height.unwrap_or_else(|| default_content_height(&spec));
     let spacing = spec.section_spacing;
@@ -230,6 +246,7 @@ pub fn pack(
         list_items_shown: list_shown,
         list_items_total: list_total,
         chart_height_scale: min_chart_scale.unwrap_or(spec.chart_height_scale),
+        cover: false,
     }
 }
 
@@ -337,7 +354,9 @@ pub fn estimated_height(
             list_section_height(spec, title.as_deref(), items.len())
         }
         Section::Text { .. } => spec.text_height,
-        Section::Image { .. } => spec.image_height,
+        Section::Image { height, .. } => {
+            spec.image_height_for(height.unwrap_or_default())
+        }
         Section::Spacer { size, .. } => size.map(|s| s.gap_points()).unwrap_or(spec.spacer_height),
         Section::Progress { .. } => spec.progress_height,
         Section::Divider { .. } => spec.divider_height,

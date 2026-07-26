@@ -4,6 +4,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::assets;
 use crate::error::{Error, Result};
 use crate::section_meta::SectionKind;
 
@@ -23,6 +24,9 @@ pub struct CanvasDocument {
     pub updated_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    /// Full-bleed glance image. When set, replaces tile chrome/sections on the widget.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cover: Option<Cover>,
     /// What happens when the user taps the widget tile (default: expand).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_open: Option<Action>,
@@ -31,6 +35,54 @@ pub struct CanvasDocument {
     /// Optional richer layout for the expand detail window.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<CanvasDetail>,
+}
+
+/// Full-bleed cover image for the glance tile.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Cover {
+    /// `asset:{sha256}.{png|jpg}` after write; `data:image/...;base64,...` accepted on input.
+    pub source: String,
+    /// Accessibility label and decode-failure fallback string.
+    pub alt: String,
+    /// How the image fills the tile (default: cover).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fit: Option<CoverFit>,
+}
+
+/// Semantic fit token — never point sizes.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum CoverFit {
+    /// Fill and crop (default).
+    #[default]
+    Cover,
+    /// Letterbox to fit.
+    Contain,
+}
+
+impl Cover {
+    pub fn validate(&self, ctx: &str) -> Result<()> {
+        if self.alt.trim().is_empty() {
+            return Err(Error::Validation(format!("{ctx}: alt is required")));
+        }
+        assets::validate_image_source(&self.source, ctx)?;
+        Ok(())
+    }
+
+    pub fn fit_or_default(&self) -> CoverFit {
+        self.fit.unwrap_or_default()
+    }
+}
+
+/// Height token for inline `image` sections.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ImageHeight {
+    Small,
+    #[default]
+    Medium,
+    Large,
 }
 
 /// Tailored expanded-view content (not counted toward glance density).
@@ -58,6 +110,7 @@ impl CanvasDocument {
             version: Self::SCHEMA_VERSION,
             updated_at: Utc::now(),
             title: None,
+            cover: None,
             on_open: None,
             sections: vec![],
             detail: None,
@@ -65,6 +118,9 @@ impl CanvasDocument {
     }
 
     pub fn is_empty_content(&self) -> bool {
+        if self.cover.is_some() {
+            return false;
+        }
         self.sections.is_empty() && self.title.as_ref().map(|t| t.is_empty()).unwrap_or(true)
     }
 
@@ -97,6 +153,9 @@ impl CanvasDocument {
                 self.sections.len(),
                 Self::MAX_SECTIONS
             )));
+        }
+        if let Some(cover) = &self.cover {
+            cover.validate("cover")?;
         }
         if let Some(on_open) = &self.on_open {
             on_open.validate("onOpen")?;
@@ -271,11 +330,14 @@ pub enum Section {
         priority: Option<u32>,
     },
     Image {
-        /// Prefer `data:image/...;base64,...` or a local `file://` under app data.
+        /// Prefer `asset:{sha}.{ext}` (after write) or `data:image/...;base64,...` on input.
         #[serde(alias = "url")]
         source: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         caption: Option<String>,
+        /// Height token: small | medium | large (default medium).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        height: Option<ImageHeight>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         priority: Option<u32>,
     },
@@ -397,16 +459,7 @@ impl Section {
                 }
             }
             Section::Image { source, .. } => {
-                if source.trim().is_empty() {
-                    return Err(Error::Validation(format!(
-                        "{ctx}.image: source is required"
-                    )));
-                }
-                if source.starts_with("http://") || source.starts_with("https://") {
-                    return Err(Error::Validation(format!(
-                        "{ctx}.image: remote URLs are not supported in v1 (use data: or file://)"
-                    )));
-                }
+                assets::validate_image_source(source, &format!("{ctx}.image"))?;
             }
             Section::Spacer { .. } => {}
             Section::Group { children, .. } => {

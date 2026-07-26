@@ -15,6 +15,17 @@ enum ContentClip {
         var listItemsTotal: Int
         /// Applied to chart plots when packing had to shrink them to fit metrics/header.
         var chartHeightScale: CGFloat = 1.0
+        /// Document has a cover — glance is full-bleed; sections unused on tile.
+        var cover: Bool = false
+    }
+
+    static func imageHeight(for size: CanvasSize, height: ImageHeight?) -> CGFloat {
+        let spec = LayoutSpec.size(size)
+        switch height ?? .default {
+        case .small: return spec.imageHeightSmall
+        case .medium: return spec.imageHeightMedium
+        case .large: return spec.imageHeightLarge
+        }
     }
 
     static func listItemCap(for size: CanvasSize) -> Int {
@@ -82,8 +93,8 @@ enum ContentClip {
             return listSectionHeight(title: title, rows: items.count, size: size)
         case .text:
             return spec.textHeight
-        case .image:
-            return spec.imageHeight
+        case let .image(_, _, height, _):
+            return imageHeight(for: size, height: height)
         case let .spacer(spacerSize, _):
             return spacerSize?.gapPoints ?? spec.spacerHeight
         case let .progress(_, _, _, _, _):
@@ -176,6 +187,19 @@ enum ContentClip {
         size: CanvasSize,
         maxHeight: CGFloat? = nil
     ) -> Result {
+        if document.cover != nil {
+            return Result(
+                shown: [],
+                shownIndices: [],
+                droppedTypes: [],
+                truncated: false,
+                listItemsShown: 0,
+                listItemsTotal: 0,
+                chartHeightScale: 1.0,
+                cover: true
+            )
+        }
+
         let spec = LayoutSpec.size(size)
         let budget = maxHeight ?? defaultContentHeight(for: size)
         let candidates = prioritizedCandidates(document: document, size: size)

@@ -202,8 +202,24 @@ pub struct DensityReport {
 }
 
 pub fn layout_guide_document() -> Value {
+    let cover_targets: Vec<Value> = WidgetSize::ALL
+        .iter()
+        .copied()
+        .map(|s| {
+            let spec = s.layout_spec();
+            json!({
+                "size": s.short(),
+                "tilePoints": { "w": spec.tile_width, "h": spec.tile_height },
+                "recommendedPixels2x": {
+                    "w": (spec.tile_width * 2.0) as u32,
+                    "h": (spec.tile_height * 2.0) as u32
+                }
+            })
+        })
+        .collect();
+
     json!({
-        "version": 3,
+        "version": 4,
         "note": "Hard glance budgets. Canvas ids are size-first (sm-one…). Widget will clip beyond budgets; use strict=true on update_canvas to reject over-budget content so you can repair. Layout constants live in Rust layout_spec (portable).",
         "idFormat": "sm|md|lg|xl - one|two|three",
         "budgets": WidgetSize::ALL.map(|s| s.budget()),
@@ -216,6 +232,15 @@ pub fn layout_guide_document() -> Value {
             "tone": ["critical", "warning", "success", "info", "muted"],
             "emphasis": ["strong", "normal", "subtle"],
             "note": "Semantic only — platforms map to system colors/weights. Aligns with Adaptive Cards color/weight."
+        },
+        "cover": {
+            "note": "You may generate your own PNG/JPEG and set it as a full-bleed cover when a bespoke visual serves the user better than the built-in section primitives (diagrams, custom charts, illustrated status). Use set_canvas_cover(canvas, imageBase64, alt). Cover replaces the entire glance tile (no chrome/sections). Tradeoff: covers are not Dark Mode aware and do not scale with accessibility text size — prefer sections for text-heavy content.",
+            "formats": ["png", "jpeg"],
+            "maxBytes": crate::assets::MAX_IMAGE_BYTES,
+            "maxPixels": crate::assets::MAX_IMAGE_PIXELS,
+            "fit": ["cover", "contain"],
+            "targets": cover_targets,
+            "tool": "set_canvas_cover"
         },
         "actions": {
             "onOpen": "Document-level tap: expand (default) | url | file | noop.",
@@ -233,7 +258,8 @@ pub fn layout_guide_document() -> Value {
             "progress": "label?, value (0…1 or absolute with max), tone?",
             "divider": "horizontal rule",
             "keyValue": "items[{key,value,tone?}]",
-            "badges": "items[{text,tone?}]"
+            "badges": "items[{text,tone?}]",
+            "image": "Inline glance image (not full-bleed). source: asset: preferred; small data: accepted then externalized. caption?, height: small|medium|large. For full-bleed custom art use set_canvas_cover — do not stuff megabyte base64 into update_canvas."
         },
         "agentTips": [
             "Call get_layout_guide or trust size in the canvas id before writing.",
@@ -244,7 +270,8 @@ pub fn layout_guide_document() -> Value {
             "Always put a header first — the widget keeps the first header when clipping.",
             "Optional onOpen / list items[].action: expand|url|file|noop. url schemes: http|https|mailto only.",
             "sm tiles cannot tap individual list rows — put row actions for md+ or the expand detail window.",
-            "Use tone/emphasis tokens (not hex/fonts). Put group layouts in detail.sections only."
+            "Use tone/emphasis tokens (not hex/fonts). Put group layouts in detail.sections only.",
+            "When a custom visual is better than sections, generate a PNG at the cover.targets size and call set_canvas_cover."
         ],
         "portabilityGate": [
             "Expressible in Adaptive Cards and QML (at least degraded)?",
@@ -264,6 +291,31 @@ pub fn density_report(doc: &CanvasDocument, size: WidgetSize) -> DensityReport {
     let peak_text = doc.peak_text_chars();
     let peak_metrics = doc.peak_metrics();
     let has_chart = doc.has_chart();
+
+    // Cover owns the glance tile — section density budgets do not apply.
+    if doc.cover.is_some() {
+        return DensityReport {
+            size: b.size.to_string(),
+            over_budget: false,
+            section_count,
+            max_sections: b.max_sections,
+            peak_list_items: peak_list,
+            max_list_items: b.max_list_items,
+            peak_chart_points: peak_chart,
+            max_chart_points: b.max_chart_points,
+            peak_text_chars: peak_text,
+            max_text_chars: b.max_text_chars,
+            has_chart,
+            allow_chart: b.allow_chart,
+            peak_metrics,
+            max_metrics: b.max_metrics,
+            warnings: vec![
+                "cover present: glance is full-bleed image; sections used for detail/fallback only"
+                    .into(),
+            ],
+            repair_hint: None,
+        };
+    }
 
     let mut warnings = Vec::new();
     if section_count > b.max_sections {

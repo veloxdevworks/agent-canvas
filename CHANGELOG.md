@@ -17,6 +17,7 @@ Version tags match GitHub Releases (`vMAJOR.MINOR.PATCH`).
 - **Portable layout policy:** Rust `layout_spec` + reference packer; committed `LayoutSpec.generated.swift`; `schema/conformance` goldens verified in Linux CI and Swift unit tests.
 - **Schema expressiveness:** semantic `tone` / `emphasis` tokens; leaf types `progress`, `divider`, `keyValue`, `badges`; detail-only `group` container (depth ≤ 2). JSON Schema generated from core (`just gen-schema`).
 - **Detail window sizing:** expand window hugs content height (min ~200pt, max ~720pt / 85% of screen) and scrolls when full.
+- **Full-bleed covers:** document `cover` (alt + fit tokens) fills the glance tile; agents send base64 via `set_canvas_cover` / `clear_canvas_cover`; bytes land in content-addressed `~/.velox/canvas/assets/`. Inline `image` sections decode for real; height tokens `small|medium|large`. Layout guide documents recommended 2× pixel sizes and Dark Mode / a11y tradeoffs.
 
 ### Planned
 - Notarized app archives on GitHub Releases

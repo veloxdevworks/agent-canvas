@@ -137,6 +137,7 @@ fn metrics_only(id: CanvasId) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
+        cover: None,
         on_open: None,
         detail: None,
         title: Some("Metrics".into()),
@@ -159,6 +160,7 @@ fn header_only(id: CanvasId) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
+        cover: None,
         on_open: None,
         detail: None,
         title: None,
@@ -176,6 +178,7 @@ fn text_only(id: CanvasId) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
+        cover: None,
         on_open: None,
         detail: None,
         title: Some("Text".into()),
@@ -224,6 +227,7 @@ fn list_only(id: CanvasId) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
+        cover: None,
         on_open: Some(Action::Expand),
         detail: Some(crate::schema::CanvasDetail {
             sections: vec![
@@ -318,6 +322,7 @@ fn chart_only(id: CanvasId, chart_type: ChartType, title: &str) -> CanvasDocumen
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
+        cover: None,
         on_open: None,
         detail: None,
         title: Some(title.into()),
@@ -344,6 +349,7 @@ fn full_board(id: CanvasId) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
+        cover: None,
         on_open: None,
         detail: None,
         title: Some("Full board".into()),
@@ -445,6 +451,7 @@ fn demo_small(slot: CanvasSlot) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
+        cover: None,
         on_open: None,
         detail: None,
         title: Some(title.into()),
@@ -460,6 +467,7 @@ fn demo_medium(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::One => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+            cover: None,
         on_open: None,
         detail: None,
             title: Some("Sprint pulse".into()),
@@ -493,6 +501,7 @@ fn demo_medium(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::Two => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+            cover: None,
         on_open: None,
         detail: None,
             title: Some("Traffic mix".into()),
@@ -527,6 +536,7 @@ fn demo_medium(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::Three => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+            cover: None,
         on_open: None,
         detail: None,
             title: Some("Agent load".into()),
@@ -568,6 +578,7 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::One => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+            cover: None,
         on_open: None,
         detail: None,
             title: Some("Jira throughput".into()),
@@ -616,6 +627,7 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::Two => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+            cover: None,
         on_open: None,
         detail: None,
             title: Some("PR queue".into()),
@@ -661,6 +673,7 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::Three => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+            cover: None,
         on_open: None,
         detail: None,
             title: Some("Latency".into()),
@@ -709,6 +722,7 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::One => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+            cover: None,
         on_open: None,
         detail: None,
             title: Some("Platform health".into()),
@@ -768,6 +782,7 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::Two => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+            cover: None,
         on_open: None,
         detail: None,
             title: Some("Cost & usage".into()),
@@ -825,6 +840,7 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
         CanvasSlot::Three => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
+            cover: None,
         on_open: None,
         detail: None,
             title: Some("Release train".into()),

@@ -27,6 +27,8 @@ mod tests {
         chart_height_scale: f64,
         shown_section_count: usize,
         dropped_section_count: usize,
+        #[serde(default)]
+        cover: bool,
     }
 
     fn schema_root() -> std::path::PathBuf {
@@ -91,6 +93,7 @@ mod tests {
                 "{} droppedSectionCount",
                 path.display()
             );
+            assert_eq!(got.cover, case.expected.cover, "{} cover", path.display());
             cases += 1;
         }
         assert!(cases >= 8, "expected conformance cases, got {cases}");

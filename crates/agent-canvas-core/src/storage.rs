@@ -56,7 +56,12 @@ impl CanvasStore {
         fs::create_dir_all(self.canvases_dir())?;
         fs::create_dir_all(self.previews_dir())?;
         fs::create_dir_all(self.root.join("history"))?;
+        fs::create_dir_all(crate::assets::assets_dir(&self.root))?;
         Ok(())
+    }
+
+    pub fn assets_dir(&self) -> PathBuf {
+        crate::assets::assets_dir(&self.root)
     }
 
     pub fn read(&self, id: CanvasId) -> Result<CanvasDocument> {
@@ -84,6 +89,8 @@ impl CanvasStore {
         self.ensure_layout()?;
         let previous = self.read(id)?;
         let doc = doc.normalize_for_write();
+        // Externalize data: URLs → asset: refs before validate/archive/write.
+        let doc = crate::assets::externalize_document(self.root(), doc)?;
         doc.validate()?;
         // Archive the *previous* content before overwriting (source describes this write).
         let _ = history::archive_if_needed(self.root(), id, &previous, &doc, source)?;
@@ -92,6 +99,8 @@ impl CanvasStore {
         let json = serde_json::to_string_pretty(&doc)?;
         fs::write(&tmp, json)?;
         fs::rename(&tmp, &path)?;
+        // Best-effort sweep of unreferenced assets after a successful write.
+        let _ = crate::assets::gc(self.root());
         Ok(doc)
     }
 

@@ -150,6 +150,37 @@
       ],
       "type": "object"
     },
+    "cover": {
+      "additionalProperties": false,
+      "properties": {
+        "alt": {
+          "description": "Accessibility label and decode-failure fallback.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "fit": {
+          "$ref": "#/$defs/coverFit"
+        },
+        "source": {
+          "description": "asset:{sha256}.{png|jpg} after write; data:image/png|jpeg;base64,... accepted on input and externalized.",
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "alt"
+      ],
+      "type": "object"
+    },
+    "coverFit": {
+      "description": "How the cover fills the tile. cover = fill and crop (default); contain = letterbox.",
+      "enum": [
+        "cover",
+        "contain"
+      ],
+      "type": "string"
+    },
     "divider": {
       "additionalProperties": false,
       "properties": {
@@ -302,11 +333,14 @@
         "caption": {
           "type": "string"
         },
+        "height": {
+          "$ref": "#/$defs/imageHeight"
+        },
         "priority": {
           "$ref": "#/$defs/priority"
         },
         "source": {
-          "description": "data:image/...;base64,... or file:// under app data. No remote URLs in v1.",
+          "description": "asset:{sha256}.{png|jpg} or data:image/...;base64,... (externalized on write). No remote URLs.",
           "minLength": 1,
           "type": "string"
         },
@@ -323,6 +357,15 @@
         "source"
       ],
       "type": "object"
+    },
+    "imageHeight": {
+      "description": "Height token for inline image sections (resolved per widget size in layout_spec).",
+      "enum": [
+        "small",
+        "medium",
+        "large"
+      ],
+      "type": "string"
     },
     "keyValue": {
       "additionalProperties": false,
@@ -602,6 +645,10 @@
   "additionalProperties": false,
   "description": "Declarative content for one Agent Canvas desktop widget (schema version 1). Generated from agent-canvas-core — do not edit by hand; run just gen-schema.",
   "properties": {
+    "cover": {
+      "$ref": "#/$defs/cover",
+      "description": "Full-bleed glance image. When set, the widget renders only this image (no title/timestamp/sections). Prefer set_canvas_cover (base64 → asset:). data: accepted on write and externalized to asset:."
+    },
     "detail": {
       "additionalProperties": false,
       "description": "Optional richer layout for the expand detail window. Not counted toward glance density. May include group.",

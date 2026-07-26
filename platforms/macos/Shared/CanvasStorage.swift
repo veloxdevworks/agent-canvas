@@ -45,6 +45,10 @@ enum CanvasStorage {
         applicationSupportRoot.appendingPathComponent(AgentCanvasConstants.previewsSubdir, isDirectory: true)
     }
 
+    static var assetsRoot: URL {
+        applicationSupportRoot.appendingPathComponent(AgentCanvasConstants.assetsSubdir, isDirectory: true)
+    }
+
     static func applicationSupportURL(for address: CanvasAddress) -> URL {
         applicationSupportCanvases.appendingPathComponent(address.fileName)
     }
@@ -95,6 +99,10 @@ enum CanvasStorage {
             )
             try FileManager.default.createDirectory(
                 at: previewsRoot,
+                withIntermediateDirectories: true
+            )
+            try FileManager.default.createDirectory(
+                at: assetsRoot,
                 withIntermediateDirectories: true
             )
             try FileManager.default.createDirectory(

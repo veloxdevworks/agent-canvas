@@ -6,9 +6,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use agent_canvas_core::{
-    default_store, demo_document_kind, density_report, layout_guide_document, matching_ids,
-    predict_clip, CanvasCloudClient, CanvasDocument, CanvasId, CanvasSlot, CanvasStore,
-    CloudConfig, DemoKind, WidgetSize,
+    decode_image_input, default_store, demo_document_kind, density_report, layout_guide_document,
+    matching_ids, predict_clip, write_asset, CanvasCloudClient, CanvasDocument, CanvasId,
+    CanvasSlot, CanvasStore, CloudConfig, Cover, CoverFit, DemoKind, WidgetSize,
 };
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use clap::{Parser, Subcommand};
@@ -384,6 +384,7 @@ struct UpdateCanvasArgs {
     /// metrics items: {label, value, trend?}. list items: {primary, secondary?, badge?, action?}.
     /// Optional onOpen / items[].action: {type:expand|url|file|noop}. url: http|https|mailto only.
     /// Optional detail.sections for a richer expand window (not counted in glance density).
+    /// Optional cover: {source, alt, fit?} for a full-bleed glance image (prefer set_canvas_cover for base64).
     content: Value,
     /// If true, reject over-budget content with repair_hint instead of writing.
     /// Default false: write succeeds but densityReport.overBudget warns; widget still clips.
@@ -417,6 +418,23 @@ struct UpdateCanvasSimpleArgs {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct EmptyArgs {}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+struct SetCanvasCoverArgs {
+    /// Size-first id: sm-one | md-two | lg-one | xl-three | …
+    canvas: String,
+    /// Raw base64 or data:image/png|jpeg;base64,… PNG/JPEG. Max 2 MiB / 4M pixels.
+    #[serde(rename = "imageBase64")]
+    image_base64: String,
+    /// Accessibility label (required). Also shown if the image fails to decode.
+    alt: String,
+    /// cover (fill+crop, default) or contain (letterbox).
+    #[serde(default)]
+    fit: Option<String>,
+    /// Optional document title to set alongside the cover.
+    #[serde(default)]
+    title: Option<String>,
+}
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct ShareCanvasArgs {
@@ -517,7 +535,9 @@ MINIMAL WORKING content: {\"version\":1,\"title\":\"Hello\",\"sections\":[{\"typ
 canvas is size-first (sm-one, md-two, …). Prefer update_canvas_simple for text/header/status-only updates. \
 Optional onOpen / list items[].action: expand|url|file|noop (url: http|https|mailto; file reveals in Finder). \
 Optional detail.sections for expand window (may include type=group). \
-Leaves: progress|divider|keyValue|badges; optional tone/emphasis tokens (critical|warning|success|info|muted; strong|normal|subtle). \
+For a full-bleed custom PNG/JPEG use set_canvas_cover(imageBase64) — do NOT embed large base64 in update_canvas (slow + bloats history). \
+Inline image sections accept asset: refs (or small data: that is externalized on write). \
+Leaves: progress|divider|keyValue|badges|image; optional tone/emphasis tokens (critical|warning|success|info|muted; strong|normal|subtle). \
 group is detail-only (not glance sections). sm tiles: whole-tile onOpen only (no per-row taps). \
 HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. Full document replace only."
     )]
@@ -701,6 +721,193 @@ HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. 
     }
 
     #[tool(
+        description = "Set a full-bleed cover image on a canvas — you own every pixel of the glance tile. \
+Use when a custom visual (diagram, illustrated status, bespoke chart) serves the user better than the built-in section primitives. \
+Pass PNG/JPEG as base64 (or data: URL). Stored as a content-addressed asset; document keeps a short asset: ref. \
+Generate at the recommended 2× tile size from get_layout_guide.cover.targets. \
+Tradeoff: covers are not Dark Mode aware and do not scale with accessibility text — prefer sections for text. \
+canvas: size-first id. alt required. Optional fit: cover|contain. Keeps existing sections for detail/fallback."
+    )]
+    async fn set_canvas_cover(
+        &self,
+        Parameters(args): Parameters<SetCanvasCoverArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let id = match CanvasId::parse(&args.canvas) {
+            Ok(id) => id,
+            Err(e) => {
+                return tool_error(json!({
+                    "ok": false,
+                    "error": "invalid_canvas_id",
+                    "message": e.to_string(),
+                    "hint": format!("canvas must be one of: {ID_HELP}"),
+                }));
+            }
+        };
+        if args.alt.trim().is_empty() {
+            return tool_error(json!({
+                "ok": false,
+                "error": "validation",
+                "message": "alt is required",
+                "canvas": id.as_str(),
+            }));
+        }
+        let fit = match args.fit.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            None | Some("cover") => Some(CoverFit::Cover),
+            Some("contain") => Some(CoverFit::Contain),
+            Some(other) => {
+                return tool_error(json!({
+                    "ok": false,
+                    "error": "validation",
+                    "message": format!("fit must be cover or contain, got `{other}`"),
+                    "canvas": id.as_str(),
+                }));
+            }
+        };
+
+        let bytes = match decode_image_input(&args.image_base64) {
+            Ok(b) => b,
+            Err(e) => {
+                return tool_error(json!({
+                    "ok": false,
+                    "error": "invalid_image",
+                    "message": e.to_string(),
+                    "canvas": id.as_str(),
+                    "hint": "Pass raw base64 or data:image/png;base64,… (PNG/JPEG, max 2 MiB / 4M pixels).",
+                }));
+            }
+        };
+
+        let store = self.store.lock().await;
+        let (asset_ref, meta) = match write_asset(store.root(), &bytes) {
+            Ok(v) => v,
+            Err(e) => {
+                return tool_error(json!({
+                    "ok": false,
+                    "error": "invalid_image",
+                    "message": e.to_string(),
+                    "canvas": id.as_str(),
+                }));
+            }
+        };
+
+        let mut doc = match store.read(id) {
+            Ok(d) => d,
+            Err(e) => {
+                return tool_error(json!({
+                    "ok": false,
+                    "error": "read_failed",
+                    "message": e.to_string(),
+                    "canvas": id.as_str(),
+                }));
+            }
+        };
+        doc.cover = Some(Cover {
+            source: asset_ref.clone(),
+            alt: args.alt.clone(),
+            fit,
+        });
+        if let Some(title) = args.title.filter(|t| !t.trim().is_empty()) {
+            doc.title = Some(title);
+        }
+
+        let written = match store.write(id, doc) {
+            Ok(w) => w,
+            Err(e) => {
+                return tool_error(json!({
+                    "ok": false,
+                    "error": "write_failed",
+                    "message": e.to_string(),
+                    "canvas": id.as_str(),
+                }));
+            }
+        };
+        let _ = std::fs::write(
+            store.root().join(".reload-request"),
+            format!("{}\n{}", id.as_str(), written.updated_at),
+        );
+
+        let spec = id.size.layout_spec();
+        let target_w = (spec.tile_width * 2.0) as u32;
+        let target_h = (spec.tile_height * 2.0) as u32;
+        let aspect_img = meta.width as f64 / meta.height.max(1) as f64;
+        let aspect_tile = spec.tile_width / spec.tile_height;
+        let ratio_delta = ((aspect_img / aspect_tile) - 1.0).abs();
+        let mut warnings = Vec::new();
+        if ratio_delta > 0.10 {
+            warnings.push(format!(
+                "aspect ratio {:.3} differs >10% from tile {:.3} — regenerate at {target_w}×{target_h} (2×) for best fit",
+                aspect_img, aspect_tile
+            ));
+        }
+
+        log_tool_call(
+            &store,
+            json!({
+                "ts": chrono::Utc::now().to_rfc3339(),
+                "tool": "set_canvas_cover",
+                "ok": true,
+                "canvas": id.as_str(),
+                "source": asset_ref,
+                "width": meta.width,
+                "height": meta.height,
+                "bytes": meta.byte_len,
+            }),
+        );
+
+        json_result(json!({
+            "ok": true,
+            "canvas": id.as_str(),
+            "size": id.size.short(),
+            "cover": {
+                "source": asset_ref,
+                "alt": args.alt,
+                "fit": fit.unwrap_or(CoverFit::Cover),
+                "width": meta.width,
+                "height": meta.height,
+                "bytes": meta.byte_len,
+            },
+            "recommendedPixels2x": { "w": target_w, "h": target_h },
+            "warnings": warnings,
+            "updatedAt": written.updated_at,
+            "note": "Glance tile is now full-bleed cover. sections remain for detail window / decode fallback. Call preview_canvas to verify pixels actually rendered.",
+        }))
+    }
+
+    #[tool(
+        description = "Remove the full-bleed cover from a canvas; keeps sections and detail. canvas: size-first id."
+    )]
+    async fn clear_canvas_cover(
+        &self,
+        Parameters(args): Parameters<CanvasArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let id = match CanvasId::parse(&args.canvas) {
+            Ok(id) => id,
+            Err(e) => {
+                return tool_error(json!({
+                    "ok": false,
+                    "error": "invalid_canvas_id",
+                    "message": e.to_string(),
+                    "hint": format!("canvas must be one of: {ID_HELP}"),
+                }));
+            }
+        };
+        let store = self.store.lock().await;
+        let mut doc = store.read(id).map_err(map_err)?;
+        doc.cover = None;
+        let written = store.write(id, doc).map_err(map_err)?;
+        let _ = std::fs::write(
+            store.root().join(".reload-request"),
+            format!("{}\n{}", id.as_str(), written.updated_at),
+        );
+        json_result(json!({
+            "ok": true,
+            "canvas": id.as_str(),
+            "updatedAt": written.updated_at,
+            "note": "Cover cleared; glance uses sections again."
+        }))
+    }
+
+    #[tool(
         description = "Get canvas content, sizeGuide, densityReport for current content, and lastRender from the widget (truncated? dropped sections). Use after update_canvas to verify what actually fit."
     )]
     async fn get_canvas(
@@ -781,6 +988,13 @@ AGENT_CANVAS_API_URL. canvas: local id (md-one); optional slug."
                 }));
             }
         };
+        let has_cover = {
+            let store = self.store.lock().await;
+            store
+                .read(id)
+                .map(|d| d.cover.is_some())
+                .unwrap_or(false)
+        };
         match self.cloud.share_canvas(id, args.slug.as_deref()).await {
             Ok(res) => {
                 {
@@ -796,6 +1010,12 @@ AGENT_CANVAS_API_URL. canvas: local id (md-one); optional slug."
                         }),
                     );
                 }
+                let mut note = "editToken is also stored in Keychain (macOS). Others subscribe via publicUrl / GET apiUrl. Keep the token secret.".to_string();
+                if has_cover {
+                    note.push_str(
+                        " WARNING: cover images are local-only in v1 — cloud shares do not include the asset file; remote viewers will not see the cover.",
+                    );
+                }
                 json_result(json!({
                     "ok": true,
                     "canvas": id.as_str(),
@@ -805,7 +1025,8 @@ AGENT_CANVAS_API_URL. canvas: local id (md-one); optional slug."
                     "editToken": res.edit_token,
                     "version": res.version,
                     "etag": res.etag,
-                    "note": "editToken is also stored in Keychain (macOS). Others subscribe via publicUrl / GET apiUrl. Keep the token secret.",
+                    "coverLocalOnly": has_cover,
+                    "note": note,
                     "apiBase": self.cloud.config().api_base,
                 }))
             }
@@ -1067,6 +1288,7 @@ impl ServerHandler for AgentCanvasMcp {
                 "Agent Canvas: 12 fixed-size desktop widgets. Ids: {ID_HELP}. \
                  PREFERRED simple path: update_canvas_simple(canvas=\"sm-one\", header=\"Hello World\", status=\"OK\"). \
                  Full path: update_canvas with content object — minimal example: {MINIMAL_EXAMPLE}. \
+                 You may generate your own PNG/JPEG and set it as a full-bleed cover via set_canvas_cover when a bespoke visual serves the request better than section primitives (see get_layout_guide.cover for target pixels). \
                  After updates call preview_canvas(canvas) to get a PNG of the real widget layout (host app must be running).\
                  {cloud_hint} \
                  Do NOT omit sections[].type. Do NOT send content as a bare string unless it is JSON. \
@@ -1074,7 +1296,7 @@ impl ServerHandler for AgentCanvasMcp {
                  (url schemes http|https|mailto only; file reveals in Finder, never launches). \
                  Optional detail.sections for the expand window (group layouts allowed there only). \
                  Style with tone/emphasis tokens — never hex colors or point sizes. \
-                 Leaves: progress, divider, keyValue, badges. sm: whole-tile taps only. \
+                 Leaves: progress, divider, keyValue, badges, image. sm: whole-tile taps only. \
                  HARD budgets: sm≤2 sections (no charts); md≤4/4/8; lg≤6/8/12; xl≤8/12/20. \
                  If a call fails, read the error JSON (example + tip) and retry once. \
                  Canvas is a glanceable headline, not a document."

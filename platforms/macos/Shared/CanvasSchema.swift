@@ -8,6 +8,7 @@ struct CanvasDocument: Codable, Equatable {
     var version: Int
     var updatedAt: Date?
     var title: String?
+    var cover: CanvasCover?
     var onOpen: CanvasAction?
     var sections: [CanvasSection]
     var detail: CanvasDetail?
@@ -19,6 +20,7 @@ struct CanvasDocument: Codable, Equatable {
             version: schemaVersion,
             updatedAt: Date(),
             title: nil,
+            cover: nil,
             onOpen: nil,
             sections: [],
             detail: nil
@@ -26,7 +28,8 @@ struct CanvasDocument: Codable, Equatable {
     }
 
     var isEmptyContent: Bool {
-        sections.isEmpty && (title == nil || title?.isEmpty == true)
+        if cover != nil { return false }
+        return sections.isEmpty && (title == nil || title?.isEmpty == true)
     }
 
     /// Sections shown in the expand detail window.
@@ -41,6 +44,31 @@ struct CanvasDocument: Codable, Equatable {
     var resolvedOnOpen: CanvasAction {
         onOpen ?? .expand
     }
+
+    /// Copy without cover (used when cover decode fails and sections must pack).
+    var withoutCover: CanvasDocument {
+        var copy = self
+        copy.cover = nil
+        return copy
+    }
+}
+
+struct CanvasCover: Codable, Equatable {
+    var source: String
+    var alt: String
+    var fit: CoverFit?
+
+    var resolvedFit: CoverFit { fit ?? .cover }
+}
+
+enum CoverFit: String, Codable, Equatable {
+    case cover, contain
+}
+
+enum ImageHeight: String, Codable, Equatable {
+    case small, medium, large
+
+    static let `default`: ImageHeight = .medium
 }
 
 struct CanvasDetail: Codable, Equatable {
@@ -150,7 +178,7 @@ enum CanvasSection: Codable, Equatable {
     case metrics(items: [MetricItem], priority: Int?)
     case chart(chartType: ChartType, title: String?, data: [ChartPoint], priority: Int?)
     case list(title: String?, items: [ListItem], priority: Int?)
-    case image(source: String, caption: String?, priority: Int?)
+    case image(source: String, caption: String?, height: ImageHeight?, priority: Int?)
     case spacer(size: SpacerSize?, priority: Int?)
     case group(
         direction: GroupDirection,
@@ -186,8 +214,8 @@ enum CanvasSection: Codable, Equatable {
         .list(title: title, items: items, priority: nil)
     }
 
-    static func image(source: String, caption: String?) -> CanvasSection {
-        .image(source: source, caption: caption, priority: nil)
+    static func image(source: String, caption: String?, height: ImageHeight? = nil) -> CanvasSection {
+        .image(source: source, caption: caption, height: height, priority: nil)
     }
 
     static func spacer(size: SpacerSize? = nil) -> CanvasSection {
@@ -221,7 +249,7 @@ enum CanvasSection: Codable, Equatable {
              let .metrics(_, p),
              let .chart(_, _, _, p),
              let .list(_, _, p),
-             let .image(_, _, p),
+             let .image(_, _, _, p),
              let .spacer(_, p),
              let .group(_, _, _, _, _, p),
              let .progress(_, _, _, _, p),
@@ -239,7 +267,7 @@ enum CanvasSection: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case type, text, subtitle, content, items, chartType, title, data, source, url, caption
         case size, priority, tone, emphasis, direction, gap, align, children, weight
-        case label, value, max, key
+        case label, value, max, key, height
     }
 
     init(from decoder: Decoder) throws {
@@ -285,6 +313,7 @@ enum CanvasSection: Codable, Equatable {
             self = .image(
                 source: source,
                 caption: try c.decodeIfPresent(String.self, forKey: .caption),
+                height: try c.decodeIfPresent(ImageHeight.self, forKey: .height),
                 priority: priority
             )
         case "spacer":
@@ -348,10 +377,11 @@ enum CanvasSection: Codable, Equatable {
             try c.encodeIfPresent(title, forKey: .title)
             try c.encode(items, forKey: .items)
             try c.encodeIfPresent(priority, forKey: .priority)
-        case let .image(source, caption, priority):
+        case let .image(source, caption, height, priority):
             try c.encode("image", forKey: .type)
             try c.encode(source, forKey: .source)
             try c.encodeIfPresent(caption, forKey: .caption)
+            try c.encodeIfPresent(height, forKey: .height)
             try c.encodeIfPresent(priority, forKey: .priority)
         case let .spacer(size, priority):
             try c.encode("spacer", forKey: .type)
