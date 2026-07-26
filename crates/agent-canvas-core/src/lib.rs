@@ -3,6 +3,7 @@
 mod cloud;
 mod demos;
 mod error;
+mod history;
 mod id;
 mod layout;
 mod schema;
@@ -15,6 +16,11 @@ pub use cloud::{
 };
 pub use demos::{demo_document, demo_document_kind, matching_ids, DemoKind};
 pub use error::{Error, Result};
+pub use history::{
+    archive_if_needed, content_equal, delete_entry as delete_history_entry, history_dir,
+    list as list_history, load as load_history, HistoryEntryMeta, HistorySource,
+    MAX_HISTORY_ENTRIES,
+};
 pub use id::{CanvasId, CanvasSlot};
 pub use layout::{
     density_report, density_warnings, layout_guide_document, predict_clip, DensityReport,

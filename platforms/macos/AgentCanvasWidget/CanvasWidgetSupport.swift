@@ -10,6 +10,7 @@ enum CanvasWidgetFactory {
             provider: CanvasTimelineProvider(address: address)
         ) { entry in
             CanvasView(entry: entry)
+                .widgetURL(URL(string: "agentcanvas://detail?id=\(address.rawValue)"))
         }
         .configurationDisplayName(address.displayName)
         .description(address.galleryDescription)

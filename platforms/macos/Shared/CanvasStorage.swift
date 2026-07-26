@@ -97,6 +97,10 @@ enum CanvasStorage {
                 at: previewsRoot,
                 withIntermediateDirectories: true
             )
+            try FileManager.default.createDirectory(
+                at: CanvasHistory.historyRoot(),
+                withIntermediateDirectories: true
+            )
             return true
         } catch {
             NSLog("AgentCanvas: ensureDirectories failed (ok if widget): \(error)")
@@ -127,11 +131,22 @@ enum CanvasStorage {
         }
     }
 
-    static func write(_ document: CanvasDocument, address: CanvasAddress) throws {
+    static func write(
+        _ document: CanvasDocument,
+        address: CanvasAddress,
+        source: CanvasHistory.Source = .host
+    ) throws {
         ensureDirectories()
+        let previous = load(address: address)
         var doc = document
         doc.version = CanvasDocument.schemaVersion
         doc.updatedAt = Date()
+        CanvasHistory.archiveIfNeeded(
+            address: address,
+            previous: previous,
+            incoming: doc,
+            source: source
+        )
         let data = try encoder.encode(doc)
         try data.write(to: applicationSupportURL(for: address), options: .atomic)
     }
@@ -154,13 +169,13 @@ enum CanvasStorage {
     }
 
     static func clear(address: CanvasAddress) throws {
-        try write(.empty, address: address)
+        try write(.empty, address: address, source: .clear)
         reload(address: address)
     }
 
     static func clearAll() throws {
         for address in CanvasAddress.allCases {
-            try write(.empty, address: address)
+            try write(.empty, address: address, source: .clear)
         }
         reloadAllTimelines()
     }

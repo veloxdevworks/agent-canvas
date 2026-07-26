@@ -36,5 +36,19 @@
 	<false/>
 	<key>NSSupportsSuddenTermination</key>
 	<false/>
+	<!-- OAuth PKCE redirect: agentcanvas://oauth/callback -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.velox.agentcanvas.oauth</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>agentcanvas</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

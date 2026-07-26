@@ -22,31 +22,23 @@ struct MenuBarExtraView: View {
                 Divider()
             }
 
-            Button("Open Agent Canvas…") {
+            Button("Settings") {
                 openWindow(id: "main")
                 activateApp()
-            }
-
-            Button("How to Use…") {
-                openWindow(id: "main")
-                activateApp()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    NotificationCenter.default.post(name: .agentCanvasShowHowTo, object: nil)
-                }
             }
 
             Menu("Connect MCP") {
-                Button("Cursor…") {
+                Button(connectMenuTitle(.cursor)) {
                     openConnectWizard(.cursor)
                 }
-                Button("Claude Desktop…") {
+                Button(connectMenuTitle(.claude)) {
                     openConnectWizard(.claude)
                 }
-                Button("ChatGPT…") {
+                Button(connectMenuTitle(.chatgpt)) {
                     openConnectWizard(.chatgpt)
                 }
                 Divider()
-                Button("Other / manual config…") {
+                Button(connectMenuTitle(.manual)) {
                     openConnectWizard(.manual)
                 }
                 Divider()
@@ -55,15 +47,15 @@ struct MenuBarExtraView: View {
                 }
             }
 
-            #if DEBUG
-            Button("Cloud…") {
-                openWindow(id: "cloud")
-                activateApp()
-            }
-            #endif
-
             Divider()
 
+            Button("How to Use…") {
+                openWindow(id: "main")
+                activateApp()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    NotificationCenter.default.post(name: .agentCanvasShowHowTo, object: nil)
+                }
+            }
             Button("Send Feedback…") {
                 UserGuide.openSendFeedback()
             }
@@ -73,7 +65,7 @@ struct MenuBarExtraView: View {
 
             Divider()
 
-            Button("Quit Agent Canvas") {
+            Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
         }
@@ -94,6 +86,20 @@ struct MenuBarExtraView: View {
     }
 
     // MARK: - Actions
+
+    private func connectMenuTitle(_ client: ConnectWizardClient) -> String {
+        let base: String
+        switch client {
+        case .cursor: base = "Cursor"
+        case .claude: base = "Claude Desktop"
+        case .chatgpt: base = "ChatGPT"
+        case .manual: base = "Other / manual config"
+        }
+        if MCPClientInstall.isConnected(client) {
+            return "\(base)  ✓"
+        }
+        return base
+    }
 
     private func openConnectWizard(_ client: ConnectWizardClient) {
         let path = AgentCanvasPaths.mcpBinaryResolved()

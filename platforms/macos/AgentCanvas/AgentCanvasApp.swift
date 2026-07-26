@@ -15,6 +15,7 @@ struct AgentCanvasApp: App {
                 .environmentObject(reloadWatcher)
         }
         .defaultSize(width: 900, height: 620)
+        .handlesExternalEvents(matching: [])
         .commands {
             AgentCanvasCommands(reloadWatcher: reloadWatcher)
         }
@@ -23,19 +24,23 @@ struct AgentCanvasApp: App {
             ConnectWizardView()
                 .environmentObject(reloadWatcher)
         }
-        .defaultSize(width: 540, height: 460)
+        .defaultSize(width: 600, height: 620)
+        .handlesExternalEvents(matching: [])
 
         Window("Seed demos", id: "seed") {
             SeedDemosView()
                 .environmentObject(reloadWatcher)
         }
         .defaultSize(width: 640, height: 680)
+        .handlesExternalEvents(matching: [])
 
-        Window("Cloud", id: "cloud") {
-            CloudSettingsView()
+        // Claims `agentcanvas://detail…` so widget taps don't fall through to Settings.
+        WindowGroup("Detail", id: "detail", for: String.self) { $id in
+            DetailWindowRoot(id: $id)
                 .environmentObject(reloadWatcher)
         }
-        .defaultSize(width: 600, height: 640)
+        .handlesExternalEvents(matching: Set(arrayLiteral: "detail"))
+        .defaultSize(width: 500, height: 700)
 
         // Primary UI: menu bar agent. Survives with zero open windows.
         // Custom concentric-frame glyph (template) — not the SF Symbol grid.
@@ -43,17 +48,7 @@ struct AgentCanvasApp: App {
             // Do not inject environmentObject here — live observation dismisses submenus.
             MenuBarExtraView()
         } label: {
-            Label {
-                Text("Agent Canvas")
-            } icon: {
-                Image("MenuBarIcon")
-                    .renderingMode(.template)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 18, height: 18)
-            }
-            .labelStyle(.iconOnly)
-            .accessibilityLabel("Agent Canvas")
+            MenuBarLabelView()
         }
         .menuBarExtraStyle(.menu)
     }
@@ -63,11 +58,81 @@ struct AgentCanvasApp: App {
     }
 }
 
+struct MenuBarLabelView: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Label {
+            Text("Agent Canvas")
+        } icon: {
+            Image("MenuBarIcon")
+                .renderingMode(.template)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 18, height: 18)
+        }
+        .labelStyle(.iconOnly)
+        .accessibilityLabel("Agent Canvas")
+        .onReceive(NotificationCenter.default.publisher(for: .agentCanvasOpenDetail)) { notification in
+            // Widget URLs already spawn Detail via handlesExternalEvents — only openWindow
+            // for in-app requests to avoid a second empty detail window.
+            let fromURL = (notification.userInfo?["fromURL"] as? Bool) == true
+            if let id = notification.object as? String, !fromURL {
+                openWindow(id: "detail", value: id)
+            }
+            DispatchQueue.main.async {
+                AppDelegate.hideSettingsWindows()
+            }
+        }
+    }
+}
+
+/// Root for the typed detail WindowGroup — binds canvas id from openWindow or widget URL.
+private struct DetailWindowRoot: View {
+    @Binding var id: String?
+
+    var body: some View {
+        Group {
+            if let id, let address = CanvasAddress(rawValue: id) {
+                CanvasDetailWindowView(address: address)
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(nsColor: .windowBackgroundColor))
+            }
+        }
+        .onAppear {
+            applyPendingDetailIdIfNeeded()
+        }
+        .onOpenURL { url in
+            if let newId = AppDelegate.canvasId(fromDetailURL: url) {
+                id = newId
+                AppDelegate.pendingDetailId = nil
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .agentCanvasOpenDetail)) { notification in
+            if let newId = notification.object as? String {
+                id = newId
+                AppDelegate.pendingDetailId = nil
+            }
+        }
+    }
+
+    private func applyPendingDetailIdIfNeeded() {
+        guard id == nil, let pending = AppDelegate.pendingDetailId else { return }
+        id = pending
+        AppDelegate.pendingDetailId = nil
+    }
+}
+
 extension Notification.Name {
     static let agentCanvasShowHowTo = Notification.Name("agentCanvasShowHowTo")
     static let agentCanvasOpenConnect = Notification.Name("agentCanvasOpenConnect")
     static let agentCanvasOpenSeed = Notification.Name("agentCanvasOpenSeed")
     static let agentCanvasOpenCloud = Notification.Name("agentCanvasOpenCloud")
+    static let agentCanvasOpenDetail = Notification.Name("agentCanvasOpenDetail")
+    /// Show connect wizard client picker (not a specific client flow).
+    static let agentCanvasConnectShowLanding = Notification.Name("agentCanvasConnectShowLanding")
 }
 
 /// App menu commands with `openWindow` access.
@@ -94,8 +159,11 @@ struct AgentCanvasCommands: Commands {
                 openWindow(id: "seed")
             }
             #if DEBUG
-            Button("Cloud (publish / subscribe)…") {
-                openWindow(id: "cloud")
+            Button("Cloud settings…") {
+                openWindow(id: "main")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    NotificationCenter.default.post(name: .agentCanvasOpenCloud, object: nil)
+                }
             }
             #endif
             Button("Reload All Widgets") {
@@ -287,6 +355,9 @@ enum HostRuntime {
 
 /// Menu-bar agent lifecycle: stay running with zero windows.
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Canvas id from a widget URL, consumed when DetailWindowRoot appears.
+    static var pendingDetailId: String?
+
     /// Owned here so the host lives independent of any SwiftUI window.
     private var watcherStorage: ReloadWatcher?
 
@@ -319,6 +390,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            if VeloxOAuthSession.isOAuthCallback(url) {
+                Task { @MainActor in
+                    VeloxOAuthSession.shared.handleCallbackURL(url)
+                }
+            } else if let id = Self.canvasId(fromDetailURL: url) {
+                // Detail WindowGroup claims the URL (handlesExternalEvents). Stash + notify
+                // so the new scene can bind its canvas id even if it appears after this.
+                Self.pendingDetailId = id
+                NotificationCenter.default.post(
+                    name: .agentCanvasOpenDetail,
+                    object: id,
+                    userInfo: ["fromURL": true]
+                )
+                DispatchQueue.main.async {
+                    Self.hideSettingsWindows()
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    Self.hideSettingsWindows()
+                }
+            }
+        }
+    }
+
+    static func canvasId(fromDetailURL url: URL) -> String? {
+        guard url.scheme == "agentcanvas", url.host == "detail" else { return nil }
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        return components?.queryItems?.first(where: { $0.name == "id" })?.value
+    }
+
+    /// Settings scene title is "Agent Canvas"; never hide Detail / wizard / seed.
+    static func hideSettingsWindows() {
+        for window in NSApp.windows {
+            let className = String(describing: type(of: window))
+            if className.contains("StatusBar") || className.contains("NSStatusBar") {
+                continue
+            }
+            if window.title == "Agent Canvas" {
+                window.orderOut(nil)
+            }
+        }
     }
 
     private static func hideContentWindows() {

@@ -207,7 +207,7 @@ struct SeedDemosView: View {
         guard !targets.isEmpty else { return }
         for address in targets {
             let doc = DemoContent.document(for: address, kind: seedKind)
-            try? CanvasStorage.write(doc, address: address)
+            try? CanvasStorage.write(doc, address: address, source: .seed)
             CanvasStorage.reload(address: address)
         }
         let ids = targets.map(\.rawValue).joined(separator: ", ")

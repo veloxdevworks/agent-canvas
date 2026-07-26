@@ -1,6 +1,7 @@
 import Foundation
 
 /// Minimal HTTP client for canvas cloud (publish + fetch). Gated by `CloudFeature`.
+/// User OAuth: optional `Authorization: Bearer` (no cookies). Edit tokens stay separate.
 enum CloudAPIClient {
     struct PublishResult: Equatable {
         var slug: String
@@ -33,6 +34,15 @@ enum CloudAPIClient {
         }
     }
 
+    /// Ephemeral session — never attach session cookies (Bearer only).
+    private static let session: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.httpCookieAcceptPolicy = .never
+        config.httpShouldSetCookies = false
+        config.timeoutIntervalForRequest = 30
+        return URLSession(configuration: config)
+    }()
+
     static func publish(
         address: CanvasAddress,
         slug: String?,
@@ -57,8 +67,9 @@ enum CloudAPIClient {
         let ver = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0"
         request.setValue("agent-canvas-host/\(ver)", forHTTPHeaderField: "User-Agent")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        try await attachBearerIfAvailable(&request, config: config)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await perform(request)
         let http = response as? HTTPURLResponse
         let code = http?.statusCode ?? 0
         let text = String(data: data, encoding: .utf8) ?? ""
@@ -108,8 +119,9 @@ enum CloudAPIClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(token, forHTTPHeaderField: "X-Canvas-Edit-Token")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        try await attachBearerIfAvailable(&request, config: config)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await perform(request)
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         let text = String(data: data, encoding: .utf8) ?? ""
         guard (200...299).contains(code) else {
@@ -164,8 +176,9 @@ enum CloudAPIClient {
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue(token, forHTTPHeaderField: "X-Canvas-Edit-Token")
+        try await attachBearerIfAvailable(&request, config: config)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await perform(request)
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         if !(200...299).contains(code) && code != 404 && code != 410 {
             let text = String(data: data, encoding: .utf8) ?? ""
@@ -189,7 +202,8 @@ enum CloudAPIClient {
             request.setValue("\"\(etag)\"", forHTTPHeaderField: "If-None-Match")
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        // Public feed fetch — no Bearer required; still avoid cookies.
+        let (data, response) = try await session.data(for: request)
         let http = response as? HTTPURLResponse
         let code = http?.statusCode ?? 0
 
@@ -215,7 +229,7 @@ enum CloudAPIClient {
         }
 
         let doc = try JSONDecoder.canvas.decode(CanvasDocument.self, from: data)
-        try CanvasStorage.write(doc, address: address)
+        try CanvasStorage.write(doc, address: address, source: .cloud)
         CanvasStorage.reload(address: address)
 
         let etag = http?.value(forHTTPHeaderField: "ETag")?
@@ -229,6 +243,23 @@ enum CloudAPIClient {
 
     private static func requireFeature() throws {
         guard CloudFeature.isEnabled else { throw APIError.featureDisabled }
+    }
+
+    /// Attach user OAuth Bearer when signed in (host-only; optional during API transition).
+    private static func attachBearerIfAvailable(
+        _ request: inout URLRequest,
+        config: CloudConfigStore
+    ) async throws {
+        guard CloudFeature.isEnabled else { return }
+        if let token = try await VeloxOAuthSession.shared.validAccessToken(config: config),
+           !token.isEmpty
+        {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+    }
+
+    private static func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        try await session.data(for: request)
     }
 
     private static func jsonObject(from doc: CanvasDocument) throws -> Any {

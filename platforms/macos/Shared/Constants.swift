@@ -9,6 +9,8 @@ enum AgentCanvasConstants {
     static let veloxDirName = ".velox"
     static let canvasDirName = "canvas"
     static let canvasesSubdir = "canvases"
+    /// Previous canvas snapshots: `history/{id}/{entryId}.json` + `index.json`.
+    static let historySubdir = "history"
     static let reloadRequestFileName = ".reload-request"
     /// MCP → host: request a PNG snapshot of a canvas.
     static let previewRequestFileName = ".preview-request"
@@ -18,6 +20,15 @@ enum AgentCanvasConstants {
     static let cloudConfigFileName = "cloud-config.json"
     /// Matches Rust Keychain service (agent-canvas-core).
     static let editTokenKeychainService = "com.velox.agentcanvas.canvas-edit-token"
+    /// User OAuth tokens (access/refresh) — separate from per-slug edit tokens.
+    static let oauthKeychainService = "com.velox.agentcanvas.oauth"
+    /// Exact redirect registered for the public OAuth client (PKCE).
+    static let oauthRedirectURI = "agentcanvas://oauth/callback"
+    static let oauthURLScheme = "agentcanvas"
+    static let oauthCallbackHost = "oauth"
+    static let oauthCallbackPath = "/callback"
+    static let oauthClientIdEnvName = "AGENT_CANVAS_OAUTH_CLIENT_ID"
+    static let oauthScopes = "openid profile email offline_access"
 }
 
 /// Size-first canvas address: `sm-one`, `md-two`, `lg-three`, `xl-one`, …

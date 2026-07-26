@@ -1,5 +1,11 @@
 # Agent Canvas — developer recipes
 # https://github.com/casey/just
+#
+# Common day-to-day:
+#   just run              # build+install if needed, launch app
+#   just install          # rebuild + install to ~/Applications
+#   just build-rust       # MCP binary (for Cursor/Claude)
+#   just mcp-serve        # run MCP stdio server
 
 set dotenv-load := false
 
@@ -9,6 +15,20 @@ install_dir := env_var_or_default("INSTALL_DIR", home_dir() / "Applications")
 
 default:
     @just --list
+
+# ── App shortcuts ───────────────────────────────────────────────────────────
+
+# Build (if needed), install, and launch Agent Canvas
+run: macos-install macos-run
+
+# Rebuild + install only (no launch)
+install: macos-install
+
+# Launch installed app only (error if not installed)
+open: macos-run
+
+# Full reset + reinstall + launch (widget registration issues)
+dev: macos-dev
 
 # ── Rust / MCP ──────────────────────────────────────────────────────────────
 
@@ -100,18 +120,25 @@ macos-build: macos-ensure-team macos-gen
       CODE_SIGN_STYLE=Automatic \
       build
 
-# Launch the installed app (must install first)
+# Launch the installed app (must install first). Prefer `just run` for install+launch.
 macos-run:
     #!/usr/bin/env bash
     set -euo pipefail
     APP="{{install_dir}}/AgentCanvas.app"
     if [[ ! -d "$APP" ]]; then
-      echo "App not installed at $APP — run: just macos-install" >&2
+      echo "App not installed at $APP — run: just install   (or just run)" >&2
       exit 1
+    fi
+    # Relaunch cleanly if already running
+    if pgrep -x AgentCanvas >/dev/null 2>&1; then
+      osascript -e 'tell application "AgentCanvas" to quit' 2>/dev/null || true
+      sleep 0.4
+      killall AgentCanvas 2>/dev/null || true
+      sleep 0.2
     fi
     open "$APP"
     echo "Launched $APP"
-    echo "Add widgets: right-click desktop → Edit Widgets → “Agent Canvas”"
+    echo "Menu bar icon → Open Agent Canvas. Widgets: desktop → Edit Widgets → Agent Canvas"
 
 # Open the Xcode project
 macos-xcode: macos-gen

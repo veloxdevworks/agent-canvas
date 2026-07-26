@@ -13,3 +13,10 @@ DEVELOPMENT_TEAM = YOUR_TEAM_ID
 CODE_SIGN_STYLE = Automatic
 CODE_SIGN_IDENTITY = Apple Development
 CODE_SIGN_IDENTITY[sdk=macosx*] = Apple Development
+
+// Optional Debug cloud OAuth (or set at runtime):
+//   AGENT_CANVAS_CLOUD_PUBLISH=1
+//   AGENT_CANVAS_API_URL=https://canvas.velox.test
+//   AGENT_CANVAS_OAUTH_CLIENT_ID=<public client id from portal DCR>
+// Redirect URI registered for the client must be exactly:
+//   agentcanvas://oauth/callback

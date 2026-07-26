@@ -28,7 +28,7 @@ struct SettingsView: View {
             detail
         }
         .navigationSplitViewStyle(.balanced)
-        .frame(minWidth: 780, minHeight: 520)
+        .frame(minWidth: 860, minHeight: 520)
         .onAppear {
             reloadWatcher.start()
             if !UserGuide.hasCompletedOnboarding {
@@ -97,13 +97,19 @@ struct SettingsView: View {
         let filled = !doc.isEmptyContent
         let shared = CloudShareIndex.record(forCanvas: address.rawValue) != nil
         let subscribed = CloudSubscriptionStore.subscription(for: address.rawValue) != nil
+        let label: String = {
+            if let title = doc.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
+                return title
+            }
+            return address.displayName
+        }()
 
         return HStack(spacing: 10) {
             Circle()
                 .fill(filled ? Color.green.opacity(0.9) : Color.secondary.opacity(0.28))
                 .frame(width: 7, height: 7)
             VStack(alignment: .leading, spacing: 1) {
-                Text(address.displayName)
+                Text(label)
                     .font(.body)
                     .lineLimit(1)
                 Text(address.rawValue)
@@ -128,7 +134,7 @@ struct SettingsView: View {
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(address.displayName), \(filled ? "has content" : "empty")")
+        .accessibilityLabel("\(label), \(address.rawValue), \(filled ? "has content" : "empty")")
     }
 
     // MARK: Detail
@@ -140,7 +146,8 @@ struct SettingsView: View {
             GeneralSettingsDetail(
                 showChecklist: $showChecklist,
                 showHowTo: $showHowTo,
-                statusNote: $statusNote
+                statusNote: $statusNote,
+                refreshTick: refreshTick
             )
             .environmentObject(reloadWatcher)
         case .canvas(let address):
@@ -164,9 +171,15 @@ private struct GeneralSettingsDetail: View {
     @Binding var showChecklist: Bool
     @Binding var showHowTo: Bool
     @Binding var statusNote: String
+    var refreshTick: Int = 0
 
     @State private var cloudToggle = CloudFeature.userToggleEnabled
     @State private var apiConfig = CloudConfigStore.load()
+    @State private var shares: [CloudShareRecord] = []
+    @State private var subscriptions: [CloudSubscription] = []
+    @State private var cloudBusy = false
+    @State private var oauthClientIdField = ""
+    @ObservedObject private var oauth = VeloxOAuthSession.shared
 
     var body: some View {
         ScrollView {
@@ -199,17 +212,27 @@ private struct GeneralSettingsDetail: View {
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle("General")
+        .onAppear(perform: reloadCloudLocal)
+        .onChange(of: refreshTick) { _, _ in reloadCloudLocal() }
+        .onChange(of: cloudToggle) { _, _ in reloadCloudLocal() }
+    }
+
+    private func reloadCloudLocal() {
+        cloudToggle = CloudFeature.userToggleEnabled
+        apiConfig = CloudConfigStore.load()
+        shares = CloudShareIndex.load()
+        subscriptions = CloudSubscriptionStore.load()
+        oauthClientIdField = apiConfig.oauthClientId
+            ?? ProcessInfo.processInfo.environment[AgentCanvasConstants.oauthClientIdEnvName]
+            ?? ""
+        oauth.refreshPublishedState()
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Agent Canvas")
-                .font(.largeTitle.weight(.bold))
-            Text("Manage desktop canvases your agent can update. Pick a slot in the sidebar for a live preview and actions.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
+        Text("Manage desktop canvases your agent can update. Pick a slot in the sidebar for a live preview and actions.")
+            .font(.body)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var statusCards: some View {
@@ -258,7 +281,12 @@ private struct GeneralSettingsDetail: View {
         VStack(alignment: .leading, spacing: 16) {
             formSection("Get started") {
                 formRow("Connect agent", subtitle: "Cursor, Claude Desktop, or manual MCP") {
-                    Button("Open…") { openWindow(id: "connect-wizard") }
+                    Button("Open…") {
+                        openWindow(id: "connect-wizard")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            NotificationCenter.default.post(name: .agentCanvasConnectShowLanding, object: nil)
+                        }
+                    }
                 }
                 formRow("How to use", subtitle: "Short checklist for placing widgets") {
                     Button("Show") { showHowTo = true }
@@ -298,34 +326,274 @@ private struct GeneralSettingsDetail: View {
                             statusNote = on ? "Cloud features on" : "Cloud features off"
                         }
                 }
-                if CloudFeature.isEnabled || cloudToggle {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("API base URL")
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("API")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    TextField("https://canvas.velox.test", text: $apiConfig.apiBaseURL)
+                        .textFieldStyle(.roundedBorder)
+                    HStack {
+                        Text("Default poll interval (seconds)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        TextField("https://canvas.velox.test", text: $apiConfig.apiBaseURL)
+                        TextField("60", value: $apiConfig.defaultPollIntervalSeconds, format: .number)
+                            .frame(width: 56)
                             .textFieldStyle(.roundedBorder)
-                        HStack {
-                            Button("Save API URL") {
-                                do {
-                                    try apiConfig.save()
-                                    statusNote = "Saved \(apiConfig.normalizedAPIBase)"
-                                } catch {
-                                    statusNote = error.localizedDescription
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            Text("Per-slot publish & subscribe are on each canvas page.")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
+                        Spacer(minLength: 8)
+                        Button("Save") {
+                            saveCloudConfig()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        Button("Reset") {
+                            apiConfig.apiBaseURL = CloudConfigStore.defaultAPIBase
+                            apiConfig.defaultPollIntervalSeconds = CloudConfigStore.defaultPoll
                         }
                     }
-                    .padding(.top, 4)
+
+                    Text("OAuth client id (public)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("from portal / \(AgentCanvasConstants.oauthClientIdEnvName)", text: $oauthClientIdField)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption.monospaced())
+
+                    Text("Publish and subscribe for a slot are on each canvas page in the sidebar.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .padding(.top, 2)
+
+                    if CloudFeature.isEnabled || cloudToggle {
+                        Divider().padding(.vertical, 4)
+                        cloudAccountSection
+                        Divider().padding(.vertical, 4)
+                        cloudSharesOverview
+                        Divider().padding(.vertical, 4)
+                        cloudSubscriptionsOverview
+                    } else {
+                        Text("Turn on cloud features to sign in, list shares, and manage subscriptions.")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .padding(.top, 4)
+                    }
                 }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
+                .padding(.top, 4)
             }
             #endif
         }
     }
+
+    #if DEBUG
+    private func saveCloudConfig() {
+        let trimmed = oauthClientIdField.trimmingCharacters(in: .whitespacesAndNewlines)
+        apiConfig.oauthClientId = trimmed.isEmpty ? nil : trimmed
+        do {
+            try apiConfig.save()
+            statusNote = "Saved \(apiConfig.normalizedAPIBase)"
+            reloadCloudLocal()
+        } catch {
+            statusNote = error.localizedDescription
+        }
+    }
+
+    @ViewBuilder
+    private var cloudAccountSection: some View {
+        Text("Account")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+        Text("Velox OAuth (PKCE). Resource: \(apiConfig.resourceOrigin)")
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+        if oauth.isSignedIn {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(oauth.accountLabel ?? "Signed in")
+                        .font(.body.weight(.medium))
+                    if let exp = oauth.expiresAt {
+                        Text("Access expires \(exp.formatted(date: .omitted, time: .shortened))")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                Spacer(minLength: 8)
+                Button("Sign out") {
+                    Task {
+                        await oauth.signOut(config: apiConfig)
+                        statusNote = "Signed out of Velox"
+                    }
+                }
+                .disabled(oauth.isBusy)
+            }
+        } else {
+            HStack(spacing: 10) {
+                Button("Sign in with Velox…") {
+                    Task {
+                        do {
+                            let trimmed = oauthClientIdField.trimmingCharacters(in: .whitespacesAndNewlines)
+                            apiConfig.oauthClientId = trimmed.isEmpty ? nil : trimmed
+                            try apiConfig.save()
+                            try await oauth.signIn(
+                                config: apiConfig,
+                                presentingWindow: NSApp.keyWindow
+                            )
+                            statusNote = "Signed in to Velox"
+                        } catch {
+                            statusNote = error.localizedDescription
+                        }
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(
+                    oauth.isBusy
+                        || (
+                            apiConfig.resolvedOAuthClientId == nil
+                                && oauthClientIdField.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        )
+                )
+                if oauth.isBusy {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+            }
+            if apiConfig.resolvedOAuthClientId == nil,
+               oauthClientIdField.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            {
+                Text("Set OAuth client id above (or \(AgentCanvasConstants.oauthClientIdEnvName)), then Save.")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
+        }
+        if let err = oauth.lastError, !err.isEmpty {
+            Text(err)
+                .font(.caption2)
+                .foregroundStyle(.orange)
+        }
+    }
+
+    @ViewBuilder
+    private var cloudSharesOverview: some View {
+        Text("Published from this Mac")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+        if shares.isEmpty {
+            Text("None yet — open a canvas page and use Publish.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(shares) { s in
+                    HStack(spacing: 8) {
+                        Text(s.canvas)
+                            .font(.caption.monospaced())
+                        Text("→")
+                            .foregroundStyle(.tertiary)
+                        Text(s.slug)
+                            .font(.caption.weight(.medium))
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                        Text(CloudKeychain.getToken(slug: s.slug) != nil ? "token ✓" : "no token")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                        Button("Copy") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(s.publicUrl, forType: .string)
+                            statusNote = "Copied \(s.publicUrl)"
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var cloudSubscriptionsOverview: some View {
+        Text("Subscriptions")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+        if subscriptions.isEmpty {
+            Text("None yet — open a canvas page and use Subscribe.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(subscriptions) { s in
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 8) {
+                            Toggle(
+                                "",
+                                isOn: Binding(
+                                    get: {
+                                        CloudSubscriptionStore.subscription(for: s.canvas)?.enabled
+                                            ?? s.enabled
+                                    },
+                                    set: { on in
+                                        var copy = s
+                                        copy.enabled = on
+                                        try? CloudSubscriptionStore.upsert(copy)
+                                        reloadCloudLocal()
+                                    }
+                                )
+                            )
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.mini)
+                            Text(s.canvas)
+                                .font(.caption.monospaced().weight(.semibold))
+                            Text("every \(s.pollIntervalSeconds)s")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                            Spacer(minLength: 4)
+                            Button("Fetch") {
+                                Task { await fetchSubscription(s) }
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(cloudBusy)
+                            Button("Remove", role: .destructive) {
+                                try? CloudSubscriptionStore.remove(canvas: s.canvas)
+                                reloadCloudLocal()
+                                statusNote = "Removed subscription for \(s.canvas)"
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        Text(s.url)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        if let err = s.lastError {
+                            Text(err)
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                                .lineLimit(2)
+                        } else if let at = s.lastFetchAt {
+                            Text("Last fetch \(at.formatted(date: .abbreviated, time: .shortened))")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func fetchSubscription(_ sub: CloudSubscription) async {
+        cloudBusy = true
+        defer { cloudBusy = false }
+        do {
+            try await CloudAPIClient.fetchSubscription(sub)
+            statusNote = "Fetched into \(sub.canvas)"
+            reloadWatcher.noteManualReload()
+            reloadCloudLocal()
+        } catch {
+            statusNote = error.localizedDescription
+            reloadCloudLocal()
+        }
+    }
+    #endif
 
     private func formSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -396,12 +664,20 @@ private struct CanvasSettingsDetail: View {
         return CloudSubscriptionStore.subscription(for: address.rawValue)
     }
 
+    /// Canvas JSON title when set; otherwise the slot display name (e.g. "Small 1").
+    private var resolvedTitle: String {
+        if let title = document.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
+            return title
+        }
+        return address.displayName
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                titleBlock
+                metaBlock
                 previewBlock
-                contentActions
+                historyBlock
                 #if DEBUG
                 if CloudFeature.isEnabled {
                     publishBlock
@@ -414,11 +690,52 @@ private struct CanvasSettingsDetail: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(28)
-            .frame(maxWidth: 720, alignment: .leading)
+            .padding(.horizontal, 28)
+            .padding(.bottom, 28)
+            .padding(.top, 12)
+            .frame(maxWidth: 880, alignment: .leading)
         }
         .background(Color(nsColor: .windowBackgroundColor))
-        .navigationTitle(address.displayName)
+        // Inline so the large system title doesn’t leave a gap above our header.
+        .navigationTitle(resolvedTitle)
+        .toolbarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button {
+                        UserGuide.copyCanvasId(address.rawValue)
+                        statusNote = "Copied \(address.rawValue)"
+                    } label: {
+                        Label("Copy id", systemImage: "doc.on.doc")
+                    }
+                    Button {
+                        UserGuide.copyUpdatePrompt(for: address.rawValue)
+                        statusNote = "Prompt copied"
+                    } label: {
+                        Label("Copy update prompt", systemImage: "text.badge.plus")
+                    }
+                    Divider()
+                    Button {
+                        CanvasStorage.reload(address: address)
+                        statusNote = "Reloaded \(address.rawValue)"
+                    } label: {
+                        Label("Reload widget", systemImage: "arrow.clockwise")
+                    }
+                    Divider()
+                    Button(role: .destructive) {
+                        try? CanvasStorage.clear(address: address)
+                        statusNote = "Cleared \(address.rawValue)"
+                        reloadWatcher.refreshCanvasCounts()
+                    } label: {
+                        Label("Clear canvas", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .help("Canvas actions")
+                .accessibilityLabel("Canvas actions")
+            }
+        }
         .onAppear {
             cloudConfig = CloudConfigStore.load()
             if let s = share {
@@ -435,38 +752,32 @@ private struct CanvasSettingsDetail: View {
         }
     }
 
-    private var titleBlock: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(address.displayName)
-                    .font(.largeTitle.weight(.bold))
-                Text(address.rawValue)
-                    .font(.title3.monospaced())
-                    .foregroundStyle(.tertiary)
+    /// Id/status badges.
+    private var metaBlock: some View {
+        HStack(spacing: 8) {
+            idBadge(address.rawValue)
+            badge(
+                document.isEmptyContent ? "Empty" : "Has content",
+                color: document.isEmptyContent ? .secondary : .green
+            )
+            if share != nil {
+                badge("Published", color: .blue)
             }
-            HStack(spacing: 8) {
-                badge(
-                    document.isEmptyContent ? "Empty" : "Has content",
-                    color: document.isEmptyContent ? .secondary : .green
-                )
-                if share != nil {
-                    badge("Published", color: .blue)
-                }
-                if subscription != nil {
-                    badge("Subscribed", color: .orange)
-                }
-                if let t = document.updatedAt {
-                    Text("Updated \(t.formatted(date: .abbreviated, time: .shortened))")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-            if let title = document.title, !title.isEmpty {
-                Text(title)
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
+            if subscription != nil {
+                badge("Subscribed", color: .orange)
             }
         }
+    }
+
+    private func idBadge(_ text: String) -> some View {
+        Text(text)
+            .font(.caption.monospaced().weight(.semibold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Color.secondary.opacity(0.15), in: Capsule())
+            .foregroundStyle(.secondary)
+            .textSelection(.enabled)
+            .help("Canvas id")
     }
 
     private func badge(_ text: String, color: Color) -> some View {
@@ -502,51 +813,148 @@ private struct CanvasSettingsDetail: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.14, green: 0.15, blue: 0.18),
-                                Color(red: 0.10, green: 0.11, blue: 0.13),
+                                Color(red: 0.32, green: 0.18, blue: 0.65),
+                                Color(red: 0.15, green: 0.42, blue: 0.88),
+                                Color(red: 0.48, green: 0.18, blue: 0.62)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
+                    )
             }
-            Text("Approximate widget size (\(Int(tile.width))×\(Int(tile.height))). Desktop chrome may differ slightly.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+            if let t = document.updatedAt {
+                Text("Updated \(t.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 
-    private var contentActions: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Actions")
-                .font(.headline)
-            HStack(spacing: 10) {
-                Button("Copy id") {
-                    UserGuide.copyCanvasId(address.rawValue)
-                    statusNote = "Copied \(address.rawValue)"
-                }
-                Button("Copy update prompt") {
-                    UserGuide.copyUpdatePrompt(for: address.rawValue)
-                    statusNote = "Prompt copied"
-                }
-                Button("Reload widget") {
-                    CanvasStorage.reload(address: address)
-                    statusNote = "Reloaded \(address.rawValue)"
-                }
-                Spacer()
-                Button("Clear", role: .destructive) {
-                    try? CanvasStorage.clear(address: address)
-                    statusNote = "Cleared \(address.rawValue)"
-                    reloadWatcher.refreshCanvasCounts()
+    private var historyEntries: [CanvasHistory.Entry] {
+        _ = refreshTick
+        return CanvasHistory.list(address: address)
+    }
+
+    /// Sized so a short history fits without an inner scrollbar; longer lists scroll inside.
+    private var historyTableHeight: CGFloat {
+        let header: CGFloat = 30
+        let row: CGFloat = 28
+        let maxVisible = 8
+        let n = min(max(historyEntries.count, 1), maxVisible)
+        return header + CGFloat(n) * row
+    }
+
+    private var historyBlock: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("History")
+                    .font(.headline)
+                Spacer(minLength: 8)
+                if !historyEntries.isEmpty {
+                    Text("\(historyEntries.count)/\(CanvasHistory.maxEntries)")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
             }
-            .buttonStyle(.bordered)
+            if historyEntries.isEmpty {
+                Text("No previous versions yet. Updates from agents and Clear/Seed will appear here.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+            } else {
+                Table(historyEntries) {
+                    TableColumn("When") { entry in
+                        Text(compactHistoryDate(entry.savedAt))
+                            .font(.body.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .width(ideal: 108, max: 120)
+
+                    TableColumn("Title") { entry in
+                        Text(historyTitle(entry))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .help(historyTitle(entry))
+                    }
+                    // Flexible middle column — no min width that forces horizontal scroll.
+
+                    TableColumn("Source") { entry in
+                        Text(entry.source.displayName)
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .width(ideal: 64, max: 72)
+
+                    TableColumn("") { entry in
+                        Menu {
+                            Button("Restore") {
+                                restoreHistory(entry)
+                            }
+                            Divider()
+                            Button("Delete", role: .destructive) {
+                                deleteHistory(entry)
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(.secondary)
+                        }
+                        .menuStyle(.borderlessButton)
+                        .menuIndicator(.hidden)
+                        .help("Version actions")
+                        .accessibilityLabel("Version actions")
+                    }
+                    .width(36)
+                }
+                .tableStyle(.inset(alternatesRowBackgrounds: true))
+                .frame(height: historyTableHeight)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
         }
-        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
+    }
+
+    private func historyTitle(_ entry: CanvasHistory.Entry) -> String {
+        if let t = entry.title?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty {
+            return t
+        }
+        return "Untitled"
+    }
+
+    private func compactHistoryDate(_ date: Date) -> String {
+        // Compact so the When column stays narrow on default window width.
+        let cal = Calendar.current
+        if cal.isDateInToday(date) {
+            return date.formatted(date: .omitted, time: .shortened)
+        }
+        if cal.isDate(date, equalTo: Date(), toGranularity: .year) {
+            return date.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+        }
+        return date.formatted(.dateTime.year(.twoDigits).month(.abbreviated).day())
+    }
+
+    private func restoreHistory(_ entry: CanvasHistory.Entry) {
+        do {
+            try CanvasHistory.restore(address: address, entryId: entry.id)
+            statusNote = "Restored version from \(entry.savedAt.formatted(date: .abbreviated, time: .shortened))"
+            reloadWatcher.refreshCanvasCounts()
+        } catch {
+            statusNote = "Restore failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func deleteHistory(_ entry: CanvasHistory.Entry) {
+        do {
+            try CanvasHistory.delete(address: address, entryId: entry.id)
+            statusNote = "Deleted history entry"
+        } catch {
+            statusNote = "Delete failed: \(error.localizedDescription)"
         }
     }
 

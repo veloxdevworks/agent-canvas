@@ -14,6 +14,8 @@ struct CanvasView: View {
     let entry: CanvasEntry
     /// Host ImageRenderer / MCP preview — solid chrome instead of WidgetKit material.
     var isPreview: Bool = false
+    /// Bypasses GeometryReader and renders the full clip directly.
+    var disableClipping: Bool = false
 
     private var size: CanvasSize { entry.address.size }
 
@@ -22,32 +24,42 @@ struct CanvasView: View {
     }
 
     var body: some View {
-        let surface = GeometryReader { geo in
-            let clip = packedClip(tile: geo.size)
-            Group {
-                if entry.document.isEmptyContent || entry.isPlaceholder {
-                    emptyState
-                } else {
-                    contentStack(clip: clip)
-                }
+        if disableClipping {
+            // Intrinsic height — detail lives in a ScrollView; maxHeight:.infinity + Spacer
+            // collapse to zero there.
+            if entry.document.isEmptyContent || entry.isPlaceholder {
+                emptyState(fillTile: false)
+            } else {
+                contentStack(clip: entry.clip, fillTile: false)
             }
-            .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
-            .clipped()
-        }
-
-        if isPreview {
-            surface
-                .background {
-                    RoundedRectangle(cornerRadius: previewCornerRadius, style: .continuous)
-                        // Approximate macOS widget material for agent screenshots.
-                        .fill(Color(red: 0.13, green: 0.13, blue: 0.14))
-                }
-                .clipShape(RoundedRectangle(cornerRadius: previewCornerRadius, style: .continuous))
         } else {
-            surface
-                .containerBackground(for: .widget) {
-                    Color.clear
+            let surface = GeometryReader { geo in
+                let clip = packedClip(tile: geo.size)
+                Group {
+                    if entry.document.isEmptyContent || entry.isPlaceholder {
+                        emptyState(fillTile: true)
+                    } else {
+                        contentStack(clip: clip, fillTile: true)
+                    }
                 }
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
+                .clipped()
+            }
+
+            if isPreview {
+                surface
+                    .background {
+                        RoundedRectangle(cornerRadius: previewCornerRadius, style: .continuous)
+                            // Approximate macOS widget material for agent screenshots.
+                            .fill(Color(red: 0.13, green: 0.13, blue: 0.14))
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: previewCornerRadius, style: .continuous))
+            } else {
+                surface
+                    .containerBackground(for: .widget) {
+                        Color.clear
+                    }
+            }
         }
     }
 
@@ -95,8 +107,8 @@ struct CanvasView: View {
         return clip
     }
 
-    private func contentStack(clip: ContentClip.Result) -> some View {
-        let showOverflow = !entry.isPlaceholder && clip.truncated
+    private func contentStack(clip: ContentClip.Result, fillTile: Bool) -> some View {
+        let showOverflow = fillTile && !entry.isPlaceholder && clip.truncated
 
         return VStack(alignment: .leading, spacing: 5) {
             if showsDocumentTitle, let title = entry.document.title {
@@ -111,7 +123,7 @@ struct CanvasView: View {
                 sectionView(section, clip: clip)
             }
 
-            if showOverflow || entry.document.updatedAt != nil {
+            if fillTile && (showOverflow || entry.document.updatedAt != nil) {
                 Spacer(minLength: 4)
             }
 
@@ -133,10 +145,14 @@ struct CanvasView: View {
             }
         }
         .padding(edgeInset)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: fillTile ? .infinity : nil,
+            alignment: .topLeading
+        )
     }
 
-    private var emptyState: some View {
+    private func emptyState(fillTile: Bool) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(entry.address.displayName)
                 .font(.headline)
@@ -148,7 +164,11 @@ struct CanvasView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(edgeInset)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: fillTile ? .infinity : nil,
+            alignment: .topLeading
+        )
     }
 
     private func lastUpdatedLabel(_ date: Date) -> String {
@@ -192,32 +212,42 @@ struct CanvasView: View {
         return false
     }
 
+    /// Detail window uses a roomier size so sm slots aren't stuck on widget density.
+    private var sectionLayoutSize: CanvasSize {
+        guard disableClipping else { return size }
+        switch size {
+        case .sm: return .md
+        case .md: return .lg
+        case .lg, .xl: return size
+        }
+    }
+
     @ViewBuilder
     private func sectionView(_ section: CanvasSection, clip: ContentClip.Result) -> some View {
         switch section {
         case let .header(text, subtitle, _):
             VStack(alignment: .leading, spacing: 2) {
                 Text(text)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(2)
+                    .font(disableClipping ? .title3.weight(.semibold) : .subheadline.weight(.semibold))
+                    .lineLimit(disableClipping ? 4 : 2)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.caption2)
+                        .font(disableClipping ? .subheadline : .caption2)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(disableClipping ? 3 : 1)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         case let .text(body, _):
             Text(body)
-                .font(.caption)
-                .lineLimit(size == .sm ? 2 : 3)
+                .font(disableClipping ? .body : .caption)
+                .lineLimit(disableClipping ? nil : (size == .sm ? 2 : 3))
                 .frame(maxWidth: .infinity, alignment: .leading)
         case let .metrics(items, _):
             MetricsSectionView(
                 items: items,
-                size: size,
-                compact: size == .sm || size == .md
+                size: sectionLayoutSize,
+                compact: !disableClipping && (size == .sm || size == .md)
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         case let .chart(chartType, title, data, _):
@@ -225,18 +255,20 @@ struct CanvasView: View {
                 chartType: chartType,
                 title: title,
                 data: data,
-                size: size,
+                size: sectionLayoutSize,
                 // Absolute scale from ContentClip (size baseline + any shrink-to-fit).
-                heightScale: clip.chartHeightScale,
-                showPointCaption: false
+                heightScale: disableClipping ? max(clip.chartHeightScale, 1.25) : clip.chartHeightScale,
+                showPointCaption: disableClipping
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         case let .list(title, items, _):
             ListSectionView(
                 title: title,
                 items: items,
-                size: size,
-                totalBeforeClip: clip.listItemsTotal > items.count ? clip.listItemsTotal : nil
+                size: sectionLayoutSize,
+                totalBeforeClip: disableClipping
+                    ? nil
+                    : (clip.listItemsTotal > items.count ? clip.listItemsTotal : nil)
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         case let .image(_, caption, _):

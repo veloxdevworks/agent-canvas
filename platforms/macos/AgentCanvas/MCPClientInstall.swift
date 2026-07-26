@@ -205,6 +205,24 @@ enum MCPClientInstall {
         isServerRegistered(in: claudeConfigURL)
     }
 
+    /// True when this client already has agent-canvas registered and the helper binary exists.
+    /// Used to skip full setup and label the menu.
+    static func isConnected(_ client: ConnectWizardClient) -> Bool {
+        let binaryOK = AgentCanvasPaths.mcpBinaryResolved().exists
+        switch client {
+        case .cursor:
+            return binaryOK && isRegisteredInCursor()
+        case .claude:
+            return binaryOK && isRegisteredInClaude()
+        case .chatgpt:
+            // No local stdio path — never “connected” in the same sense.
+            return false
+        case .manual:
+            // Manual clients aren’t tracked on disk.
+            return false
+        }
+    }
+
     /// Human-readable summary of Claude MCP registration for the wizard UI.
     static func claudeRegistrationSummary() -> String {
         let url = claudeConfigURL

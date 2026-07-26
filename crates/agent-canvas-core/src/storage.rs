@@ -4,6 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
+use crate::history::{self, HistorySource};
 use crate::id::CanvasId;
 use crate::schema::{CanvasDocument, CanvasSummary, LastRender};
 
@@ -54,6 +55,7 @@ impl CanvasStore {
     pub fn ensure_layout(&self) -> Result<()> {
         fs::create_dir_all(self.canvases_dir())?;
         fs::create_dir_all(self.previews_dir())?;
+        fs::create_dir_all(self.root.join("history"))?;
         Ok(())
     }
 
@@ -67,10 +69,24 @@ impl CanvasStore {
         Ok(doc)
     }
 
+    /// Write canvas JSON, archiving the previous version when content changes.
     pub fn write(&self, id: CanvasId, doc: CanvasDocument) -> Result<CanvasDocument> {
+        self.write_with_source(id, doc, HistorySource::Mcp)
+    }
+
+    /// Write with an explicit history source tag.
+    pub fn write_with_source(
+        &self,
+        id: CanvasId,
+        doc: CanvasDocument,
+        source: HistorySource,
+    ) -> Result<CanvasDocument> {
         self.ensure_layout()?;
+        let previous = self.read(id)?;
         let doc = doc.normalize_for_write();
         doc.validate()?;
+        // Archive the *previous* content before overwriting (source describes this write).
+        let _ = history::archive_if_needed(self.root(), id, &previous, &doc, source)?;
         let path = self.path_for(id);
         let tmp = path.with_extension("json.tmp");
         let json = serde_json::to_string_pretty(&doc)?;
@@ -80,7 +96,21 @@ impl CanvasStore {
     }
 
     pub fn clear(&self, id: CanvasId) -> Result<CanvasDocument> {
-        self.write(id, CanvasDocument::empty())
+        self.write_with_source(id, CanvasDocument::empty(), HistorySource::Clear)
+    }
+
+    /// Restore a history entry as the current canvas (archives current first).
+    pub fn restore_history(&self, id: CanvasId, entry_id: &str) -> Result<CanvasDocument> {
+        let snap = history::load(self.root(), id, entry_id)?;
+        self.write_with_source(id, snap, HistorySource::Restore)
+    }
+
+    pub fn list_history(&self, id: CanvasId) -> Result<Vec<history::HistoryEntryMeta>> {
+        history::list(self.root(), id)
+    }
+
+    pub fn delete_history_entry(&self, id: CanvasId, entry_id: &str) -> Result<()> {
+        history::delete_entry(self.root(), id, entry_id)
     }
 
     pub fn last_render_path(&self, id: CanvasId) -> PathBuf {
@@ -226,6 +256,46 @@ mod tests {
         assert!(store.path_for(id).ends_with("sm-one.json"));
         let loaded = store.read(id).unwrap();
         assert_eq!(loaded.title.as_deref(), Some("Test"));
+    }
+
+    #[test]
+    fn write_archives_previous_and_restore() {
+        let dir = tempfile_dir();
+        let store = CanvasStore::new(&dir);
+        let id = CanvasId::new(WidgetSize::Small, CanvasSlot::Two);
+        let mut a = CanvasDocument::empty();
+        a.title = Some("First".into());
+        a.sections.push(Section::Metrics {
+            items: vec![MetricItem {
+                label: "A".into(),
+                value: "1".into(),
+                trend: None,
+            }],
+            priority: None,
+        });
+        store.write(id, a).unwrap();
+        assert!(store.list_history(id).unwrap().is_empty());
+
+        let mut b = CanvasDocument::empty();
+        b.title = Some("Second".into());
+        b.sections.push(Section::Metrics {
+            items: vec![MetricItem {
+                label: "A".into(),
+                value: "2".into(),
+                trend: None,
+            }],
+            priority: None,
+        });
+        store.write(id, b).unwrap();
+        let hist = store.list_history(id).unwrap();
+        assert_eq!(hist.len(), 1);
+        assert_eq!(hist[0].title.as_deref(), Some("First"));
+
+        let restored = store.restore_history(id, &hist[0].id).unwrap();
+        assert_eq!(restored.title.as_deref(), Some("First"));
+        // Current "Second" should now be in history.
+        let hist2 = store.list_history(id).unwrap();
+        assert!(hist2.iter().any(|e| e.title.as_deref() == Some("Second")));
     }
 
     fn tempfile_dir() -> PathBuf {

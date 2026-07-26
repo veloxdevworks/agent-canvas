@@ -81,7 +81,17 @@ targets:
     platform: macOS
     sources:
       - path: AgentCanvasWidget
+      # Host-only cloud/OAuth stays out of the extension (sandbox + no browser auth).
       - path: Shared
+        excludes:
+          - CloudAPIClient.swift
+          - CloudConfigStore.swift
+          - CloudFeature.swift
+          - CloudKeychain.swift
+          - CloudShareIndex.swift
+          - CloudSubscriptionStore.swift
+          - OAuthKeychain.swift
+          - VeloxOAuth.swift
     settings:
       base:
         PRODUCT_NAME: AgentCanvasWidget
