@@ -108,23 +108,34 @@ git push origin v0.2.0
 
 Creates a GitHub Release with auto notes + Linux `agent-canvas-mcp` binary.
 
-### Notarized macOS DMG (private companion)
+### Notarized macOS DMGs (private companion)
 
 Signing / notarization / DMG packaging run only in the private repo (secrets + org Mac):
 
 → **[`veloxdevworks/agent-canvas-release`](https://github.com/veloxdevworks/agent-canvas-release)**
 
-Shared script (this tree, at the release tag): [`scripts/macos/package-notarized-dmg.sh`](../scripts/macos/package-notarized-dmg.sh)
+Shared scripts (this tree, at the release tag):
+
+- [`scripts/macos/build-release-app.sh`](../scripts/macos/build-release-app.sh) — arch-specific Release `.app` + embedded MCP  
+- [`scripts/macos/package-notarized-dmg.sh`](../scripts/macos/package-notarized-dmg.sh) — Developer ID sign → notarize → DMG  
+
+The private workflow imports the Developer ID `.p12` into a **temporary keychain** each run (plus Apple Developer ID G2 intermediate). You do **not** install the signing cert permanently on the runner.
 
 ```bash
 # After the public tag exists (and Linux Release has created the GitHub Release):
 gh workflow run release.yml --repo veloxdevworks/agent-canvas-release \
-  -f ref=v0.2.0 \
-  -f release_tag=public-v0.2.0 \
+  -f ref=v0.2.1 \
+  -f release_tag=public-v0.2.1 \
   -f publish_public=true
 ```
 
-Attaches `AgentCanvas-v0.2.0.dmg` + `SHA256SUMS.txt` to the **public** Release.
+Attaches to the **public** Release:
+
+- `AgentCanvas-v0.2.1-x86_64.dmg`
+- `AgentCanvas-v0.2.1-arm64.dmg`
+- `SHA256SUMS.txt`
+
+(Intel self-hosted runner builds `x86_64` natively and cross-compiles `arm64`.)
 
 Local dry-run (Developer ID + `notarytool` profile on your Mac):
 
@@ -134,7 +145,7 @@ IDENTITY="Developer ID Application: …" NOTARY_PROFILE=agent-canvas-notary \
   just macos-notarize-dmg
 ```
 
-Optional unsigned macOS zip from **this** public repo: set `ENABLE_MACOS_RELEASE=true`, or **Actions → Release → Run workflow** with **build_macos**. Prefer the private notarized DMG for installs.
+Optional unsigned macOS zip from **this** public repo: set `ENABLE_MACOS_RELEASE=true`, or **Actions → Release → Run workflow** with **build_macos**. Prefer the private notarized DMGs for installs.
 
 Sparkle appcast is **not** automated yet.
 

@@ -93,7 +93,7 @@ Keep the **host app running** so widgets reload when the agent writes. Closing w
 
 Rough direction (not a commitment to dates):
 
-- **GitHub Releases** — Linux MCP on tags; notarized macOS DMG via private [`agent-canvas-release`](https://github.com/veloxdevworks/agent-canvas-release)  
+- **GitHub Releases** — Linux MCP on tags; notarized macOS DMGs (`x86_64` + `arm64`) via private [`agent-canvas-release`](https://github.com/veloxdevworks/agent-canvas-release)  
 - **In-app updates** — Sparkle (“Check for Updates…” + optional auto-check)  
 - **Polished packaging** — DMG layout polish; Connect already prefers the bundled MCP helper  
 

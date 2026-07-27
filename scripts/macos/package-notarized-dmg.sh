@@ -12,10 +12,12 @@
 #   or APPLE_API_KEY_PATH + APPLE_API_KEY_ID + APPLE_API_ISSUER_ID
 #
 # Optional env:
-#   OUTPUT_DIR   — default: <repo>/dist/macos-release
-#   DMG_NAME     — default: AgentCanvas.dmg
-#   VOL_NAME     — default: Agent Canvas
-#   SKIP_DMG=1   — sign/notarize/staple .app only
+#   OUTPUT_DIR        — default: <repo>/dist/macos-release
+#   DMG_NAME          — default: AgentCanvas.dmg
+#   VOL_NAME          — default: Agent Canvas
+#   STAGED_APP_NAME   — default: AgentCanvas.app (under OUTPUT_DIR)
+#   SKIP_STAGED_APP=1 — do not copy stapled .app into OUTPUT_DIR
+#   SKIP_DMG=1        — sign/notarize/staple .app only
 #
 set -euo pipefail
 
@@ -58,6 +60,8 @@ fi
 OUTPUT_DIR="${OUTPUT_DIR:-$ROOT/dist/macos-release}"
 DMG_NAME="${DMG_NAME:-AgentCanvas.dmg}"
 VOL_NAME="${VOL_NAME:-Agent Canvas}"
+STAGED_APP_NAME="${STAGED_APP_NAME:-AgentCanvas.app}"
+SKIP_STAGED_APP="${SKIP_STAGED_APP:-0}"
 SKIP_DMG="${SKIP_DMG:-0}"
 
 HOST_ENTS="$MACOS/AgentCanvas/AgentCanvas.entitlements"
@@ -128,17 +132,24 @@ echo "==> Stapling app"
 xcrun stapler staple "$APP"
 xcrun stapler validate "$APP"
 
-STAGED_APP="$OUTPUT_DIR/AgentCanvas.app"
-rm -rf "$STAGED_APP"
-ditto "$APP" "$STAGED_APP"
+STAGED_APP=""
+if [[ "$SKIP_STAGED_APP" != "1" ]]; then
+  STAGED_APP="$OUTPUT_DIR/$STAGED_APP_NAME"
+  rm -rf "$STAGED_APP"
+  ditto "$APP" "$STAGED_APP"
+fi
 
 if [[ "$SKIP_DMG" == "1" ]]; then
   echo "==> SKIP_DMG=1 — writing checksums for .app only"
-  (
-    cd "$OUTPUT_DIR"
-    shasum -a 256 "AgentCanvas.app/Contents/MacOS/AgentCanvas" > SHA256SUMS.txt
-  )
-  echo "Done: $STAGED_APP"
+  if [[ -n "$STAGED_APP" ]]; then
+    (
+      cd "$OUTPUT_DIR"
+      shasum -a 256 "$STAGED_APP_NAME/Contents/MacOS/AgentCanvas" > SHA256SUMS.txt
+    )
+    echo "Done: $STAGED_APP"
+  else
+    echo "Done (stapled app left in work dir only)"
+  fi
   exit 0
 fi
 
@@ -168,20 +179,24 @@ xcrun stapler staple "$DMG_PATH"
 xcrun stapler validate "$DMG_PATH"
 
 echo "==> Gatekeeper assess (app)"
-spctl --assess --type execute -vv "$STAGED_APP" 2>&1 || true
+spctl --assess --type execute -vv "$APP" 2>&1 || true
 
 (
   cd "$OUTPUT_DIR"
-  shasum -a 256 "$DMG_NAME" > SHA256SUMS.txt
-  # Also hash the staged app binary for operators who unzip from CI artifacts.
-  if [[ -x "AgentCanvas.app/Contents/MacOS/AgentCanvas" ]]; then
-    shasum -a 256 "AgentCanvas.app/Contents/MacOS/AgentCanvas" >> SHA256SUMS.txt
+  # Keep checksums for multiple DMGs (dual-arch releases).
+  if [[ -f SHA256SUMS.txt ]]; then
+    grep -v " ${DMG_NAME}\$" SHA256SUMS.txt > SHA256SUMS.txt.tmp || true
+    mv SHA256SUMS.txt.tmp SHA256SUMS.txt
+  else
+    : > SHA256SUMS.txt
   fi
+  shasum -a 256 "$DMG_NAME" >> SHA256SUMS.txt
 )
 
 echo ""
 echo "Done:"
-echo "  App: $STAGED_APP"
+[[ -n "$STAGED_APP" ]] && echo "  App: $STAGED_APP"
 echo "  DMG: $DMG_PATH"
 echo "  Sums: $OUTPUT_DIR/SHA256SUMS.txt"
-ls -lh "$DMG_PATH" "$STAGED_APP"
+ls -lh "$DMG_PATH"
+[[ -n "$STAGED_APP" ]] && ls -lh "$STAGED_APP"
