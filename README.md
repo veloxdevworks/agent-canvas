@@ -17,8 +17,10 @@ Agents are good at fetching data and drafting summaries, but they have nowhere d
 - **Native where it shows** — system widgets, system chrome  
 - **Declarative content** — JSON schema; agents never touch SwiftUI  
 - **Fixed addresses** — size × slot, not unlimited instances  
-- **Local-only** — data under `~/.velox/canvas`; no cloud  
+- **Local by default** — data under `~/.velox/canvas`; cloud publish is optional and Release-gated (see below)  
 - **Density-aware** — hard budgets per size; agents get clip feedback and optional PNG previews  
+
+Privacy details: [`PRIVACY.md`](./PRIVACY.md). Third-party notices: [`NOTICE`](./NOTICE).
 
 ---
 
@@ -91,9 +93,10 @@ Keep the **host app running** so widgets reload when the agent writes. Closing w
 
 Rough direction (not a commitment to dates):
 
-- **GitHub Releases** — version tags, changelog, installable artifacts (MCP binary today; notarized `.app` next)  
+- **GitHub Releases** — Linux MCP on tags; notarized macOS DMG via private [`agent-canvas-release`](https://github.com/veloxdevworks/agent-canvas-release)  
 - **In-app updates** — Sparkle (“Check for Updates…” + optional auto-check)  
-- **Polished onboarding & packaging** — MCP bundled with the app for end users  
+- **Polished packaging** — DMG layout polish; Connect already prefers the bundled MCP helper  
+
 - **Schema / density** — promote proven `group` layouts from detail → glance; more leaves as demand appears  
 - **Cross-platform** — shared schema + MCP + layout_spec; native shells (Windows Adaptive Cards, KDE QML) later  
 

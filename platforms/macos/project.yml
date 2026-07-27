@@ -72,6 +72,16 @@ targets:
       - target: AgentCanvasWidget
         embed: true
         codeSign: true
+    # Embed cargo-built MCP next to the host executable (Release requires it).
+    postBuildScripts:
+      - name: Embed agent-canvas-mcp
+        path: ../../scripts/macos/embed-mcp.sh
+        basedOnDependencyAnalysis: false
+        showEnvVars: false
+        inputFiles:
+          - $(SRCROOT)/../../target/release/agent-canvas-mcp
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/MacOS/agent-canvas-mcp
     scheme:
       testTargets:
         - AgentCanvasTests

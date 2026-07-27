@@ -128,8 +128,8 @@ struct ConnectWizardView: View {
                     )
                     clientChoiceCard(
                         client: .chatgpt,
-                        blurb: "ChatGPT can’t use a local agent yet — we’ll explain options.",
-                        badge: "Limited"
+                        blurb: "ChatGPT does not support local MCP yet — we’ll explain options.",
+                        badge: "Not available"
                     )
                     clientChoiceCard(
                         client: .manual,
@@ -330,9 +330,6 @@ struct ConnectWizardView: View {
                 }
                 .accessibilityHidden(true)
 
-                Text("Hero artwork placeholder")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
             }
 
             VStack {
@@ -394,7 +391,7 @@ struct ConnectWizardView: View {
             chip(
                 ok: mcpExists,
                 okText: "Agent helper ready",
-                badText: "Agent helper not found — build it first (just build-rust)"
+                badText: "Agent helper missing from the app — reinstall Agent Canvas"
             )
             if client == .claude {
                 if step.id == ClaudeStepID.quit.rawValue || step.id == ClaudeStepID.write.rawValue {
@@ -631,14 +628,14 @@ struct ConnectWizardView: View {
                 heroTitle: "",
                 heroSubtitle: "",
                 title: "First, we need a small helper program",
-                body: "Agent Canvas talks to Claude through a helper file on your Mac. "
-                    + "If it’s missing, build it once in Terminal, then come back here.",
+                body: "Agent Canvas talks to Claude through a helper bundled inside this app. "
+                    + "If it’s missing, reinstall Agent Canvas from your download, then come back here.",
                 bullets: mcpExists
                     ? ["Helper found at \(shortPath(mcpPath))"]
                     : [
-                        "Open Terminal",
-                        "Run: cd ~/code/velox/agent-canvas && just build-rust",
-                        "Return here and tap Recheck",
+                        "Quit Agent Canvas from the menu bar",
+                        "Reinstall the latest Agent Canvas.app",
+                        "Open Connect again and tap Recheck",
                     ],
                 primary: WizardAction(
                     title: mcpExists ? "Continue" : "Recheck",
@@ -842,13 +839,14 @@ struct ConnectWizardView: View {
                 heroTitle: "Cursor",
                 heroSubtitle: "Connect Agent Canvas so Cursor can update your widgets.",
                 title: "First, we need a small helper program",
-                body: "Cursor starts this helper when you chat. If it’s missing, build it once, then continue.",
+                body: "Cursor starts the helper bundled inside Agent Canvas. "
+                    + "If it’s missing, reinstall the app, then continue.",
                 bullets: mcpExists
                     ? ["Helper found at \(shortPath(mcpPath))"]
                     : [
-                        "Open Terminal",
-                        "Run: cd ~/code/velox/agent-canvas && just build-rust",
-                        "Return here and tap Recheck",
+                        "Quit Agent Canvas from the menu bar",
+                        "Reinstall the latest Agent Canvas.app",
+                        "Open Connect again and tap Recheck",
                     ],
                 primary: WizardAction(
                     title: mcpExists ? "Continue" : "Recheck",
@@ -963,8 +961,8 @@ struct ConnectWizardView: View {
             return WizardStep(
                 id: id.rawValue,
                 heroTitle: "ChatGPT",
-                heroSubtitle: "Local desktop agents aren’t supported in ChatGPT yet.",
-                title: "ChatGPT can’t use this local helper",
+                heroSubtitle: "Not available — ChatGPT does not support local MCP yet.",
+                title: "ChatGPT does not support local MCP",
                 body: "ChatGPT expects online connectors (a web address), not a program on your Mac. "
                     + "Agent Canvas today works with apps that run a local MCP helper — Cursor and Claude Desktop.",
                 primary: WizardAction(title: "See my options", handler: {
@@ -998,7 +996,7 @@ struct ConnectWizardView: View {
             return WizardStep(
                 id: id.rawValue,
                 heroTitle: "Next steps",
-                heroSubtitle: "When ChatGPT supports local helpers, we’ll add a direct path.",
+                heroSubtitle: "When ChatGPT supports local MCP, we’ll add a direct path.",
                 heroSymbol: "clock.fill",
                 title: "You’re all set for now",
                 body: "Finish setup with Cursor or Claude when you’re ready. Keep Agent Canvas in the menu bar so widgets update live.",
@@ -1022,10 +1020,15 @@ struct ConnectWizardView: View {
                 heroTitle: "Other app",
                 heroSubtitle: "We’ll give you a config snippet your app can paste.",
                 title: "First, we need a small helper program",
-                body: "Most MCP apps start a local helper. Build it if needed, then continue.",
+                body: "Most MCP apps start the helper bundled inside Agent Canvas. "
+                    + "If it’s missing, reinstall the app, then continue.",
                 bullets: mcpExists
                     ? ["Helper found at \(shortPath(mcpPath))"]
-                    : ["Run: cd ~/code/velox/agent-canvas && just build-rust"],
+                    : [
+                        "Quit Agent Canvas from the menu bar",
+                        "Reinstall the latest Agent Canvas.app",
+                        "Open Connect again and tap Recheck",
+                    ],
                 primary: WizardAction(
                     title: mcpExists ? "Continue" : "Recheck",
                     handler: {
@@ -1119,7 +1122,7 @@ struct ConnectWizardView: View {
     private func runCursorInstall() {
         refreshState()
         guard mcpExists else {
-            note("Helper missing — run just build-rust", .warn)
+            note("Helper missing from the app — reinstall Agent Canvas", .warn)
             return
         }
         let result = MCPClientInstall.connectCursor(command: mcpPath)
@@ -1134,7 +1137,7 @@ struct ConnectWizardView: View {
     private func runCursorFileFallback() {
         refreshState()
         guard mcpExists else {
-            note("Helper missing — run just build-rust", .warn)
+            note("Helper missing from the app — reinstall Agent Canvas", .warn)
             return
         }
         let result = MCPClientInstall.installToCursorConfig(command: mcpPath)
@@ -1149,7 +1152,7 @@ struct ConnectWizardView: View {
     private func runClaudeInstall() {
         refreshState()
         guard mcpExists else {
-            note("Helper missing — run just build-rust", .warn)
+            note("Helper missing from the app — reinstall Agent Canvas", .warn)
             return
         }
         if claudeRunning {

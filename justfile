@@ -36,6 +36,10 @@ dev: macos-dev
 build-rust:
     cargo build --manifest-path {{root}}/Cargo.toml
 
+# Release MCP helper (embedded into AgentCanvas.app)
+build-mcp-release:
+    cargo build --manifest-path {{root}}/Cargo.toml -p agent-canvas-mcp --release
+
 # Run unit tests
 test:
     cargo test --manifest-path {{root}}/Cargo.toml
@@ -133,11 +137,32 @@ macos-ensure-team:
     bash "{{root}}/scripts/macos/ensure-team.sh"
 
 # Build + install to ~/Applications (reliable path for WidgetKit registration)
-macos-install: macos-ensure-team macos-gen
+macos-install: build-mcp-release macos-ensure-team macos-gen
     bash "{{root}}/scripts/macos/install-app.sh"
 
+# Developer ID sign + notarize + DMG for an already-built .app (default: ~/Applications).
+# Prereq: CONFIGURATION=Release just macos-install
+#         IDENTITY + NOTARY_PROFILE (or APPLE_API_KEY_*) in the environment
+# Example:
+#   IDENTITY="Developer ID Application: …" NOTARY_PROFILE=agent-canvas-notary \
+#     just macos-notarize-dmg
+# Override app path: APP=/path/to/AgentCanvas.app just macos-notarize-dmg
+macos-notarize-dmg:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    APP="${APP:-{{install_dir}}/AgentCanvas.app}"
+    if [[ -z "${IDENTITY:-}" ]]; then
+      echo "error: set IDENTITY (Developer ID Application …)" >&2
+      exit 1
+    fi
+    if [[ -z "${NOTARY_PROFILE:-}" && -z "${APPLE_API_KEY_PATH:-}" ]]; then
+      echo "error: set NOTARY_PROFILE or APPLE_API_KEY_PATH (+ KEY_ID + ISSUER_ID)" >&2
+      exit 1
+    fi
+    bash "{{root}}/scripts/macos/package-notarized-dmg.sh" "$APP"
+
 # Build only (DerivedData under ./build/macos) — prefer macos-install for widgets
-macos-build: macos-ensure-team macos-gen
+macos-build: build-mcp-release macos-ensure-team macos-gen
     #!/usr/bin/env bash
     set -euo pipefail
     BUILD_DIR="{{root}}/build/macos"
@@ -151,6 +176,8 @@ macos-build: macos-ensure-team macos-gen
       -allowProvisioningUpdates \
       CODE_SIGN_STYLE=Automatic \
       build
+    CONFIGURATION=Debug bash "{{root}}/scripts/macos/embed-mcp.sh" \
+      "$BUILD_DIR/Build/Products/Debug/AgentCanvas.app"
 
 # Launch the installed app (must install first). Prefer `just run` for install+launch.
 macos-run:

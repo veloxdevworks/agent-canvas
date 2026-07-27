@@ -1,0 +1,42 @@
+# Third-party notices
+
+Agent Canvas (Copyright © 2026 Velox Dev Works) is licensed under the MIT License.
+See [LICENSE](./LICENSE).
+
+This file lists **direct** third-party dependencies. Transitive crates follow their own
+licenses as recorded in `Cargo.lock`.
+
+## Rust (workspace)
+
+| Crate | Role | License (typical) |
+|-------|------|-------------------|
+| serde / serde_json | Serialization | MIT OR Apache-2.0 |
+| thiserror | Error types | MIT OR Apache-2.0 |
+| chrono | Timestamps | MIT OR Apache-2.0 |
+| directories | Data dirs | MIT OR Apache-2.0 |
+| clap | CLI | MIT OR Apache-2.0 |
+| anyhow | Error context | MIT OR Apache-2.0 |
+| tokio | Async runtime | MIT |
+| rmcp | MCP server SDK | See crate |
+| schemars | JSON Schema | MIT |
+| reqwest | HTTP (cloud, optional paths) | MIT OR Apache-2.0 |
+| keyring | Keychain access | MIT OR Apache-2.0 |
+| url | URL parsing | MIT OR Apache-2.0 |
+| sha2 | Content-addressed assets | MIT OR Apache-2.0 |
+| base64 | Image / config encoding | MIT OR Apache-2.0 |
+| flate2 | PNG IDAT validation | MIT OR Apache-2.0 |
+| tempfile | Tests | MIT OR Apache-2.0 |
+| wiremock | Tests | MIT OR Apache-2.0 |
+
+Exact versions: `Cargo.lock`. License texts: [crates.io](https://crates.io) / each crate’s repository.
+
+## Apple platforms
+
+The macOS host and WidgetKit extension use Apple system frameworks (SwiftUI, AppKit,
+WidgetKit, ImageIO, Foundation, Security/Keychain). Those are provided by the OS and
+are subject to Apple’s terms.
+
+## Notices
+
+If you redistribute Agent Canvas binaries, include this NOTICE file (or an equivalent
+attribution) along with the MIT LICENSE.

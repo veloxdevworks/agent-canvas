@@ -309,31 +309,47 @@ private extension MCPClientInstall.Result {
 
 enum AgentCanvasPaths {
     /// Prefer a real executable on disk so agent hosts can spawn it.
+    /// Order: env override → bundled helper → Homebrew / PATH → nearby cargo builds (dev).
     static func preferredMCPBinaryPath() -> String {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let envPath = ProcessInfo.processInfo.environment["AGENT_CANVAS_MCP"]
         var candidates: [String] = []
-        if let envPath, !envPath.isEmpty { candidates.append(envPath) }
 
-        // Common monorepo / cargo outputs
+        if let envPath = ProcessInfo.processInfo.environment["AGENT_CANVAS_MCP"],
+           !envPath.isEmpty
+        {
+            candidates.append(envPath)
+        }
+
+        // Shipped next to the host: AgentCanvas.app/Contents/MacOS/agent-canvas-mcp
+        if let bundled = Bundle.main.url(forAuxiliaryExecutable: "agent-canvas-mcp")?.path {
+            candidates.append(bundled)
+        } else if let macos = Bundle.main.executableURL?.deletingLastPathComponent() {
+            candidates.append(macos.appendingPathComponent("agent-canvas-mcp").path)
+        }
+
+        candidates += [
+            "/opt/homebrew/bin/agent-canvas-mcp",
+            "/usr/local/bin/agent-canvas-mcp",
+        ]
+
+        if let which = shellWhich("agent-canvas-mcp") {
+            candidates.append(which)
+        }
+
+        // Dev convenience: cargo outputs near the app or under common checkouts.
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
         candidates += [
             "\(home)/code/velox/agent-canvas/target/release/agent-canvas-mcp",
             "\(home)/code/velox/agent-canvas/target/debug/agent-canvas-mcp",
             "\(home)/src/velox/agent-canvas/target/release/agent-canvas-mcp",
             "\(home)/src/velox/agent-canvas/target/debug/agent-canvas-mcp",
-            "/usr/local/bin/agent-canvas-mcp",
-            "/opt/homebrew/bin/agent-canvas-mcp",
         ]
-
-        // Walk up from the host app for a nearby target/ build (dev installs).
         if let appURL = Bundle.main.bundleURL as URL? {
             var dir = appURL.deletingLastPathComponent()
             for _ in 0..<8 {
                 for config in ["release", "debug"] {
-                    let p = dir
-                        .appendingPathComponent("target/\(config)/agent-canvas-mcp")
-                        .path
-                    candidates.append(p)
+                    candidates.append(
+                        dir.appendingPathComponent("target/\(config)/agent-canvas-mcp").path
+                    )
                 }
                 let parent = dir.deletingLastPathComponent()
                 if parent.path == dir.path { break }
@@ -341,13 +357,12 @@ enum AgentCanvasPaths {
             }
         }
 
-        // `which agent-canvas-mcp`
-        if let which = shellWhich("agent-canvas-mcp") {
-            candidates.append(which)
-        }
-
         for path in candidates where FileManager.default.isExecutableFile(atPath: path) {
             return path
+        }
+        // Prefer the conventional bundled name when nothing is on disk yet.
+        if let macos = Bundle.main.executableURL?.deletingLastPathComponent() {
+            return macos.appendingPathComponent("agent-canvas-mcp").path
         }
         return "agent-canvas-mcp"
     }

@@ -16,6 +16,12 @@ bash "$ROOT/scripts/macos/ensure-team.sh"
 
 mkdir -p "$BUILD_DIR" "$INSTALL_DIR"
 
+MCP_BIN="$ROOT/target/release/agent-canvas-mcp"
+if [[ ! -x "$MCP_BIN" ]]; then
+  echo "Building release MCP helper…"
+  cargo build --manifest-path "$ROOT/Cargo.toml" -p agent-canvas-mcp --release
+fi
+
 if [[ ! -f "$MACOS/AgentCanvas.xcodeproj/project.pbxproj" ]]; then
   echo "Generating Xcode project…"
   (cd "$MACOS" && xcodegen generate)
@@ -52,6 +58,9 @@ if [[ ! -d "$PRODUCT" ]]; then
   echo "error: built app not found under $BUILD_DIR/Build/Products" >&2
   exit 1
 fi
+
+# Ensure MCP helper is inside the product (Xcode phase may have skipped in Debug).
+CONFIGURATION="$CONFIGURATION" bash "$ROOT/scripts/macos/embed-mcp.sh" "$PRODUCT"
 
 # Quit running instance so we can replace the bundle.
 if pgrep -x AgentCanvas >/dev/null 2>&1; then
@@ -96,6 +105,12 @@ if [[ ! -d "$PLUGIN" ]]; then
 fi
 
 echo "Embedded extension OK: $PLUGIN"
+MCP_HELPER="$DEST/Contents/MacOS/agent-canvas-mcp"
+if [[ ! -x "$MCP_HELPER" ]]; then
+  echo "error: MCP helper missing at $MCP_HELPER" >&2
+  exit 1
+fi
+echo "Embedded MCP OK: $MCP_HELPER"
 echo "Bundle id: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$DEST/Contents/Info.plist" 2>/dev/null || true)"
 echo "Widget id: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLUGIN/Contents/Info.plist" 2>/dev/null || true)"
 echo ""

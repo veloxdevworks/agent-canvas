@@ -27,12 +27,14 @@ struct AgentCanvasApp: App {
         .defaultSize(width: 600, height: 620)
         .handlesExternalEvents(matching: [])
 
+        #if DEBUG
         Window("Seed demos", id: "seed") {
             SeedDemosView()
                 .environmentObject(reloadWatcher)
         }
         .defaultSize(width: 640, height: 680)
         .handlesExternalEvents(matching: [])
+        #endif
 
         // Legacy `agentcanvas://detail…` only. Widget taps use `action://` and are opened
         // via openWindow(value:) so the typed id binding is set (avoids a nil-id spinner).
@@ -188,15 +190,21 @@ struct AgentCanvasCommands: Commands {
         }
 
         CommandMenu("Developer") {
+            #if DEBUG
             Button("Seed Demos…") {
                 openWindow(id: "seed")
             }
-            #if DEBUG
             Button("Cloud settings…") {
                 openWindow(id: "main")
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                     NotificationCenter.default.post(name: .agentCanvasOpenCloud, object: nil)
                 }
+            }
+            Button("Reset Onboarding Flags") {
+                UserGuide.resetOnboardingFlags()
+                reloadWatcher.setStatusLine(
+                    "Onboarding flags reset — reopen Agent Canvas to see checklist"
+                )
             }
             #endif
             Button("Reload All Widgets") {
@@ -210,12 +218,6 @@ struct AgentCanvasCommands: Commands {
             }
             Button("Copy Diagnostics") {
                 UserGuide.copyDiagnostics()
-            }
-            Button("Reset Onboarding Flags") {
-                UserGuide.resetOnboardingFlags()
-                reloadWatcher.setStatusLine(
-                    "Onboarding flags reset — reopen Agent Canvas to see checklist"
-                )
             }
         }
     }

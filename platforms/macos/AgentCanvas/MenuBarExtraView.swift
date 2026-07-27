@@ -56,6 +56,9 @@ struct MenuBarExtraView: View {
                     NotificationCenter.default.post(name: .agentCanvasShowHowTo, object: nil)
                 }
             }
+            Button("Privacy…") {
+                UserGuide.openPrivacy()
+            }
             Button("Send Feedback…") {
                 UserGuide.openSendFeedback()
             }
@@ -107,7 +110,7 @@ struct MenuBarExtraView: View {
             w.preferredConnectClient = client
             if !path.exists && client != .chatgpt {
                 w.setStatusLine(
-                    "MCP binary not found — run just build-rust, then open Connect again"
+                    "MCP helper missing from the app — reinstall Agent Canvas, then open Connect again"
                 )
             }
         }
@@ -130,7 +133,7 @@ struct MenuBarExtraView: View {
         HostRuntime.watcher?.setStatusLine(
             resolved.exists
                 ? "MCP config copied"
-                : "Config copied, but binary missing — fix command path after just build-rust"
+                : "Config copied, but helper missing — reinstall Agent Canvas so the path is valid"
         )
     }
 }

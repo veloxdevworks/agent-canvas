@@ -33,8 +33,10 @@ platforms/macos/DerivedData/
 
 # Local build products
 /build/
+/dist/
 *.app
 *.appex
+*.dmg
 
 # ── App data / local previews (never ship user canvas data) ─────────────────
 **/.velox/

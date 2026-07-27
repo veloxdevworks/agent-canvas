@@ -49,9 +49,11 @@ struct SettingsView: View {
             }
             openWindow(id: "connect-wizard")
         }
+        #if DEBUG
         .onReceive(NotificationCenter.default.publisher(for: .agentCanvasOpenSeed)) { _ in
             openWindow(id: "seed")
         }
+        #endif
         .onReceive(NotificationCenter.default.publisher(for: .agentCanvasOpenCloud)) { _ in
             selection = .general
         }

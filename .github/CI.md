@@ -107,9 +107,36 @@ git push origin v0.2.0
 ```
 
 Creates a GitHub Release with auto notes + Linux `agent-canvas-mcp` binary.
-macOS app artifact: set `ENABLE_MACOS_RELEASE=true`, or **Actions → Release → Run workflow** with **build_macos**.
 
-Notarized Developer ID builds and Sparkle appcast are **not** automated yet.
+### Notarized macOS DMG (private companion)
+
+Signing / notarization / DMG packaging run only in the private repo (secrets + org Mac):
+
+→ **[`veloxdevworks/agent-canvas-release`](https://github.com/veloxdevworks/agent-canvas-release)**
+
+Shared script (this tree, at the release tag): [`scripts/macos/package-notarized-dmg.sh`](../scripts/macos/package-notarized-dmg.sh)
+
+```bash
+# After the public tag exists (and Linux Release has created the GitHub Release):
+gh workflow run release.yml --repo veloxdevworks/agent-canvas-release \
+  -f ref=v0.2.0 \
+  -f release_tag=public-v0.2.0 \
+  -f publish_public=true
+```
+
+Attaches `AgentCanvas-v0.2.0.dmg` + `SHA256SUMS.txt` to the **public** Release.
+
+Local dry-run (Developer ID + `notarytool` profile on your Mac):
+
+```bash
+CONFIGURATION=Release just macos-install
+IDENTITY="Developer ID Application: …" NOTARY_PROFILE=agent-canvas-notary \
+  just macos-notarize-dmg
+```
+
+Optional unsigned macOS zip from **this** public repo: set `ENABLE_MACOS_RELEASE=true`, or **Actions → Release → Run workflow** with **build_macos**. Prefer the private notarized DMG for installs.
+
+Sparkle appcast is **not** automated yet.
 
 ## Smoke-test the Mac runner
 

@@ -58,6 +58,11 @@ struct HowToUseView: View {
                 .padding(4)
             }
 
+            Button("Privacy…") {
+                UserGuide.openPrivacy()
+            }
+            .buttonStyle(.link)
+
             if showsDismissActions {
                 HStack {
                     Button("Show again later") {

@@ -39,7 +39,8 @@ enum UserGuide {
         (
             "Connect your agent",
             "Menu bar → Connect MCP → Cursor or Claude Desktop. "
-                + "ChatGPT can’t use local stdio yet — use the guided setup for alternatives."
+                + "ChatGPT does not support local MCP yet (Not available). "
+                + "Canvas data stays on this Mac by default — see Privacy in the project docs."
         ),
         (
             "Ask the agent to update a canvas",
@@ -47,6 +48,13 @@ enum UserGuide {
                 + "Keep Agent Canvas running in the menu bar so widgets reload."
         ),
     ]
+
+    /// Public privacy policy in the source repo (until a product site hosts a copy).
+    static let privacyURL = URL(string: "https://github.com/veloxdevworks/agent-canvas/blob/main/PRIVACY.md")!
+
+    static func openPrivacy() {
+        NSWorkspace.shared.open(privacyURL)
+    }
 
     static func copyExamplePrompt() {
         NSPasteboard.general.clearContents()
