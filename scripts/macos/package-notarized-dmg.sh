@@ -12,6 +12,7 @@
 #   or APPLE_API_KEY_PATH + APPLE_API_KEY_ID + APPLE_API_ISSUER_ID
 #
 # Optional env:
+#   KEYCHAIN         — path to .keychain-db for codesign --keychain (CI)
 #   OUTPUT_DIR        — default: <repo>/dist/macos-release
 #   DMG_NAME          — default: AgentCanvas.dmg
 #   VOL_NAME          — default: Agent Canvas
@@ -82,11 +83,17 @@ APP="$WORK/AgentCanvas.app"
 echo "==> Staging app → $APP"
 ditto "$APP_SRC" "$APP"
 
+KEYCHAIN="${KEYCHAIN:-}"
+
 sign() {
   local target="$1"
   shift
   echo "    codesign: $target"
-  codesign --force --options runtime --timestamp --sign "$IDENTITY" "$@" "$target"
+  if [[ -n "$KEYCHAIN" ]]; then
+    codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$@" "$target"
+  else
+    codesign --force --options runtime --timestamp --sign "$IDENTITY" "$@" "$target"
+  fi
 }
 
 echo "==> Signing (Developer ID, inside-out)"
@@ -169,7 +176,11 @@ hdiutil create \
   "$DMG_PATH"
 
 echo "==> Signing DMG"
-codesign --force --timestamp --sign "$IDENTITY" "$DMG_PATH"
+if [[ -n "$KEYCHAIN" ]]; then
+  codesign --force --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$DMG_PATH"
+else
+  codesign --force --timestamp --sign "$IDENTITY" "$DMG_PATH"
+fi
 codesign --verify --verbose=2 "$DMG_PATH"
 
 notary_submit "$DMG_PATH"
