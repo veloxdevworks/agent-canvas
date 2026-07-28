@@ -131,15 +131,15 @@ The private workflow prefers a dedicated runner keychain
 ```bash
 # After the public tag exists (and Release workflow has created the GitHub Release):
 gh workflow run release.yml --repo veloxdevworks/agent-canvas-release \
-  -f ref=v0.2.7 \
-  -f release_tag=public-v0.2.7 \
+  -f ref=v0.2.8 \
+  -f release_tag=public-v0.2.8 \
   -f publish_public=true
 ```
 
 Attaches to the **public** Release:
 
-- `AgentCanvas-v0.2.7-x86_64.dmg` / `…-arm64.dmg` (first-time install)
-- `AgentCanvas-v0.2.7.zip` (Sparkle enclosure, universal)
+- `AgentCanvas-v0.2.8-x86_64.dmg` / `…-arm64.dmg` (first-time install)
+- `AgentCanvas-v0.2.8.zip` (Sparkle enclosure, universal)
 - `appcast.xml` (also reachable via `…/releases/latest/download/appcast.xml`)
 - `SHA256SUMS.txt`
 
@@ -165,7 +165,7 @@ gh secret set SPARKLE_PRIVATE_ED_KEY --repo veloxdevworks/agent-canvas-release \
 # Commit the new SUPublicEDKey in Info.plist when rotating.
 ```
 
-**Tester note:** `v0.2.7` is the first Sparkle-capable build. Install that DMG, then ship `v0.2.8+` to exercise the update path. Keep the app under `/Applications`.
+**Tester note:** `v0.2.7` is the first Sparkle-capable build; `v0.2.8` proves the update path. Install 0.2.7 from the notarized DMG under `/Applications`, then **Check for Updates…** (or wait for the automatic check) to receive 0.2.8+.
 
 Local dry-run (Developer ID + `notarytool` profile on your Mac):
 

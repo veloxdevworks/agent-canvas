@@ -7,6 +7,11 @@ Version tags match GitHub Releases (`vMAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-07-28
+
+### Notes
+- Follow-up build to verify Sparkle updates from 0.2.7 (build 7 → 8). No product changes.
+
 ## [0.2.7] - 2026-07-28
 
 ### Added
