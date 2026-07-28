@@ -120,7 +120,9 @@ Signing / notarization / DMG packaging run only in the private repo (secrets + o
 Shared scripts (this tree, at the release tag):
 
 - [`scripts/macos/build-release-app.sh`](../scripts/macos/build-release-app.sh) — arch-specific Release `.app` + embedded MCP  
-- [`scripts/macos/package-notarized-dmg.sh`](../scripts/macos/package-notarized-dmg.sh) — Developer ID sign → notarize → DMG  
+- [`scripts/macos/package-notarized-dmg.sh`](../scripts/macos/package-notarized-dmg.sh) — Developer ID sign → notarize → DMG (also resigns Sparkle frameworks/XPCs)  
+- [`scripts/macos/make-universal-app.sh`](../scripts/macos/make-universal-app.sh) — lipo x86_64 + arm64 → universal `.app`  
+- [`scripts/macos/publish-sparkle-appcast.sh`](../scripts/macos/publish-sparkle-appcast.sh) — universal zip + EdDSA-signed `appcast.xml`
 
 The private workflow prefers a dedicated runner keychain
 (`~/Library/Keychains/agent-canvas.keychain-db`) unlocked via
@@ -129,18 +131,41 @@ The private workflow prefers a dedicated runner keychain
 ```bash
 # After the public tag exists (and Release workflow has created the GitHub Release):
 gh workflow run release.yml --repo veloxdevworks/agent-canvas-release \
-  -f ref=v0.2.1 \
-  -f release_tag=public-v0.2.1 \
+  -f ref=v0.2.7 \
+  -f release_tag=public-v0.2.7 \
   -f publish_public=true
 ```
 
 Attaches to the **public** Release:
 
-- `AgentCanvas-v0.2.1-x86_64.dmg`
-- `AgentCanvas-v0.2.1-arm64.dmg`
+- `AgentCanvas-v0.2.7-x86_64.dmg` / `…-arm64.dmg` (first-time install)
+- `AgentCanvas-v0.2.7.zip` (Sparkle enclosure, universal)
+- `appcast.xml` (also reachable via `…/releases/latest/download/appcast.xml`)
 - `SHA256SUMS.txt`
 
 (Intel self-hosted runner builds `x86_64` natively and cross-compiles `arm64`.)
+
+### Sparkle (in-app updates)
+
+| Piece | Value |
+|-------|--------|
+| Feed | `https://github.com/veloxdevworks/agent-canvas/releases/latest/download/appcast.xml` |
+| Public key | `SUPublicEDKey` in `platforms/macos/AgentCanvas/Info.plist` |
+| Private key | Actions secret `SPARKLE_PRIVATE_ED_KEY` on **agent-canvas-release** |
+| Host UX | **Check for Updates…** + automatic checks (`SUEnableAutomaticChecks`) |
+
+Generate / rotate keys (once per organization):
+
+```bash
+# From a Sparkle release tarball:
+./bin/generate_keys                 # prints SUPublicEDKey; stores private in login keychain
+./bin/generate_keys -x sparkle_private_ed_key.txt
+gh secret set SPARKLE_PRIVATE_ED_KEY --repo veloxdevworks/agent-canvas-release \
+  < sparkle_private_ed_key.txt
+# Commit the new SUPublicEDKey in Info.plist when rotating.
+```
+
+**Tester note:** `v0.2.7` is the first Sparkle-capable build. Install that DMG, then ship `v0.2.8+` to exercise the update path. Keep the app under `/Applications`.
 
 Local dry-run (Developer ID + `notarytool` profile on your Mac):
 
@@ -151,8 +176,6 @@ IDENTITY="Developer ID Application: …" NOTARY_PROFILE=agent-canvas-notary \
 ```
 
 Optional unsigned macOS zip from **this** public repo: set `ENABLE_MACOS_RELEASE=true`, or **Actions → Release → Run workflow** with **build_macos**. Prefer the private notarized DMGs for installs.
-
-Sparkle appcast is **not** automated yet.
 
 ## Smoke-test the Mac runner
 

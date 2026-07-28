@@ -88,14 +88,15 @@ Keep the **host app running** so widgets reload when the agent writes. Closing w
 
 ---
 
+## Updates
+
+Shipped builds use **Sparkle**: **Agent Canvas → Check for Updates…**, plus automatic background checks. The feed is the latest GitHub Release `appcast.xml`. Install from a notarized DMG under [Releases](https://github.com/veloxdevworks/agent-canvas/releases); keep the app in `/Applications`.
+
 ## What’s next
 
 Rough direction (not a commitment to dates):
 
-- **GitHub Releases** — notarized macOS DMGs (`x86_64` + `arm64`) via private [`agent-canvas-release`](https://github.com/veloxdevworks/agent-canvas-release)  
-- **In-app updates** — Sparkle (“Check for Updates…” + optional auto-check)  
 - **Polished packaging** — DMG layout polish; Connect already prefers the bundled MCP helper  
-
 - **Schema / density** — promote proven `group` layouts from detail → glance; more leaves as demand appears  
 - **Cross-platform** — shared schema + MCP + layout_spec; native shells next (Windows, then Linux later)  
 

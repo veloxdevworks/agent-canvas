@@ -200,6 +200,9 @@ struct AgentCanvasCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .appInfo) {
+            Button("Check for Updates…") {
+                AppUpdater.shared.checkForUpdates()
+            }
             Button("How to Use…") {
                 openWindow(id: "main")
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
@@ -470,6 +473,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let watcher = self.reloadWatcher
             HostRuntime.reloadWatcher = watcher
             watcher.start()
+            // Start Sparkle automatic update checks for the process lifetime.
+            _ = AppUpdater.shared
         }
 
         // SwiftUI may open a default Window at launch — hide it so we start menu-bar-only.

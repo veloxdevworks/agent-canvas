@@ -105,6 +105,21 @@ if [[ ! -x "$MCP" ]]; then
 fi
 sign "$MCP"
 
+# Sparkle frameworks / XPC services (SPM embed) — deepest first, then the app.
+FRAMEWORKS="$APP/Contents/Frameworks"
+if [[ -d "$FRAMEWORKS" ]]; then
+  while IFS= read -r -d '' nested; do
+    sign "$nested"
+  done < <(
+    find "$FRAMEWORKS" -depth \( \
+      -name '*.xpc' -o \
+      -name '*.framework' -o \
+      -name '*.dylib' -o \
+      -name '*.app' \
+    \) -print0 2>/dev/null || true
+  )
+fi
+
 APPEX="$APP/Contents/PlugIns/AgentCanvasWidget.appex"
 if [[ ! -d "$APPEX" ]]; then
   echo "error: widget extension missing at $APPEX" >&2

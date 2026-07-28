@@ -36,6 +36,16 @@
 	<false/>
 	<key>NSSupportsSuddenTermination</key>
 	<false/>
+	<!-- Sparkle in-app updates (feed asset uploaded on every GitHub Release). -->
+	<key>SUFeedURL</key>
+	<string>https://github.com/veloxdevworks/agent-canvas/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>/SSVXnpoPh14TLSLkRnwtzW2wL68FTMWoYLSiKZqINE=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<!-- Download in background; user confirms install. -->
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
 	<!-- OAuth PKCE redirect: agentcanvas://oauth/callback -->
 	<key>CFBundleURLTypes</key>
 	<array>
