@@ -35,17 +35,45 @@ else
 fi
 
 CONFIGURATION="${CONFIGURATION:-Debug}"
-SRC="${AGENT_CANVAS_MCP_SRC:-$ROOT/target/release/agent-canvas-mcp}"
+SRC="${AGENT_CANVAS_MCP_SRC:-}"
 DEST="$MACOS_DIR/agent-canvas-mcp"
 
-if [[ ! -x "$SRC" ]]; then
+# Resolve source: explicit env, then host target/release, then arch-specific cargo targets.
+if [[ -z "$SRC" || ! -x "$SRC" ]]; then
+  CANDIDATES=("$ROOT/target/release/agent-canvas-mcp")
+  # Xcode sets ARCHS / CURRENT_ARCH; CI cross-builds use rustup triples.
+  ARCH_HINT="${ARCHS:-${CURRENT_ARCH:-${PLATFORM_PREFERRED_ARCH:-}}}"
+  case "$ARCH_HINT" in
+    *arm64*|*aarch64*)
+      CANDIDATES+=("$ROOT/target/aarch64-apple-darwin/release/agent-canvas-mcp")
+      ;;
+    *x86_64*)
+      CANDIDATES+=("$ROOT/target/x86_64-apple-darwin/release/agent-canvas-mcp")
+      ;;
+    *)
+      CANDIDATES+=(
+        "$ROOT/target/aarch64-apple-darwin/release/agent-canvas-mcp"
+        "$ROOT/target/x86_64-apple-darwin/release/agent-canvas-mcp"
+      )
+      ;;
+  esac
+  SRC=""
+  for c in "${CANDIDATES[@]}"; do
+    if [[ -x "$c" ]]; then
+      SRC="$c"
+      break
+    fi
+  done
+fi
+
+if [[ -z "$SRC" || ! -x "$SRC" ]]; then
   if [[ "$CONFIGURATION" == "Release" ]]; then
-    echo "error: MCP helper missing at $SRC" >&2
-    echo "  Build it first: cargo build -p agent-canvas-mcp --release" >&2
-    echo "  (or: just build-mcp-release)" >&2
+    echo "error: MCP helper missing (checked target/release and target/*-apple-darwin/release)" >&2
+    echo "  Build it first: cargo build -p agent-canvas-mcp --release --target <triple>" >&2
+    echo "  (or: just build-mcp-release / scripts/macos/build-release-app.sh)" >&2
     exit 1
   fi
-  echo "note: MCP helper not at $SRC — skipping embed (Debug). Run: just build-mcp-release" >&2
+  echo "note: MCP helper not found — skipping embed (Debug). Run: just build-mcp-release" >&2
   exit 0
 fi
 

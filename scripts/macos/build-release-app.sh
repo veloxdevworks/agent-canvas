@@ -51,6 +51,8 @@ cargo build --manifest-path "$ROOT/Cargo.toml" -p agent-canvas-mcp --release --t
 test -x "$MCP_BIN"
 
 echo "==> XcodeGen + xcodebuild (ARCHS=$ARCH)"
+# Xcode "Embed agent-canvas-mcp" phase reads this (defaults to target/release otherwise).
+export AGENT_CANVAS_MCP_SRC="$MCP_BIN"
 (
   cd "$MACOS"
   xcodegen generate
@@ -63,6 +65,7 @@ echo "==> XcodeGen + xcodebuild (ARCHS=$ARCH)"
     ARCHS="$ARCH" \
     ONLY_ACTIVE_ARCH=YES \
     CODE_SIGNING_ALLOWED=NO \
+    AGENT_CANVAS_MCP_SRC="$MCP_BIN" \
     build
 )
 
