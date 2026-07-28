@@ -206,8 +206,12 @@ spctl --assess --type execute -vv "$APP" 2>&1 || true
 
 echo ""
 echo "Done:"
-[[ -n "$STAGED_APP" ]] && echo "  App: $STAGED_APP"
+if [[ -n "$STAGED_APP" ]]; then
+  echo "  App: $STAGED_APP"
+fi
 echo "  DMG: $DMG_PATH"
 echo "  Sums: $OUTPUT_DIR/SHA256SUMS.txt"
 ls -lh "$DMG_PATH"
-[[ -n "$STAGED_APP" ]] && ls -lh "$STAGED_APP"
+if [[ -n "$STAGED_APP" ]]; then
+  ls -lh "$STAGED_APP"
+fi
