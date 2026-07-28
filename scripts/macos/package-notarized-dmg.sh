@@ -106,16 +106,22 @@ fi
 sign "$MCP"
 
 # Sparkle frameworks / XPC services (SPM embed) — deepest first, then the app.
+# Must include bare Mach-Os such as Sparkle.framework/.../Autoupdate (not just
+# .framework / .xpc / .app wrappers), or notarization returns Invalid.
 FRAMEWORKS="$APP/Contents/Frameworks"
 if [[ -d "$FRAMEWORKS" ]]; then
   while IFS= read -r -d '' nested; do
+    # Skip symlinks (Versions/Current → B, etc.); codesign the real targets.
+    [[ -L "$nested" ]] && continue
     sign "$nested"
   done < <(
     find "$FRAMEWORKS" -depth \( \
       -name '*.xpc' -o \
       -name '*.framework' -o \
       -name '*.dylib' -o \
-      -name '*.app' \
+      -name '*.app' -o \
+      -name 'Autoupdate' -o \
+      -name 'Sparkle' \
     \) -print0 2>/dev/null || true
   )
 fi
