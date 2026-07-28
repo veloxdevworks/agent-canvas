@@ -742,10 +742,13 @@ private struct CanvasSettingsDetail: View {
             } else {
                 subPoll = cloudConfig.defaultPollIntervalSeconds
             }
+            #if DEBUG
             if oauth.isSignedIn {
                 Task { await loadOrganizations() }
             }
+            #endif
         }
+        #if DEBUG
         .onChange(of: oauth.isSignedIn) { _, signedIn in
             if signedIn {
                 Task { await loadOrganizations() }
@@ -754,6 +757,7 @@ private struct CanvasSettingsDetail: View {
                 selectedOrgId = nil
             }
         }
+        #endif
     }
 
     #if DEBUG
