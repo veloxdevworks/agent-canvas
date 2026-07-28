@@ -53,6 +53,13 @@ test -x "$MCP_BIN"
 echo "==> XcodeGen + xcodebuild (ARCHS=$ARCH)"
 # Xcode "Embed agent-canvas-mcp" phase reads this (defaults to target/release otherwise).
 export AGENT_CANVAS_MCP_SRC="$MCP_BIN"
+# generic/platform=macOS allows cross-compiling (e.g. arm64 on an Intel runner).
+# platform=macOS,arch=* only works when that CPU is available as "My Mac".
+if [[ "$ARCH" == arm64 ]]; then
+  EXCLUDE_ARCHS="x86_64"
+else
+  EXCLUDE_ARCHS="arm64"
+fi
 (
   cd "$MACOS"
   xcodegen generate
@@ -60,10 +67,11 @@ export AGENT_CANVAS_MCP_SRC="$MCP_BIN"
     -project AgentCanvas.xcodeproj \
     -scheme AgentCanvas \
     -configuration Release \
-    -destination "platform=macOS,arch=$ARCH" \
+    -destination "generic/platform=macOS" \
     -derivedDataPath "$DERIVED_DATA" \
     ARCHS="$ARCH" \
     ONLY_ACTIVE_ARCH=YES \
+    EXCLUDED_ARCHS="$EXCLUDE_ARCHS" \
     CODE_SIGNING_ALLOWED=NO \
     AGENT_CANVAS_MCP_SRC="$MCP_BIN" \
     build
