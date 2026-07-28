@@ -93,18 +93,18 @@ Keep the **host app running** so widgets reload when the agent writes. Closing w
 
 Rough direction (not a commitment to dates):
 
-- **GitHub Releases** — Linux MCP on tags; notarized macOS DMGs (`x86_64` + `arm64`) via private [`agent-canvas-release`](https://github.com/veloxdevworks/agent-canvas-release)  
+- **GitHub Releases** — notarized macOS DMGs (`x86_64` + `arm64`) via private [`agent-canvas-release`](https://github.com/veloxdevworks/agent-canvas-release)  
 - **In-app updates** — Sparkle (“Check for Updates…” + optional auto-check)  
 - **Polished packaging** — DMG layout polish; Connect already prefers the bundled MCP helper  
 
 - **Schema / density** — promote proven `group` layouts from detail → glance; more leaves as demand appears  
-- **Cross-platform** — shared schema + MCP + layout_spec; native shells (Windows Adaptive Cards, KDE QML) later  
+- **Cross-platform** — shared schema + MCP + layout_spec; native shells next (Windows, then Linux later)  
 
 Design notes and older architecture drafts live in [`plan.md`](./plan.md) (some sections still use early naming).
 
 ### CI
 
-- **Public (this repo):** Linux validation on PRs/pushes (fmt, clippy, tests, MCP build).  
+- **Public (this repo):** Ubuntu CI on PRs/pushes (fmt, clippy, tests, MCP build). Release tags open a GitHub Release; installable assets are macOS DMGs only.  
 - **Private release:** [`agent-canvas-release`](https://github.com/veloxdevworks/agent-canvas-release) — trusted macOS builds on the org self-hosted runner (no public PR traffic on the Mac).  
 
 See [`.github/CI.md`](./.github/CI.md).

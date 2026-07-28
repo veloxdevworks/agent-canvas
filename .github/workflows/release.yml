@@ -1,13 +1,15 @@
-# Tag-driven GitHub Release (lean).
+# Tag-driven GitHub Release.
 #
 #   git tag v0.2.0 && git push origin v0.2.0
 #
-# Always: create a GitHub Release + attach Linux MCP binary (ubuntu).
-# Optional macOS app archive: set ENABLE_MACOS_RELEASE=true (or workflow_dispatch
-# build_macos=true). Prefer self-hosted via MACOS_RUNS_ON before enabling on tags.
+# Always: create a GitHub Release (notes + source). Notarized macOS DMGs are
+# attached by the private companion repo (agent-canvas-release).
 #
-# Kill-switch: CI_DISABLED=true still allows manual workflow_dispatch releases
-# unless you also skip below — adjust if you want a hard pause.
+# Optional unsigned macOS .app zip: set ENABLE_MACOS_RELEASE=true (or
+# workflow_dispatch build_macos=true). Prefer the private notarized path.
+#
+# No standalone Linux MCP binary — the MCP is only useful with a host UI
+# (macOS today; Windows next). CI still builds/tests MCP on Ubuntu.
 
 name: Release
 
@@ -34,42 +36,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  mcp-linux:
-    name: MCP binary (linux)
-    if: ${{ vars.CI_DISABLED != 'true' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "."
-
-      - name: Build release MCP
-        run: cargo build --release -p agent-canvas-mcp
-
-      - name: Stage artifact
-        run: |
-          mkdir -p dist
-          cp target/release/agent-canvas-mcp "dist/agent-canvas-mcp-linux-x86_64"
-          chmod +x "dist/agent-canvas-mcp-linux-x86_64"
-          (cd dist && sha256sum agent-canvas-mcp-linux-x86_64 > SHA256SUMS-linux.txt)
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: mcp-linux
-          path: dist/
-          retention-days: 14
-
   macos-app:
     name: macOS app (optional)
     if: >-
       ${{
-        (github.event_name == 'workflow_dispatch' && inputs.build_macos == true) ||
-        (github.event_name == 'push' && vars.ENABLE_MACOS_RELEASE == 'true')
+        (vars.CI_DISABLED != 'true' || github.event_name == 'workflow_dispatch') &&
+        (
+          (github.event_name == 'workflow_dispatch' && inputs.build_macos == true) ||
+          (github.event_name == 'push' && vars.ENABLE_MACOS_RELEASE == 'true')
+        )
       }}
     runs-on: ${{ fromJSON(vars.MACOS_RUNS_ON || '["macos-14"]') }}
     timeout-minutes: 45
@@ -100,7 +75,7 @@ jobs:
             -project AgentCanvas.xcodeproj \
             -scheme AgentCanvas \
             -configuration Release \
-            -destination 'platform=macOS' \
+            -destination 'generic/platform=macOS' \
             -derivedDataPath ../../build/ci-macos-release \
             CODE_SIGNING_ALLOWED=NO \
             build
@@ -121,9 +96,14 @@ jobs:
 
   publish:
     name: GitHub Release
-    needs: [mcp-linux]
-    # macos-app is optional — don't block release if skipped
-    if: ${{ always() && needs.mcp-linux.result == 'success' }}
+    needs: [macos-app]
+    # macos-app is optional — don't block when skipped
+    if: >-
+      ${{
+        always() &&
+        (vars.CI_DISABLED != 'true' || github.event_name == 'workflow_dispatch') &&
+        (needs.macos-app.result == 'success' || needs.macos-app.result == 'skipped')
+      }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -141,12 +121,6 @@ jobs:
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Releasing $TAG"
-
-      - name: Download Linux MCP
-        uses: actions/download-artifact@v4
-        with:
-          name: mcp-linux
-          path: dist/
 
       - name: Download macOS app (if present)
         continue-on-error: true

@@ -1,6 +1,7 @@
 # CI notes (cost-aware)
 
-Linux jobs stay on GitHub-hosted `ubuntu-latest`.
+Validation jobs stay on GitHub-hosted `ubuntu-latest` (fmt, clippy, tests, MCP build).
+We do **not** ship a standalone Linux MCP binary — without a host UI it is not useful.
 
 **macOS / self-hosted Mac:** do **not** attach the org runner to this **public** repo for
 routine CI (untrusted PR risk). Use the private companion:
@@ -16,7 +17,7 @@ Optional manual macOS workflow here remains `workflow_dispatch` only; prefer the
 |----------|------|--------|---------|
 | **CI** (`ci.yml`) | PR / push to `main` (skips pure doc changes) | `ubuntu-latest` | `fmt` · `clippy` · `test` · release-build MCP |
 | **macOS** (`macos.yml`) | **Manual** by default; PR/push if `ENABLE_MACOS_CI` | `MACOS_RUNS_ON` or `macos-14` | XcodeGen + unsigned `xcodebuild` |
-| **Release** (`release.yml`) | Tag `v*.*.*` or manual | Linux always; macOS optional | GitHub Release + artifacts |
+| **Release** (`release.yml`) | Tag `v*.*.*` or manual | `ubuntu-latest` (+ optional macOS) | GitHub Release notes; optional unsigned `.app` zip |
 
 ## Repo variables
 
@@ -106,7 +107,9 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
-Creates a GitHub Release with auto notes + Linux `agent-canvas-mcp` binary.
+Creates a GitHub Release with auto notes (and source archives). Installable
+binaries are the notarized macOS DMGs from the private companion — not a
+standalone MCP for Linux/Windows.
 
 ### Notarized macOS DMGs (private companion)
 
@@ -119,10 +122,12 @@ Shared scripts (this tree, at the release tag):
 - [`scripts/macos/build-release-app.sh`](../scripts/macos/build-release-app.sh) — arch-specific Release `.app` + embedded MCP  
 - [`scripts/macos/package-notarized-dmg.sh`](../scripts/macos/package-notarized-dmg.sh) — Developer ID sign → notarize → DMG  
 
-The private workflow imports the Developer ID `.p12` into a **temporary keychain** each run (plus Apple Developer ID G2 intermediate). You do **not** install the signing cert permanently on the runner.
+The private workflow prefers a dedicated runner keychain
+(`~/Library/Keychains/agent-canvas.keychain-db`) unlocked via
+`~/.agent-canvas-keychain-password`.
 
 ```bash
-# After the public tag exists (and Linux Release has created the GitHub Release):
+# After the public tag exists (and Release workflow has created the GitHub Release):
 gh workflow run release.yml --repo veloxdevworks/agent-canvas-release \
   -f ref=v0.2.1 \
   -f release_tag=public-v0.2.1 \
