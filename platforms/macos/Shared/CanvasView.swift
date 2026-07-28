@@ -258,40 +258,22 @@ struct CanvasView: View {
     }
 
     private func emptyState(fillTile: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(entry.address.displayName)
-                .font(.headline)
-            Text("MCP id: \(entry.address.rawValue)")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-            Text("Drop content here with your agent")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding(edgeInset)
-        .frame(
-            maxWidth: .infinity,
-            maxHeight: fillTile ? .infinity : nil,
-            alignment: .topLeading
+        EmptyCanvasView(
+            address: entry.address,
+            fillTile: fillTile,
+            edgeInset: edgeInset
         )
     }
 
     private func lastUpdatedLabel(_ date: Date) -> String {
-        let secs = max(0, Int(Date().timeIntervalSince(date)))
-        // Widget timelines don't tick every second — avoid frozen "N seconds ago".
-        if secs < 60 {
-            return "Last updated just now"
+        // Absolute generation time only. WidgetKit freezes the snapshot until
+        // timeline reload (content write / rare refresh), so relative "N minutes
+        // ago" stays stuck — and omitting the calendar day would go stale overnight.
+        let cal = Calendar.current
+        if cal.component(.year, from: date) == cal.component(.year, from: Date()) {
+            return "Updated \(date.formatted(.dateTime.month(.abbreviated).day().hour().minute()))"
         }
-        let mins = secs / 60
-        if mins < 60 {
-            return "Last updated \(mins) \(mins == 1 ? "minute" : "minutes") ago"
-        }
-        let hours = mins / 60
-        if hours < 48 {
-            return "Last updated \(hours) \(hours == 1 ? "hour" : "hours") ago"
-        }
-        let days = hours / 24
-        return "Last updated \(days) \(days == 1 ? "day" : "days") ago"
+        return "Updated \(date.formatted(.dateTime.year(.twoDigits).month(.abbreviated).day().hour().minute()))"
     }
 
     private func overflowCaption(_ clip: ContentClip.Result) -> String {

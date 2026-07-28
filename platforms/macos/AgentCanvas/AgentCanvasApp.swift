@@ -87,6 +87,21 @@ struct MenuBarLabelView: View {
                 AppDelegate.hideSettingsWindows()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .agentCanvasOpenHowTo)) { _ in
+            openWindow(id: "main")
+            NSApp.activate(ignoringOtherApps: true)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                NotificationCenter.default.post(name: .agentCanvasShowHowTo, object: nil)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .agentCanvasOpenSubscribe)) { notification in
+            openWindow(id: "main")
+            NSApp.activate(ignoringOtherApps: true)
+            let slug = notification.object as? String
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                NotificationCenter.default.post(name: .agentCanvasShowSubscribe, object: slug)
+            }
+        }
     }
 }
 
@@ -135,6 +150,8 @@ private struct DetailWindowRoot: View {
     private static func expandCanvasId(from url: URL) -> String? {
         guard let target = CanvasActionURL.parse(url) else { return nil }
         switch target {
+        case .howTo, .subscribe:
+            return nil
         case let .document(canvasId):
             guard let address = CanvasAddress(rawValue: canvasId) else { return nil }
             if case .expand = CanvasStorage.load(address: address).resolvedOnOpen {
@@ -162,10 +179,16 @@ private struct DetailWindowRoot: View {
 
 extension Notification.Name {
     static let agentCanvasShowHowTo = Notification.Name("agentCanvasShowHowTo")
+    /// Open main window, then present How to Use (empty-widget deep link).
+    static let agentCanvasOpenHowTo = Notification.Name("agentCanvasOpenHowTo")
     static let agentCanvasOpenConnect = Notification.Name("agentCanvasOpenConnect")
     static let agentCanvasOpenSeed = Notification.Name("agentCanvasOpenSeed")
     static let agentCanvasOpenCloud = Notification.Name("agentCanvasOpenCloud")
     static let agentCanvasOpenDetail = Notification.Name("agentCanvasOpenDetail")
+    /// Open main window for PLAT-105 subscribe deep link (`object` = slug).
+    static let agentCanvasOpenSubscribe = Notification.Name("agentCanvasOpenSubscribe")
+    /// Present subscribe slot picker (`object` = slug).
+    static let agentCanvasShowSubscribe = Notification.Name("agentCanvasShowSubscribe")
     /// Show connect wizard client picker (not a specific client flow).
     static let agentCanvasConnectShowLanding = Notification.Name("agentCanvasConnectShowLanding")
 }
@@ -194,7 +217,7 @@ struct AgentCanvasCommands: Commands {
             Button("Seed Demos…") {
                 openWindow(id: "seed")
             }
-            Button("Cloud settings…") {
+            Button("Dev Settings…") {
                 openWindow(id: "main")
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                     NotificationCenter.default.post(name: .agentCanvasOpenCloud, object: nil)
@@ -237,6 +260,9 @@ final class ReloadWatcher: ObservableObject {
     private var started = false
     /// Last poll time per canvas id for cloud subscriptions.
     private var lastSubscriptionPoll: [String: Date] = [:]
+    /// Debounce auto-push after local reloads.
+    private var lastAutoPushAt: [String: Date] = [:]
+    private var autoPushInFlight: Set<String> = []
 
     var canvasFillSummary: String {
         "\(filledCount)/\(totalCount) filled"
@@ -339,17 +365,49 @@ final class ReloadWatcher: ObservableObject {
                 setStatusLine(
                     "Reloaded \(address.displayName) (\(address.rawValue)) at \(lastReload!.formatted(date: .omitted, time: .standard))"
                 )
+                pushSharedIfNeeded(address: address)
             case .all:
                 CanvasStorage.reloadAllTimelines()
                 lastReload = Date()
                 setStatusLine(
                     "Reloaded all widgets at \(lastReload!.formatted(date: .omitted, time: .standard))"
                 )
+                for address in CanvasAddress.allCases {
+                    pushSharedIfNeeded(address: address)
+                }
             }
             refreshCanvasCounts()
         }
 
         pollCloudSubscriptionsIfNeeded()
+    }
+
+    /// When a share has auto-push enabled, PUT after local MCP/agent reload.
+    private func pushSharedIfNeeded(address: CanvasAddress) {
+        #if DEBUG
+        guard CloudFeature.isEnabled else { return }
+        guard let share = CloudShareIndex.record(forCanvas: address.rawValue),
+              share.resolvedAutoPush
+        else { return }
+        let key = address.rawValue
+        if autoPushInFlight.contains(key) { return }
+        if let last = lastAutoPushAt[key], Date().timeIntervalSince(last) < 2 {
+            return
+        }
+        autoPushInFlight.insert(key)
+        Task { @MainActor in
+            defer { self.autoPushInFlight.remove(key) }
+            do {
+                _ = try await CloudAPIClient.updateShared(address: address)
+                self.lastAutoPushAt[key] = Date()
+                self.setStatusLine("Pushed \(address.rawValue) to cloud")
+            } catch {
+                NSLog(
+                    "AgentCanvas: auto-push \(address.rawValue): \(error.localizedDescription)"
+                )
+            }
+        }
+        #endif
     }
 
     /// PLAT-83-lite: when cloud feature is on, poll enabled URL subscriptions.
@@ -455,6 +513,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                     Self.hideSettingsWindows()
                 }
+            case .showHowTo:
+                // Keep the main window visible — it hosts the How to Use sheet.
+                NotificationCenter.default.post(name: .agentCanvasOpenHowTo, object: nil)
+            case let .subscribe(slug):
+                #if DEBUG
+                CloudFeature.userToggleEnabled = true
+                #endif
+                NotificationCenter.default.post(name: .agentCanvasOpenSubscribe, object: slug)
             case .handledExternally:
                 DispatchQueue.main.async {
                     Self.hideSettingsWindows()

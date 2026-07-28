@@ -5,16 +5,23 @@ import CryptoKit
 ///
 /// Widget emits `agentcanvas://action?…`; host re-reads JSON and executes.
 /// Legacy `agentcanvas://detail?id=` remains an alias for expand.
+/// Canvas web (PLAT-105): `agentcanvas://subscribe?slug={slug}`.
 enum CanvasActionURL {
     static let scheme = "agentcanvas"
     static let actionHost = "action"
     static let detailHost = "detail"
+    static let howToHost = "howto"
+    static let subscribeHost = "subscribe"
 
     enum Target: Equatable {
         /// Document `onOpen` (or legacy detail expand).
         case document(id: String)
         /// List item action at document section/item indices.
         case item(id: String, section: Int, item: Int, version: String)
+        /// Open the host How to Use / getting started guide.
+        case howTo
+        /// Pull a cloud canvas by slug into a local slot (host picks slot).
+        case subscribe(slug: String)
     }
 
     // MARK: - Build
@@ -26,6 +33,14 @@ enum CanvasActionURL {
         components.queryItems = [
             URLQueryItem(name: "id", value: canvasId),
         ]
+        return components.url!
+    }
+
+    /// Empty-widget tap — host opens the getting started guide.
+    static func howToURL() -> URL {
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = howToHost
         return components.url!
     }
 
@@ -52,14 +67,26 @@ enum CanvasActionURL {
     // MARK: - Parse
 
     static func parse(_ url: URL) -> Target? {
-        guard url.scheme == scheme else { return nil }
+        guard url.scheme?.lowercased() == scheme else { return nil }
 
-        if url.host == detailHost {
+        if url.host?.lowercased() == howToHost {
+            return .howTo
+        }
+
+        if url.host?.lowercased() == subscribeHost {
+            guard let slug = queryValue(url, name: "slug")?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+                !slug.isEmpty
+            else { return nil }
+            return .subscribe(slug: slug)
+        }
+
+        if url.host?.lowercased() == detailHost {
             guard let id = queryValue(url, name: "id"), !id.isEmpty else { return nil }
             return .document(id: id)
         }
 
-        guard url.host == actionHost else { return nil }
+        guard url.host?.lowercased() == actionHost else { return nil }
         guard let id = queryValue(url, name: "id"), !id.isEmpty else { return nil }
 
         let sectionStr = queryValue(url, name: "section")

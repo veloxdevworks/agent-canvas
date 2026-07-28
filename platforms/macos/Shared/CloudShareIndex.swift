@@ -9,8 +9,23 @@ struct CloudShareRecord: Codable, Equatable, Identifiable {
     var sharedAt: Date
     var lastVersion: UInt32?
     var lastEtag: String?
+    /// `public` | `org` | `private`
+    var visibility: String?
+    var orgId: String?
+    var orgName: String?
+    /// When true, host auto-PUTs after local canvas reloads (MCP write).
+    var autoPushUpdates: Bool?
 
     var id: String { slug }
+
+    var resolvedVisibility: String { visibility ?? "public" }
+    var resolvedAutoPush: Bool { autoPushUpdates ?? false }
+}
+
+struct CloudOrganization: Codable, Equatable, Identifiable, Hashable {
+    var id: String
+    var name: String
+    var slug: String?
 }
 
 enum CloudShareIndex {
@@ -65,5 +80,11 @@ enum CloudShareIndex {
 
     static func record(forSlug slug: String) -> CloudShareRecord? {
         load().first { $0.slug == slug }
+    }
+
+    static func setAutoPush(canvas: String, enabled: Bool) throws {
+        guard var record = record(forCanvas: canvas) else { return }
+        record.autoPushUpdates = enabled
+        try upsert(record)
     }
 }

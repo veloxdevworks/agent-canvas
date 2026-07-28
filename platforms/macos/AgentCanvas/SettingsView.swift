@@ -6,6 +6,9 @@ import WidgetKit
 
 private enum SettingsDestination: Hashable {
     case general
+    #if DEBUG
+    case dev
+    #endif
     case canvas(CanvasAddress)
 }
 
@@ -17,6 +20,9 @@ struct SettingsView: View {
     @State private var selection: SettingsDestination? = .general
     @State private var showOnboarding = false
     @State private var showHowTo = false
+    #if DEBUG
+    @State private var pendingSubscribe: SubscribeSlugRequest?
+    #endif
     @State private var showChecklist = !UserGuide.checklistDismissed
     @State private var statusNote = ""
     @State private var refreshTick = 0
@@ -55,8 +61,20 @@ struct SettingsView: View {
         }
         #endif
         .onReceive(NotificationCenter.default.publisher(for: .agentCanvasOpenCloud)) { _ in
+            #if DEBUG
+            selection = .dev
+            #else
             selection = .general
+            #endif
         }
+        #if DEBUG
+        .onReceive(NotificationCenter.default.publisher(for: .agentCanvasShowSubscribe)) { note in
+            selection = .general
+            if let slug = note.object as? String, !slug.isEmpty {
+                pendingSubscribe = SubscribeSlugRequest(slug: slug)
+            }
+        }
+        #endif
         .sheet(isPresented: $showOnboarding) {
             HowToUseView {
                 showOnboarding = false
@@ -68,6 +86,18 @@ struct SettingsView: View {
                 showHowTo = false
             }
         }
+        #if DEBUG
+        .sheet(item: $pendingSubscribe) { request in
+            SubscribeDeepLinkSheet(slug: request.slug) { address in
+                selection = .canvas(address)
+                pendingSubscribe = nil
+                refreshTick &+= 1
+                statusNote = "Subscribed \(request.slug) → \(address.rawValue)"
+            } onCancel: {
+                pendingSubscribe = nil
+            }
+        }
+        #endif
     }
 
     // MARK: Sidebar
@@ -77,6 +107,10 @@ struct SettingsView: View {
             Section {
                 Label("General", systemImage: "gearshape")
                     .tag(SettingsDestination.general)
+                #if DEBUG
+                Label("Dev", systemImage: "hammer")
+                    .tag(SettingsDestination.dev)
+                #endif
             }
 
             ForEach(CanvasSize.allCases, id: \.rawValue) { size in
@@ -90,11 +124,11 @@ struct SettingsView: View {
         }
         .listStyle(.sidebar)
         .navigationSplitViewColumnWidth(min: 200, ideal: 228, max: 280)
-        // Force sidebar refresh when content changes
-        .id(refreshTick)
     }
 
     private func sidebarRow(_ address: CanvasAddress) -> some View {
+        // Depend on poll tick so filled/title/share badges update without remounting the List.
+        let _ = refreshTick
         let doc = CanvasStorage.load(address: address)
         let filled = !doc.isEmptyContent
         let shared = CloudShareIndex.record(forCanvas: address.rawValue) != nil
@@ -147,11 +181,17 @@ struct SettingsView: View {
         case .general:
             GeneralSettingsDetail(
                 showChecklist: $showChecklist,
-                showHowTo: $showHowTo,
+                showHowTo: $showHowTo
+            )
+            .environmentObject(reloadWatcher)
+        #if DEBUG
+        case .dev:
+            DevSettingsDetail(
                 statusNote: $statusNote,
                 refreshTick: refreshTick
             )
             .environmentObject(reloadWatcher)
+        #endif
         case .canvas(let address):
             CanvasSettingsDetail(
                 address: address,
@@ -159,7 +199,9 @@ struct SettingsView: View {
                 refreshTick: refreshTick
             )
             .environmentObject(reloadWatcher)
-            .id(address.rawValue + "-\(refreshTick)")
+            // Identity by slot only — including refreshTick remounted the view every 2s
+            // and wiped @State (publish fields) + ScrollView position.
+            .id(address.rawValue)
         }
     }
 }
@@ -172,23 +214,13 @@ private struct GeneralSettingsDetail: View {
 
     @Binding var showChecklist: Bool
     @Binding var showHowTo: Bool
-    @Binding var statusNote: String
-    var refreshTick: Int = 0
 
-    @State private var cloudToggle = CloudFeature.userToggleEnabled
-    @State private var apiConfig = CloudConfigStore.load()
-    @State private var shares: [CloudShareRecord] = []
-    @State private var subscriptions: [CloudSubscription] = []
-    @State private var cloudBusy = false
-    @State private var oauthClientIdField = ""
-    @ObservedObject private var oauth = VeloxOAuthSession.shared
+    @State private var confirmClearAll = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                header
-
-                if showChecklist && !UserGuide.checklistDismissed {
+        Form {
+            if showChecklist && !UserGuide.checklistDismissed {
+                Section {
                     ChecklistBanner(
                         onOpenConnect: { openWindow(id: "connect-wizard") },
                         onOpenHowTo: { showHowTo = true },
@@ -197,200 +229,199 @@ private struct GeneralSettingsDetail: View {
                             showChecklist = false
                         }
                     )
+                    .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+                }
+            }
+
+            Section {
+                LabeledContent("Connect Agent") {
+                    Button("Open…") {
+                        openWindow(id: "connect-wizard")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            NotificationCenter.default.post(
+                                name: .agentCanvasConnectShowLanding,
+                                object: nil
+                            )
+                        }
+                    }
+                }
+                LabeledContent("How to Use") {
+                    Button("Show") { showHowTo = true }
+                }
+            } header: {
+                Text("Agent")
+            } footer: {
+                Text("Connect an MCP client so agents can update the canvases listed in the sidebar.")
+            }
+
+            Section {
+                LabeledContent("Timelines") {
+                    Button("Reload") {
+                        CanvasStorage.mirrorAllAndReload()
+                        reloadWatcher.noteManualReload()
+                    }
+                }
+            } header: {
+                Text("Widgets")
+            } footer: {
+                Text("Force WidgetKit to refresh every Agent Canvas widget on the desktop.")
+            }
+
+            Section {
+                LabeledContent("Folder") {
+                    Button("Reveal in Finder") {
+                        CanvasStorage.ensureDirectories()
+                        NSWorkspace.shared.open(CanvasStorage.applicationSupportRoot)
+                    }
+                }
+                Text(CanvasStorage.applicationSupportRoot.path)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            } header: {
+                Text("Storage")
+            }
+
+            Section {
+                Button("Clear All Canvases…", role: .destructive) {
+                    confirmClearAll = true
+                }
+            } footer: {
+                Text("Deletes local JSON for every slot. Cloud publishes and subscriptions are kept.")
+            }
+        }
+        .formStyle(.grouped)
+        .navigationTitle("General")
+        .confirmationDialog(
+            "Clear all canvases?",
+            isPresented: $confirmClearAll,
+            titleVisibility: .visible
+        ) {
+            Button("Clear All", role: .destructive) {
+                try? CanvasStorage.clearAll()
+                reloadWatcher.refreshCanvasCounts()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes local content from every slot. This can’t be undone.")
+        }
+    }
+}
+
+#if DEBUG
+// MARK: - Dev
+
+private struct DevSettingsDetail: View {
+    @EnvironmentObject private var reloadWatcher: ReloadWatcher
+    @Environment(\.openWindow) private var openWindow
+
+    @Binding var statusNote: String
+    var refreshTick: Int = 0
+
+    @State private var cloudToggle = CloudFeature.userToggleEnabled
+    @State private var apiConfig = CloudConfigStore.load()
+    @State private var shares: [CloudShareRecord] = []
+    @State private var subscriptions: [CloudSubscription] = []
+    @State private var cloudBusy = false
+    @ObservedObject private var oauth = VeloxOAuthSession.shared
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Cloud Features", isOn: $cloudToggle)
+                    .onChange(of: cloudToggle) { _, on in
+                        CloudFeature.userToggleEnabled = on
+                    }
+                TextField("API Base URL", text: $apiConfig.apiBaseURL)
+                LabeledContent("Default poll (seconds)") {
+                    TextField(
+                        "",
+                        value: $apiConfig.defaultPollIntervalSeconds,
+                        format: .number
+                    )
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 64)
+                }
+                HStack {
+                    Spacer()
+                    Button("Reset") {
+                        apiConfig.apiBaseURL = CloudConfigStore.defaultAPIBase
+                        apiConfig.defaultPollIntervalSeconds = CloudConfigStore.defaultPoll
+                    }
+                    Button("Save") { saveCloudConfig() }
+                        .buttonStyle(.borderedProminent)
+                }
+            } header: {
+                Text("Cloud")
+            } footer: {
+                Text(
+                    "\(CloudFeature.statusDescription). Publish and subscribe live on each canvas page. Deep link: agentcanvas://subscribe?slug=…"
+                )
+            }
+
+            if CloudFeature.isEnabled || cloudToggle {
+                Section {
+                    cloudAccountSection
+                } header: {
+                    Text("Account")
+                } footer: {
+                    Text(
+                        "Velox OAuth (PKCE S256, \(AgentCanvasConstants.oauthClientId)). Audience \(apiConfig.resourceOrigin) is sent on token/refresh only."
+                    )
                 }
 
-                statusCards
+                Section {
+                    cloudSharesOverview
+                } header: {
+                    Text("Published from This Mac")
+                }
 
-                settingsForm
+                Section {
+                    cloudSubscriptionsOverview
+                } header: {
+                    Text("Subscriptions")
+                }
+            }
 
-                if !statusNote.isEmpty {
+            Section {
+                LabeledContent("Seed Demos") {
+                    Button("Open…") { openWindow(id: "seed") }
+                }
+            } header: {
+                Text("Tools")
+            } footer: {
+                Text("Debug-only. This tab is omitted from release builds.")
+            }
+
+            if !statusNote.isEmpty {
+                Section {
                     Text(statusNote)
-                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(28)
-            .frame(maxWidth: 720, alignment: .leading)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
-        .navigationTitle("General")
+        .formStyle(.grouped)
+        .navigationTitle("Dev")
         .onAppear(perform: reloadCloudLocal)
-        .onChange(of: refreshTick) { _, _ in reloadCloudLocal() }
+        .onChange(of: refreshTick) { _, _ in refreshCloudLists() }
         .onChange(of: cloudToggle) { _, _ in reloadCloudLocal() }
     }
 
     private func reloadCloudLocal() {
         cloudToggle = CloudFeature.userToggleEnabled
         apiConfig = CloudConfigStore.load()
-        shares = CloudShareIndex.load()
-        subscriptions = CloudSubscriptionStore.load()
-        oauthClientIdField = apiConfig.oauthClientId
-            ?? ProcessInfo.processInfo.environment[AgentCanvasConstants.oauthClientIdEnvName]
-            ?? ""
+        refreshCloudLists()
         oauth.refreshPublishedState()
     }
 
-    private var header: some View {
-        Text("Manage desktop canvases your agent can update. Pick a slot in the sidebar for a live preview and actions.")
-            .font(.body)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
+    private func refreshCloudLists() {
+        shares = CloudShareIndex.load()
+        subscriptions = CloudSubscriptionStore.load()
+        oauth.refreshPublishedState()
     }
 
-    private var statusCards: some View {
-        HStack(spacing: 12) {
-            statusCard(
-                title: "Host",
-                value: reloadWatcher.isWatching ? "Watching" : "Starting…",
-                symbol: reloadWatcher.isWatching ? "antenna.radiowaves.left.and.right" : "ellipsis",
-                tint: reloadWatcher.isWatching ? .green : .secondary
-            )
-            statusCard(
-                title: "Filled",
-                value: reloadWatcher.canvasFillSummary,
-                symbol: "square.grid.3x3.fill",
-                tint: .accentColor
-            )
-            statusCard(
-                title: "Version",
-                value: Bundle.main.shortVersion,
-                symbol: "app.badge",
-                tint: .secondary
-            )
-        }
-    }
-
-    private func statusCard(title: String, value: String, symbol: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: symbol)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(tint)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
-        }
-    }
-
-    private var settingsForm: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            formSection("Get started") {
-                formRow("Connect agent", subtitle: "Cursor, Claude Desktop, or manual MCP") {
-                    Button("Open…") {
-                        openWindow(id: "connect-wizard")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                            NotificationCenter.default.post(name: .agentCanvasConnectShowLanding, object: nil)
-                        }
-                    }
-                }
-                formRow("How to use", subtitle: "Short checklist for placing widgets") {
-                    Button("Show") { showHowTo = true }
-                }
-                formRow("Reload widgets", subtitle: "Refresh all WidgetKit timelines") {
-                    Button("Reload") {
-                        CanvasStorage.mirrorAllAndReload()
-                        reloadWatcher.noteManualReload()
-                        statusNote = "Widgets reloaded"
-                    }
-                }
-            }
-
-            formSection("Data") {
-                formRow("Data folder", subtitle: CanvasStorage.applicationSupportRoot.path) {
-                    Button("Reveal") {
-                        CanvasStorage.ensureDirectories()
-                        NSWorkspace.shared.open(CanvasStorage.applicationSupportRoot)
-                    }
-                }
-                formRow("Clear all canvases", subtitle: "Removes local JSON for every slot") {
-                    Button("Clear…", role: .destructive) {
-                        try? CanvasStorage.clearAll()
-                        statusNote = "All canvases cleared"
-                        reloadWatcher.refreshCanvasCounts()
-                    }
-                }
-            }
-
-            #if DEBUG
-            formSection("Cloud (debug)") {
-                formRow("Cloud features", subtitle: CloudFeature.statusDescription) {
-                    Toggle("", isOn: $cloudToggle)
-                        .labelsHidden()
-                        .onChange(of: cloudToggle) { _, on in
-                            CloudFeature.userToggleEnabled = on
-                            statusNote = on ? "Cloud features on" : "Cloud features off"
-                        }
-                }
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("API")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    TextField("https://canvas.velox.test", text: $apiConfig.apiBaseURL)
-                        .textFieldStyle(.roundedBorder)
-                    HStack {
-                        Text("Default poll interval (seconds)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        TextField("60", value: $apiConfig.defaultPollIntervalSeconds, format: .number)
-                            .frame(width: 56)
-                            .textFieldStyle(.roundedBorder)
-                        Spacer(minLength: 8)
-                        Button("Save") {
-                            saveCloudConfig()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        Button("Reset") {
-                            apiConfig.apiBaseURL = CloudConfigStore.defaultAPIBase
-                            apiConfig.defaultPollIntervalSeconds = CloudConfigStore.defaultPoll
-                        }
-                    }
-
-                    Text("OAuth client id (public)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    TextField("from portal / \(AgentCanvasConstants.oauthClientIdEnvName)", text: $oauthClientIdField)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.caption.monospaced())
-
-                    Text("Publish and subscribe for a slot are on each canvas page in the sidebar.")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .padding(.top, 2)
-
-                    if CloudFeature.isEnabled || cloudToggle {
-                        Divider().padding(.vertical, 4)
-                        cloudAccountSection
-                        Divider().padding(.vertical, 4)
-                        cloudSharesOverview
-                        Divider().padding(.vertical, 4)
-                        cloudSubscriptionsOverview
-                    } else {
-                        Text("Turn on cloud features to sign in, list shares, and manage subscriptions.")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .padding(.top, 4)
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 12)
-                .padding(.top, 4)
-            }
-            #endif
-        }
-    }
-
-    #if DEBUG
     private func saveCloudConfig() {
-        let trimmed = oauthClientIdField.trimmingCharacters(in: .whitespacesAndNewlines)
-        apiConfig.oauthClientId = trimmed.isEmpty ? nil : trimmed
         do {
             try apiConfig.save()
             statusNote = "Saved \(apiConfig.normalizedAPIBase)"
@@ -402,83 +433,52 @@ private struct GeneralSettingsDetail: View {
 
     @ViewBuilder
     private var cloudAccountSection: some View {
-        Text("Account")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
-        Text("Velox OAuth (PKCE). Resource: \(apiConfig.resourceOrigin)")
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
         if oauth.isSignedIn {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(oauth.accountLabel ?? "Signed in")
-                        .font(.body.weight(.medium))
-                    if let exp = oauth.expiresAt {
-                        Text("Access expires \(exp.formatted(date: .omitted, time: .shortened))")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                Spacer(minLength: 8)
-                Button("Sign out") {
-                    Task {
-                        await oauth.signOut(config: apiConfig)
-                        statusNote = "Signed out of Velox"
-                    }
-                }
-                .disabled(oauth.isBusy)
+            LabeledContent("Signed In As") {
+                Text(oauth.accountLabel ?? "Velox account")
             }
+            if let exp = oauth.expiresAt {
+                LabeledContent("Access Expires") {
+                    Text(exp.formatted(date: .omitted, time: .shortened))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Button("Sign Out") {
+                Task { await oauth.signOut(config: apiConfig) }
+            }
+            .disabled(oauth.isBusy)
         } else {
-            HStack(spacing: 10) {
-                Button("Sign in with Velox…") {
-                    Task {
-                        do {
-                            let trimmed = oauthClientIdField.trimmingCharacters(in: .whitespacesAndNewlines)
-                            apiConfig.oauthClientId = trimmed.isEmpty ? nil : trimmed
-                            try apiConfig.save()
-                            try await oauth.signIn(
-                                config: apiConfig,
-                                presentingWindow: NSApp.keyWindow
-                            )
-                            statusNote = "Signed in to Velox"
-                        } catch {
-                            statusNote = error.localizedDescription
+            LabeledContent("Account") {
+                HStack(spacing: 8) {
+                    if oauth.isBusy {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Button("Sign In…") {
+                        Task {
+                            do {
+                                try await oauth.signIn(
+                                    config: apiConfig,
+                                    presentingWindow: NSApp.keyWindow
+                                )
+                            } catch {
+                                statusNote = error.localizedDescription
+                            }
                         }
                     }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(oauth.isBusy)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(
-                    oauth.isBusy
-                        || (
-                            apiConfig.resolvedOAuthClientId == nil
-                                && oauthClientIdField.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        )
-                )
-                if oauth.isBusy {
-                    ProgressView()
-                        .controlSize(.small)
-                }
-            }
-            if apiConfig.resolvedOAuthClientId == nil,
-               oauthClientIdField.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            {
-                Text("Set OAuth client id above (or \(AgentCanvasConstants.oauthClientIdEnvName)), then Save.")
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
             }
         }
         if let err = oauth.lastError, !err.isEmpty {
             Text(err)
-                .font(.caption2)
                 .foregroundStyle(.orange)
         }
     }
 
     @ViewBuilder
     private var cloudSharesOverview: some View {
-        Text("Published from this Mac")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
         if shares.isEmpty {
             Text("None yet — open a canvas page and use Publish.")
                 .font(.caption)
@@ -512,9 +512,6 @@ private struct GeneralSettingsDetail: View {
 
     @ViewBuilder
     private var cloudSubscriptionsOverview: some View {
-        Text("Subscriptions")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
         if subscriptions.isEmpty {
             Text("None yet — open a canvas page and use Subscribe.")
                 .font(.caption)
@@ -595,44 +592,8 @@ private struct GeneralSettingsDetail: View {
             reloadCloudLocal()
         }
     }
-    #endif
-
-    private func formSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(title)
-                .font(.headline)
-                .padding(.bottom, 8)
-            VStack(spacing: 0) {
-                content()
-            }
-            .padding(4)
-            .background {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-            }
-        }
-    }
-
-    private func formRow<Trailing: View>(
-        _ title: String,
-        subtitle: String,
-        @ViewBuilder trailing: () -> Trailing
-    ) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            Spacer(minLength: 12)
-            trailing()
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-    }
 }
+#endif
 
 // MARK: - Canvas detail
 
@@ -644,12 +605,23 @@ private struct CanvasSettingsDetail: View {
     @EnvironmentObject private var reloadWatcher: ReloadWatcher
 
     @State private var publishSlug = ""
+    @State private var publishError: String?
+    @State private var publishVisibility: CloudAPIClient.PublishVisibility = .public
+    @State private var organizations: [CloudOrganization] = []
+    @State private var selectedOrgId: String?
+    @State private var orgsLoading = false
+    @State private var orgsError: String?
+    @State private var autoPushUpdates = false
+    @State private var showPublishSheet = false
+    @State private var showSubscribeSheet = false
     @State private var subURL = ""
     @State private var subPoll = 60
     @State private var subEnabled = true
+    @State private var subError: String?
     @State private var busy = false
     @State private var lastPublicURL = ""
     @State private var cloudConfig = CloudConfigStore.load()
+    @ObservedObject private var oauth = VeloxOAuthSession.shared
 
     private var document: CanvasDocument {
         _ = refreshTick
@@ -682,8 +654,11 @@ private struct CanvasSettingsDetail: View {
                 historyBlock
                 #if DEBUG
                 if CloudFeature.isEnabled {
-                    publishBlock
-                    subscribeBlock
+                    if let share {
+                        publishedMainBlock(share)
+                    } else if let sub = subscription {
+                        subscribedMainBlock(sub)
+                    }
                 }
                 #endif
                 if !statusNote.isEmpty {
@@ -692,12 +667,9 @@ private struct CanvasSettingsDetail: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(.horizontal, 28)
-            .padding(.bottom, 28)
-            .padding(.top, 12)
-            .frame(maxWidth: 880, alignment: .leading)
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
         // Inline so the large system title doesn’t leave a gap above our header.
         .navigationTitle(resolvedTitle)
         .toolbarTitleDisplayMode(.inline)
@@ -723,6 +695,12 @@ private struct CanvasSettingsDetail: View {
                     } label: {
                         Label("Reload widget", systemImage: "arrow.clockwise")
                     }
+                    #if DEBUG
+                    if CloudFeature.isEnabled {
+                        Divider()
+                        cloudMenuItems
+                    }
+                    #endif
                     Divider()
                     Button(role: .destructive) {
                         try? CanvasStorage.clear(address: address)
@@ -738,11 +716,24 @@ private struct CanvasSettingsDetail: View {
                 .accessibilityLabel("Canvas actions")
             }
         }
+        #if DEBUG
+        .sheet(isPresented: $showPublishSheet) {
+            publishSheet
+        }
+        .sheet(isPresented: $showSubscribeSheet) {
+            subscribeSheet
+        }
+        #endif
         .onAppear {
             cloudConfig = CloudConfigStore.load()
             if let s = share {
                 publishSlug = s.slug
                 lastPublicURL = s.publicUrl
+                autoPushUpdates = s.resolvedAutoPush
+                if let vis = s.visibility, let parsed = CloudAPIClient.PublishVisibility(rawValue: vis) {
+                    publishVisibility = parsed
+                }
+                selectedOrgId = s.orgId
             }
             if let sub = subscription {
                 subURL = sub.url
@@ -751,8 +742,62 @@ private struct CanvasSettingsDetail: View {
             } else {
                 subPoll = cloudConfig.defaultPollIntervalSeconds
             }
+            if oauth.isSignedIn {
+                Task { await loadOrganizations() }
+            }
+        }
+        .onChange(of: oauth.isSignedIn) { _, signedIn in
+            if signedIn {
+                Task { await loadOrganizations() }
+            } else {
+                organizations = []
+                selectedOrgId = nil
+            }
         }
     }
+
+    #if DEBUG
+    @ViewBuilder
+    private var cloudMenuItems: some View {
+        if share != nil {
+            Button(role: .destructive) {
+                Task { await unshare() }
+            } label: {
+                Label("Unpublish", systemImage: "link.badge.minus")
+            }
+            .disabled(busy)
+        } else if subscription == nil {
+            Button {
+                publishError = nil
+                showPublishSheet = true
+                if oauth.isSignedIn {
+                    Task { await loadOrganizations() }
+                }
+            } label: {
+                Label("Publish…", systemImage: "arrow.up.circle")
+            }
+            .disabled(document.isEmptyContent)
+        }
+
+        if subscription != nil {
+            Button(role: .destructive) {
+                unsubscribeKeepingContent()
+            } label: {
+                Label("Unsubscribe", systemImage: "arrow.down.circle")
+            }
+        } else if share == nil {
+            Button {
+                subError = nil
+                if subURL.isEmpty {
+                    subURL = ""
+                }
+                showSubscribeSheet = true
+            } label: {
+                Label("Subscribe…", systemImage: "arrow.down.circle")
+            }
+        }
+    }
+    #endif
 
     /// Id/status badges.
     private var metaBlock: some View {
@@ -961,56 +1006,51 @@ private struct CanvasSettingsDetail: View {
     }
 
     #if DEBUG
-    private var publishBlock: some View {
+    /// Main-area controls once published (link + auto-push). Publish/Unpublish live in the menu.
+    private func publishedMainBlock(_ share: CloudShareRecord) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Publish")
+            Text("Published")
                 .font(.headline)
-            Text("Share this slot’s JSON to canvas cloud. Requires API reachability.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: "link")
+                Text(share.publicUrl)
+                    .font(.caption.monospaced())
+                    .lineLimit(2)
+                    .textSelection(.enabled)
+                Button("Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(share.publicUrl, forType: .string)
+                    statusNote = "URL copied"
+                }
+            }
+            HStack(spacing: 8) {
+                badge(
+                    share.resolvedVisibility == "org" ? "Organization" : "Public",
+                    color: share.resolvedVisibility == "org" ? .purple : .blue
+                )
+                if let name = share.orgName ?? organizations.first(where: { $0.id == share.orgId })?.name {
+                    Text(name)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Toggle("Push updates when this canvas changes", isOn: $autoPushUpdates)
+                .onChange(of: autoPushUpdates) { _, on in
+                    try? CloudShareIndex.setAutoPush(canvas: address.rawValue, enabled: on)
+                }
             HStack {
-                TextField("slug (optional)", text: $publishSlug)
-                    .textFieldStyle(.roundedBorder)
-                Button("Publish") {
-                    Task { await publish() }
+                Button("Push update now") {
+                    Task { await pushUpdate() }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(busy || document.isEmptyContent)
-                Button("Push update") {
-                    Task { await pushUpdate() }
-                }
-                .disabled(busy || share == nil)
-                Button("Unshare", role: .destructive) {
-                    Task { await unshare() }
-                }
-                .disabled(busy || share == nil)
             }
-            if let share {
-                HStack {
-                    Image(systemName: "link")
-                    Text(share.publicUrl)
-                        .font(.caption.monospaced())
-                        .lineLimit(2)
-                        .textSelection(.enabled)
-                    Button("Copy") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(share.publicUrl, forType: .string)
-                        statusNote = "URL copied"
-                    }
-                }
-            } else if !lastPublicURL.isEmpty {
-                Text(lastPublicURL)
-                    .font(.caption.monospaced())
+            if let publishError, !publishError.isEmpty {
+                Text(publishError)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
                     .textSelection(.enabled)
-            }
-            if let share {
-                Text(
-                    CloudKeychain.getToken(slug: share.slug) != nil
-                        ? "Edit token stored in Keychain"
-                        : "No edit token in Keychain — publish again or paste via MCP"
-                )
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(16)
@@ -1021,48 +1061,42 @@ private struct CanvasSettingsDetail: View {
         }
     }
 
-    private var subscribeBlock: some View {
+    /// Main-area controls once subscribed (poll + refresh). Subscribe/Unsubscribe live in the menu.
+    private func subscribedMainBlock(_ sub: CloudSubscription) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Subscribe")
+            Text("Subscribed")
                 .font(.headline)
-            Text("Pull JSON from a URL into this slot (usually …/api/v1/canvases/{slug}).")
-                .font(.caption)
+            Text(sub.url)
+                .font(.caption.monospaced())
+                .lineLimit(2)
+                .textSelection(.enabled)
                 .foregroundStyle(.secondary)
-            TextField("Feed URL", text: $subURL)
-                .textFieldStyle(.roundedBorder)
             HStack {
                 Toggle("Enabled", isOn: $subEnabled)
+                    .onChange(of: subEnabled) { _, _ in saveSubscription() }
                 Text("Poll every")
                 TextField("60", value: $subPoll, format: .number)
                     .frame(width: 56)
                     .textFieldStyle(.roundedBorder)
+                    .onSubmit { saveSubscription() }
                 Text("seconds")
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button("Save") { saveSubscription() }
-                    .buttonStyle(.borderedProminent)
-                Button("Fetch now") {
+                Button("Refresh now") {
                     Task { await fetchNow() }
                 }
+                .buttonStyle(.borderedProminent)
                 .disabled(busy)
-                if subscription != nil {
-                    Button("Remove", role: .destructive) {
-                        try? CloudSubscriptionStore.remove(canvas: address.rawValue)
-                        subURL = ""
-                        statusNote = "Subscription removed"
-                    }
-                }
             }
-            if let sub = subscription {
-                if let err = sub.lastError {
-                    Label(err, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                } else if let at = sub.lastFetchAt {
-                    Text("Last fetch \(at.formatted())")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
+            if let err = sub.lastError {
+                Label(err, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            } else if let at = sub.lastFetchAt {
+                Text("Last fetch \(at.formatted())")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
         }
         .padding(16)
@@ -1070,44 +1104,218 @@ private struct CanvasSettingsDetail: View {
         .background {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color(nsColor: .controlBackgroundColor))
+        }
+    }
+
+    private var publishSheet: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Publish canvas")
+                .font(.title2.weight(.semibold))
+            Text("Share \(address.rawValue) to canvas cloud.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            if !oauth.isSignedIn {
+                Text("Must sign in to publish.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                Button("Sign in with Velox…") {
+                    Task {
+                        do {
+                            try await oauth.signIn(
+                                config: cloudConfig,
+                                presentingWindow: NSApp.keyWindow
+                            )
+                            await loadOrganizations()
+                        } catch {
+                            publishError = error.localizedDescription
+                        }
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(oauth.isBusy)
+            } else {
+                Picker("Visibility", selection: $publishVisibility) {
+                    ForEach(CloudAPIClient.PublishVisibility.allCases) { vis in
+                        Text(vis.label).tag(vis)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                if publishVisibility == .org {
+                    if orgsLoading {
+                        ProgressView().controlSize(.small)
+                    } else if let orgsError, !orgsError.isEmpty {
+                        Text(orgsError)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button("Retry") {
+                            Task { await loadOrganizations() }
+                        }
+                    } else if organizations.isEmpty {
+                        Text("No organizations found for this account.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    } else if organizations.count == 1, let only = organizations.first {
+                        Text("Organization: \(only.name)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Picker("Organization", selection: Binding(
+                            get: { selectedOrgId ?? organizations.first?.id ?? "" },
+                            set: { selectedOrgId = $0 }
+                        )) {
+                            ForEach(organizations) { org in
+                                Text(org.name).tag(org.id)
+                            }
+                        }
+                    }
+                }
+
+                TextField("slug (optional)", text: $publishSlug)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            if let publishError, !publishError.isEmpty {
+                Text(publishError)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { showPublishSheet = false }
+                    .keyboardShortcut(.cancelAction)
+                    .disabled(busy)
+                Button(busy ? "Publishing…" : "Publish") {
+                    Task { await publish() }
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(
+                    busy
+                        || !oauth.isSignedIn
+                        || document.isEmptyContent
+                        || (publishVisibility == .org
+                            && (selectedOrgId ?? organizations.first?.id) == nil)
+                )
+            }
+        }
+        .padding(24)
+        .frame(width: 440)
+    }
+
+    private var subscribeSheet: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Subscribe")
+                .font(.title2.weight(.semibold))
+            Text("Pull JSON into \(address.rawValue) from a canvas API URL.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            TextField("Feed URL (…/api/v1/canvases/{slug})", text: $subURL)
+                .textFieldStyle(.roundedBorder)
+            if let subError, !subError.isEmpty {
+                Text(subError)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { showSubscribeSheet = false }
+                    .keyboardShortcut(.cancelAction)
+                    .disabled(busy)
+                Button(busy ? "Subscribing…" : "Subscribe") {
+                    Task { await subscribeFromSheet() }
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(busy || subURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(24)
+        .frame(width: 440)
+    }
+
+    @MainActor
+    private func loadOrganizations() async {
+        guard oauth.isSignedIn else { return }
+        orgsLoading = true
+        orgsError = nil
+        defer { orgsLoading = false }
+        do {
+            let result = try await CloudAPIClient.listOrganizations(config: cloudConfig)
+            organizations = result.organizations
+            orgsError = nil
+            if selectedOrgId == nil || !result.organizations.contains(where: { $0.id == selectedOrgId }) {
+                selectedOrgId = result.activeOrganizationId
+                    ?? result.organizations.first?.id
+            }
+        } catch {
+            organizations = []
+            orgsError = CloudAPIClient.userFacingMessage(for: error)
+            NSLog("AgentCanvas: list organizations: \(error.localizedDescription)")
         }
     }
 
     @MainActor
     private func publish() async {
+        guard subscription == nil else {
+            publishError = "Unsubscribe before publishing."
+            return
+        }
         busy = true
+        publishError = nil
         defer { busy = false }
         do {
             try cloudConfig.save()
+            let orgId: String?
+            let orgName: String?
+            if publishVisibility == .org {
+                orgId = selectedOrgId ?? organizations.first?.id
+                orgName = organizations.first(where: { $0.id == orgId })?.name
+            } else {
+                orgId = nil
+                orgName = nil
+            }
             let result = try await CloudAPIClient.publish(
                 address: address,
                 slug: publishSlug.isEmpty ? nil : publishSlug,
+                visibility: publishVisibility,
+                orgId: orgId,
+                orgName: orgName,
                 config: cloudConfig
             )
             publishSlug = result.slug
             lastPublicURL = result.publicURL
+            autoPushUpdates = CloudShareIndex.record(forCanvas: address.rawValue)?.resolvedAutoPush ?? false
+            showPublishSheet = false
             statusNote = "Published \(result.slug)"
         } catch {
-            statusNote = error.localizedDescription
+            publishError = CloudAPIClient.userFacingMessage(for: error)
         }
     }
 
     @MainActor
     private func pushUpdate() async {
         busy = true
+        publishError = nil
         defer { busy = false }
         do {
             let result = try await CloudAPIClient.updateShared(address: address, config: cloudConfig)
             lastPublicURL = result.publicURL
             statusNote = "Updated \(result.slug)"
         } catch {
-            statusNote = error.localizedDescription
+            publishError = CloudAPIClient.userFacingMessage(for: error)
         }
     }
 
     @MainActor
     private func unshare() async {
         busy = true
+        publishError = nil
         defer { busy = false }
         do {
             try await CloudAPIClient.unshare(
@@ -1116,7 +1324,19 @@ private struct CanvasSettingsDetail: View {
             )
             lastPublicURL = ""
             publishSlug = ""
-            statusNote = "Unshared"
+            statusNote = "Unpublished"
+        } catch {
+            publishError = CloudAPIClient.userFacingMessage(for: error)
+            statusNote = publishError ?? "Unpublish failed"
+        }
+    }
+
+    private func unsubscribeKeepingContent() {
+        do {
+            try CloudSubscriptionStore.remove(canvas: address.rawValue)
+            subURL = ""
+            subError = nil
+            statusNote = "Unsubscribed — local content kept"
         } catch {
             statusNote = error.localizedDescription
         }
@@ -1135,8 +1355,8 @@ private struct CanvasSettingsDetail: View {
             enabled: subEnabled,
             etag: subscription?.etag,
             lastFetchAt: subscription?.lastFetchAt,
-            lastError: nil,
-            lastStatusCode: nil
+            lastError: subscription?.lastError,
+            lastStatusCode: subscription?.lastStatusCode
         )
         do {
             try CloudSubscriptionStore.upsert(sub)
@@ -1148,19 +1368,47 @@ private struct CanvasSettingsDetail: View {
     }
 
     @MainActor
+    private func subscribeFromSheet() async {
+        guard share == nil else {
+            subError = "Unpublish before subscribing."
+            return
+        }
+        let url = subURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !url.isEmpty, URL(string: url) != nil else {
+            subError = "Enter a valid URL"
+            return
+        }
+        busy = true
+        subError = nil
+        defer { busy = false }
+        subEnabled = true
+        let sub = CloudSubscription(
+            canvas: address.rawValue,
+            url: url,
+            pollIntervalSeconds: max(15, subPoll),
+            enabled: true,
+            etag: nil,
+            lastFetchAt: nil,
+            lastError: nil,
+            lastStatusCode: nil
+        )
+        do {
+            try CloudSubscriptionStore.upsert(sub)
+            try await CloudAPIClient.fetchSubscription(sub)
+            showSubscribeSheet = false
+            statusNote = "Subscribed \(address.rawValue)"
+            reloadWatcher.noteManualReload()
+        } catch {
+            subError = CloudAPIClient.userFacingMessage(for: error)
+        }
+    }
+
+    @MainActor
     private func fetchNow() async {
         busy = true
         defer { busy = false }
-        let sub = subscription ?? CloudSubscription(
-            canvas: address.rawValue,
-            url: subURL,
-            pollIntervalSeconds: max(15, subPoll),
-            enabled: true
-        )
+        guard let sub = subscription else { return }
         do {
-            if subscription == nil {
-                try CloudSubscriptionStore.upsert(sub)
-            }
             try await CloudAPIClient.fetchSubscription(sub)
             statusNote = "Fetched into \(address.rawValue)"
             reloadWatcher.noteManualReload()
@@ -1170,6 +1418,117 @@ private struct CanvasSettingsDetail: View {
     }
     #endif
 }
+
+// MARK: - Subscribe deep link (PLAT-105)
+
+#if DEBUG
+private struct SubscribeSlugRequest: Identifiable {
+    var id: String { slug }
+    let slug: String
+}
+
+/// Slot picker for `agentcanvas://subscribe?slug=…` from Canvas web.
+private struct SubscribeDeepLinkSheet: View {
+    let slug: String
+    var onComplete: (CanvasAddress) -> Void
+    var onCancel: () -> Void
+
+    @State private var selected: CanvasAddress = .mdOne
+    @State private var busy = false
+    @State private var errorText: String?
+    @ObservedObject private var oauth = VeloxOAuthSession.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Subscribe to canvas")
+                .font(.title2.weight(.semibold))
+            Text("Pull “\(slug)” into a local slot.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Picker("Slot", selection: $selected) {
+                ForEach(CanvasAddress.allCases) { address in
+                    Text("\(address.displayName) (\(address.rawValue))")
+                        .tag(address)
+                }
+            }
+            .pickerStyle(.menu)
+
+            if let errorText, !errorText.isEmpty {
+                Text(errorText)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { onCancel() }
+                    .keyboardShortcut(.cancelAction)
+                    .disabled(busy)
+                Button(busy ? "Subscribing…" : "Subscribe") {
+                    Task { await subscribe() }
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(busy)
+            }
+        }
+        .padding(24)
+        .frame(width: 420)
+    }
+
+    @MainActor
+    private func subscribe() async {
+        busy = true
+        errorText = nil
+        defer { busy = false }
+
+        #if DEBUG
+        CloudFeature.userToggleEnabled = true
+        #endif
+
+        let config = CloudConfigStore.load()
+        guard let url = config.canvasURL(slug: slug)?.absoluteString else {
+            errorText = "Invalid API base URL."
+            return
+        }
+
+        let sub = CloudSubscription(
+            canvas: selected.rawValue,
+            url: url,
+            pollIntervalSeconds: max(15, config.defaultPollIntervalSeconds),
+            enabled: true,
+            etag: nil,
+            lastFetchAt: nil,
+            lastError: nil,
+            lastStatusCode: nil
+        )
+
+        do {
+            try CloudSubscriptionStore.upsert(sub)
+            try await fetchWithAuthRetry(sub)
+            onComplete(selected)
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func fetchWithAuthRetry(_ sub: CloudSubscription) async throws {
+        do {
+            try await CloudAPIClient.fetchSubscription(sub)
+        } catch {
+            let needsSignIn = !oauth.isSignedIn
+                && (error.localizedDescription.localizedCaseInsensitiveContains("sign in")
+                    || (CloudSubscriptionStore.subscription(for: sub.canvas)?.lastStatusCode == 401)
+                    || (CloudSubscriptionStore.subscription(for: sub.canvas)?.lastStatusCode == 403))
+            guard needsSignIn else { throw error }
+            try await oauth.signIn(config: CloudConfigStore.load(), presentingWindow: NSApp.keyWindow)
+            try await CloudAPIClient.fetchSubscription(sub)
+        }
+    }
+}
+#endif
 
 // MARK: - Preview entry
 

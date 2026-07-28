@@ -40,7 +40,6 @@ final class VeloxOAuthSession: NSObject, ObservableObject {
 
     enum OAuthError: LocalizedError {
         case featureDisabled
-        case missingClientId
         case discovery(String)
         case badURL
         case stateMismatch
@@ -52,8 +51,6 @@ final class VeloxOAuthSession: NSObject, ObservableObject {
             switch self {
             case .featureDisabled:
                 return "Cloud features disabled — enable debug cloud first."
-            case .missingClientId:
-                return "Set \(AgentCanvasConstants.oauthClientIdEnvName) or save oauthClientId in cloud-config.json."
             case let .discovery(m): return "OAuth discovery: \(m)"
             case .badURL: return "Invalid OAuth URL."
             case .stateMismatch: return "OAuth state mismatch — try signing in again."
@@ -80,12 +77,12 @@ final class VeloxOAuthSession: NSObject, ObservableObject {
 
     func signIn(config: CloudConfigStore = .load(), presentingWindow: NSWindow? = nil) async throws {
         guard CloudFeature.isEnabled else { throw OAuthError.featureDisabled }
-        guard let clientId = config.resolvedOAuthClientId else { throw OAuthError.missingClientId }
 
         isBusy = true
         lastError = nil
         defer { isBusy = false }
 
+        let clientId = AgentCanvasConstants.oauthClientId
         let resource = config.resourceOrigin
         let meta = try await discover(resource: resource, config: config)
 
@@ -94,6 +91,7 @@ final class VeloxOAuthSession: NSObject, ObservableObject {
         let state = Self.randomURLSafe(bytes: 16)
 
         var components = URLComponents(url: meta.authorization, resolvingAgainstBaseURL: false)!
+        // Better Auth rejects RFC 8707 `resource` on authorize — send it on token/refresh only.
         components.queryItems = [
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "client_id", value: clientId),
@@ -102,7 +100,6 @@ final class VeloxOAuthSession: NSObject, ObservableObject {
             URLQueryItem(name: "state", value: state),
             URLQueryItem(name: "code_challenge", value: challenge),
             URLQueryItem(name: "code_challenge_method", value: "S256"),
-            URLQueryItem(name: "resource", value: resource),
         ]
         guard let authURL = components.url else { throw OAuthError.badURL }
 
@@ -122,11 +119,11 @@ final class VeloxOAuthSession: NSObject, ObservableObject {
 
     func signOut(config: CloudConfigStore = .load()) async {
         if let refresh = OAuthKeychain.get(.refreshToken),
-           let clientId = config.resolvedOAuthClientId ?? OAuthKeychain.get(.clientId),
            let resource = OAuthKeychain.get(.resource) ?? Optional(config.resourceOrigin),
            let meta = try? await discover(resource: resource, config: config),
            let revoke = meta.revoke
         {
+            let clientId = OAuthKeychain.get(.clientId) ?? AgentCanvasConstants.oauthClientId
             var req = URLRequest(url: revoke)
             req.httpMethod = "POST"
             req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -332,9 +329,7 @@ final class VeloxOAuthSession: NSObject, ObservableObject {
             refreshPublishedState()
             throw OAuthError.notSignedIn
         }
-        let clientId = config.resolvedOAuthClientId
-            ?? OAuthKeychain.get(.clientId)
-        guard let clientId else { throw OAuthError.missingClientId }
+        let clientId = OAuthKeychain.get(.clientId) ?? AgentCanvasConstants.oauthClientId
         let resource = OAuthKeychain.get(.resource) ?? config.resourceOrigin
         let meta = try await discover(resource: resource, config: config)
 

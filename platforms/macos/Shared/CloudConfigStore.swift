@@ -5,8 +5,6 @@ struct CloudConfigStore: Codable, Equatable {
     var apiBaseURL: String
     /// Default poll interval for new subscriptions (seconds).
     var defaultPollIntervalSeconds: Int
-    /// Public OAuth client id (no secret). Prefer env `AGENT_CANVAS_OAUTH_CLIENT_ID`.
-    var oauthClientId: String?
     /// Optional issuer override when PRM discovery is unavailable.
     var oauthIssuerOverride: String?
 
@@ -27,7 +25,6 @@ struct CloudConfigStore: Codable, Equatable {
                 apiBaseURL: ProcessInfo.processInfo.environment["AGENT_CANVAS_API_URL"]
                     ?? defaultAPIBase,
                 defaultPollIntervalSeconds: defaultPoll,
-                oauthClientId: nil,
                 oauthIssuerOverride: nil
             )
         }
@@ -58,20 +55,6 @@ struct CloudConfigStore: Codable, Equatable {
             return "\(scheme)://\(host):\(port)"
         }
         return "\(scheme)://\(host)"
-    }
-
-    /// Resolved public client id: env wins, then persisted config.
-    var resolvedOAuthClientId: String? {
-        if let env = ProcessInfo.processInfo.environment[AgentCanvasConstants.oauthClientIdEnvName]?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-           !env.isEmpty
-        {
-            return env
-        }
-        if let id = oauthClientId?.trimmingCharacters(in: .whitespacesAndNewlines), !id.isEmpty {
-            return id
-        }
-        return nil
     }
 
     func canvasesCollectionURL() -> URL? {

@@ -13,8 +13,8 @@ options:
 settings:
   base:
     # Bump CURRENT_PROJECT_VERSION whenever widget kinds/names change so WidgetKit re-indexes.
-    MARKETING_VERSION: "0.2.0"
-    CURRENT_PROJECT_VERSION: 5
+    MARKETING_VERSION: "0.2.6"
+    CURRENT_PROJECT_VERSION: 6
     SWIFT_VERSION: "5.9"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     # DEVELOPMENT_TEAM comes from Config/Local.xcconfig (gitignored) or env via scripts.

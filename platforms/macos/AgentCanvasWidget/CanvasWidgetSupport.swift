@@ -9,8 +9,12 @@ enum CanvasWidgetFactory {
             kind: address.widgetKind,
             provider: CanvasTimelineProvider(address: address)
         ) { entry in
+            let url: URL =
+                (entry.document.isEmptyContent || entry.isPlaceholder)
+                ? CanvasActionURL.howToURL()
+                : CanvasActionURL.documentURL(canvasId: address.rawValue)
             CanvasView(entry: entry, actionInteraction: .widgetLink)
-                .widgetURL(CanvasActionURL.documentURL(canvasId: address.rawValue))
+                .widgetURL(url)
         }
         .configurationDisplayName(address.displayName)
         .description(address.galleryDescription)

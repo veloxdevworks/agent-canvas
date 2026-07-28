@@ -32,8 +32,9 @@ enum AgentCanvasConstants {
     static let oauthURLScheme = "agentcanvas"
     static let oauthCallbackHost = "oauth"
     static let oauthCallbackPath = "/callback"
-    static let oauthClientIdEnvName = "AGENT_CANVAS_OAUTH_CLIENT_ID"
-    static let oauthScopes = "openid profile email offline_access"
+    /// Platform-seeded public OAuth client (no secret; PKCE S256).
+    static let oauthClientId = "velox-agent-canvas"
+    static let oauthScopes = "openid profile email offline_access canvas:read canvas:write"
 }
 
 /// Size-first canvas address: `sm-one`, `md-two`, `lg-three`, `xl-one`, …

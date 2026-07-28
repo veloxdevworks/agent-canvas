@@ -9,6 +9,23 @@ Version tags match GitHub Releases (`vMAJOR.MINOR.PATCH`).
 
 ### Added
 - Local MCP server and macOS WidgetKit host (12 size×slot canvases)
+
+## [0.2.6] - 2026-07-28
+
+### Added
+- Org-visibility publish from the host (sign-in required): public vs organization, org picker from auth `GET /api/v1/me/organizations`, auto-push updates on canvas reload
+- `agentcanvas://subscribe?slug=` deep link with slot picker (PLAT-105)
+- DEBUG-only **Dev** settings tab (cloud, OAuth, shares/subscriptions, seed demos)
+- Empty-canvas chrome with how-to affordance
+
+### Changed
+- Platform OAuth client fixed as `velox-agent-canvas`; scopes include `canvas:read` / `canvas:write`; `resource` on token/refresh only
+- Settings General uses grouped `Form` layout; cloud debug controls moved out of General
+- Publish / Subscribe live in the canvas page menu (sheets) rather than always-on form blocks
+
+### Fixed
+- Org list failures surface as errors instead of “No organizations found”
+- Settings detail no longer remounts every poll tick (publish form / scroll preserved)
 - Density packing, layout guide, and `preview_canvas` PNG feedback
 - Connect wizard for Cursor / Claude Desktop
 - Lean GitHub Actions CI (Linux by default; macOS opt-in)

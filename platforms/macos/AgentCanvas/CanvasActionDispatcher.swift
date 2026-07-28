@@ -7,6 +7,10 @@ enum CanvasActionDispatcher {
     enum Outcome {
         /// Open / focus the detail window for this canvas id.
         case expand(canvasId: String)
+        /// Open the main window and How to Use guide.
+        case showHowTo
+        /// Open Cloud UI with a subscribe slot picker for this slug.
+        case subscribe(slug: String)
         /// URL / file / noop handled; do not open a host window.
         case handledExternally
     }
@@ -22,6 +26,12 @@ enum CanvasActionDispatcher {
     @discardableResult
     static func execute(target: CanvasActionURL.Target) -> Outcome {
         switch target {
+        case .howTo:
+            return .showHowTo
+
+        case let .subscribe(slug):
+            return .subscribe(slug: slug)
+
         case let .document(id):
             guard let address = CanvasAddress(rawValue: id) else {
                 status("Unknown canvas id \(id)")

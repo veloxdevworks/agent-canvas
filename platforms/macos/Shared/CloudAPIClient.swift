@@ -10,6 +10,27 @@ enum CloudAPIClient {
         var editToken: String?
         var version: UInt32?
         var etag: String?
+        var visibility: String?
+        var orgId: String?
+    }
+
+    enum PublishVisibility: String, CaseIterable, Identifiable {
+        case `public`
+        case org
+
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .public: return "Public"
+            case .org: return "Organization"
+            }
+        }
+    }
+
+    struct OrganizationsResult: Equatable {
+        var organizations: [CloudOrganization]
+        var activeOrganizationId: String?
     }
 
     enum APIError: LocalizedError {
@@ -34,6 +55,50 @@ enum CloudAPIClient {
         }
     }
 
+    /// Compact message for Settings UI (extracts JSON `error`, shortens schema noise).
+    static func userFacingMessage(for error: Error) -> String {
+        if let api = error as? APIError {
+            switch api {
+            case let .http(_, body):
+                return summarizeHTTPBody(body)
+            case let .message(m):
+                return m
+            default:
+                return api.localizedDescription
+            }
+        }
+        return error.localizedDescription
+    }
+
+    private static func summarizeHTTPBody(_ body: String) -> String {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let data = trimmed.data(using: .utf8),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let err = obj["error"] as? String, !err.isEmpty
+        {
+            return simplifySchemaError(err)
+        }
+        return simplifySchemaError(trimmed)
+    }
+
+    private static func simplifySchemaError(_ message: String) -> String {
+        // AJV oneOf failures repeat "must NOT have additional properties" for every branch.
+        if message.contains("/sections/"),
+           message.localizedCaseInsensitiveContains("must match exactly one schema in oneOf")
+            || message.localizedCaseInsensitiveContains("must NOT have additional properties")
+        {
+            return "Document failed schema validation (unsupported or invalid section fields)."
+        }
+        if message.count > 280 {
+            return String(message.prefix(280)) + "…"
+        }
+        return message
+    }
+
+    private static func httpErrorBody(_ text: String) -> String {
+        String(text.prefix(1200))
+    }
+
     /// Ephemeral session — never attach session cookies (Bearer only).
     private static let session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
@@ -43,9 +108,57 @@ enum CloudAPIClient {
         return URLSession(configuration: config)
     }()
 
+    /// Memberships for the signed-in user — auth host (REQ-IDN-016), not canvas.
+    /// Uses the existing product-audience Bearer (`resource` = canvas origin).
+    static func listOrganizations(
+        config: CloudConfigStore = .load()
+    ) async throws -> OrganizationsResult {
+        try requireFeature()
+        let meta = try await VeloxOAuthSession.shared.discover(
+            resource: config.resourceOrigin,
+            config: config
+        )
+        guard let url = URL(string: meta.issuer + "/api/v1/me/organizations") else {
+            throw APIError.badURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        let ver = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0"
+        request.setValue("agent-canvas-host/\(ver)", forHTTPHeaderField: "User-Agent")
+        try await attachBearerIfAvailable(&request, config: config)
+        guard request.value(forHTTPHeaderField: "Authorization") != nil else {
+            throw APIError.message("Sign in with Velox required.")
+        }
+
+        let (data, response) = try await perform(request)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let text = String(data: data, encoding: .utf8) ?? ""
+        guard (200...299).contains(code) else {
+            throw APIError.http(code, httpErrorBody(text))
+        }
+        guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw APIError.decode
+        }
+        let active = obj["activeOrganizationId"] as? String
+        let rawOrgs = (obj["organizations"] as? [[String: Any]]) ?? []
+        let orgs: [CloudOrganization] = rawOrgs.compactMap { row in
+            guard let id = row["id"] as? String, !id.isEmpty else { return nil }
+            let name = (row["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return CloudOrganization(
+                id: id,
+                name: (name?.isEmpty == false ? name! : id),
+                slug: row["slug"] as? String
+            )
+        }
+        return OrganizationsResult(organizations: orgs, activeOrganizationId: active)
+    }
+
     static func publish(
         address: CanvasAddress,
         slug: String?,
+        visibility: PublishVisibility,
+        orgId: String?,
+        orgName: String?,
         config: CloudConfigStore = .load()
     ) async throws -> PublishResult {
         try requireFeature()
@@ -56,9 +169,16 @@ enum CloudAPIClient {
 
         var body: [String: Any] = [
             "document": try jsonObject(from: doc),
+            "visibility": visibility.rawValue,
         ]
         if let slug, !slug.isEmpty {
             body["slug"] = slug
+        }
+        if visibility == .org {
+            guard let orgId, !orgId.isEmpty else {
+                throw APIError.message("Choose an organization to publish to.")
+            }
+            body["orgId"] = orgId
         }
 
         var request = URLRequest(url: url)
@@ -68,19 +188,23 @@ enum CloudAPIClient {
         request.setValue("agent-canvas-host/\(ver)", forHTTPHeaderField: "User-Agent")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         try await attachBearerIfAvailable(&request, config: config)
+        guard request.value(forHTTPHeaderField: "Authorization") != nil else {
+            throw APIError.message("Sign in with Velox required to publish.")
+        }
 
         let (data, response) = try await perform(request)
         let http = response as? HTTPURLResponse
         let code = http?.statusCode ?? 0
         let text = String(data: data, encoding: .utf8) ?? ""
         guard (200...299).contains(code) else {
-            throw APIError.http(code, String(text.prefix(400)))
+            throw APIError.http(code, httpErrorBody(text))
         }
 
         let result = try parsePublishResponse(data: data, config: config, fallbackSlug: slug)
         if let token = result.editToken {
             _ = CloudKeychain.setToken(token, slug: result.slug)
         }
+        let existingAuto = CloudShareIndex.record(forCanvas: address.rawValue)?.autoPushUpdates
         try CloudShareIndex.upsert(
             CloudShareRecord(
                 canvas: address.rawValue,
@@ -89,7 +213,11 @@ enum CloudAPIClient {
                 apiUrl: result.apiURL,
                 sharedAt: Date(),
                 lastVersion: result.version,
-                lastEtag: result.etag
+                lastEtag: result.etag,
+                visibility: result.visibility ?? visibility.rawValue,
+                orgId: result.orgId ?? orgId,
+                orgName: orgName,
+                autoPushUpdates: existingAuto
             )
         )
         return result
@@ -125,7 +253,7 @@ enum CloudAPIClient {
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         let text = String(data: data, encoding: .utf8) ?? ""
         guard (200...299).contains(code) else {
-            throw APIError.http(code, String(text.prefix(400)))
+            throw APIError.http(code, httpErrorBody(text))
         }
 
         let etag = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "ETag")?
@@ -143,7 +271,11 @@ enum CloudAPIClient {
                 apiUrl: record.apiUrl,
                 sharedAt: record.sharedAt,
                 lastVersion: version,
-                lastEtag: etag ?? record.lastEtag
+                lastEtag: etag ?? record.lastEtag,
+                visibility: record.visibility,
+                orgId: record.orgId,
+                orgName: record.orgName,
+                autoPushUpdates: record.autoPushUpdates
             )
         )
         return PublishResult(
@@ -152,7 +284,9 @@ enum CloudAPIClient {
             apiURL: record.apiUrl,
             editToken: nil,
             version: version,
-            etag: etag
+            etag: etag,
+            visibility: record.visibility,
+            orgId: record.orgId
         )
     }
 
@@ -201,8 +335,10 @@ enum CloudAPIClient {
         if let etag = sub.etag, !etag.isEmpty {
             request.setValue("\"\(etag)\"", forHTTPHeaderField: "If-None-Match")
         }
+        // Public canvases allow anonymous GET; org/private need Bearer canvas:read.
+        let config = CloudConfigStore.load()
+        try await attachBearerIfAvailable(&request, config: config)
 
-        // Public feed fetch — no Bearer required; still avoid cookies.
         let (data, response) = try await session.data(for: request)
         let http = response as? HTTPURLResponse
         let code = http?.statusCode ?? 0
@@ -220,6 +356,15 @@ enum CloudAPIClient {
             updated.lastError = "Gone (unpublished)"
             try CloudSubscriptionStore.upsert(updated)
             throw APIError.http(410, "Canvas unpublished")
+        }
+        if code == 401 || code == 403 {
+            let signedIn = await VeloxOAuthSession.shared.isSignedIn
+            let message = signedIn
+                ? "Access denied — this canvas may be private to another account."
+                : "Sign in with Velox required for this canvas."
+            updated.lastError = message
+            try CloudSubscriptionStore.upsert(updated)
+            throw APIError.message(message)
         }
         guard (200...299).contains(code) else {
             let text = String(data: data, encoding: .utf8) ?? ""
@@ -306,6 +451,8 @@ enum CloudAPIClient {
         else if let v = obj["version"] as? Int { version = UInt32(v) }
 
         let etag = obj["contentHash"] as? String ?? obj["etag"] as? String
+        let visibility = obj["visibility"] as? String
+        let orgId = obj["orgId"] as? String ?? obj["org_id"] as? String
 
         return PublishResult(
             slug: slug,
@@ -313,7 +460,9 @@ enum CloudAPIClient {
             apiURL: apiURL,
             editToken: editToken,
             version: version,
-            etag: etag
+            etag: etag,
+            visibility: visibility,
+            orgId: orgId
         )
     }
 }

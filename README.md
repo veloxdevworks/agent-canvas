@@ -70,20 +70,19 @@ The id encodes density: updating `sm-one` always means a small glance surface.
 ```bash
 export AGENT_CANVAS_CLOUD_PUBLISH=1
 export AGENT_CANVAS_API_URL=https://canvas.velox.test   # optional
-export AGENT_CANVAS_OAUTH_CLIENT_ID=<public-client-id>  # optional; or save in Settings
 # MCP:
 cargo run -p agent-canvas-mcp -- stdio
 # Host (Debug): Settings → General → enable Cloud, Sign in with Velox
 ```
 
-**Host UI:** API base URL, default poll interval, Velox OAuth (PKCE public client → `agentcanvas://oauth/callback`), share/subscription overview, per-slot publish & subscribe on each canvas page.  
+**Host UI:** API base URL, default poll interval, Velox OAuth (PKCE public client → `agentcanvas://oauth/callback`), share/subscription overview, per-slot publish & subscribe on each canvas page. Canvas web can open `agentcanvas://subscribe?slug={slug}` to pick a slot and pull.
 
 **Tokens (separate Keychain services):**
 
 - User OAuth access/refresh — `com.velox.agentcanvas.oauth`
 - Per-slug edit tokens for shared canvases — `com.velox.agentcanvas.canvas-edit-token`
 
-Register the OAuth public client once (portal/DCR) with redirect URI exactly `agentcanvas://oauth/callback`, PKCE S256, no client secret. Resource/audience = canvas origin (e.g. `https://canvas.velox.test`).
+Public client id is fixed as `velox-agent-canvas` (platform-seeded): redirect URI exactly `agentcanvas://oauth/callback`, PKCE S256, no client secret. Scopes: `openid profile email offline_access canvas:read canvas:write`. Resource/audience = canvas origin (e.g. `https://canvas.velox.test`) — send on **token and refresh only** (Better Auth rejects `resource` on authorize). Public canvases allow anonymous GET; org/private need Bearer `canvas:read`.
 
 Keep the **host app running** so widgets reload when the agent writes. Closing windows does not quit—use **Quit** from the menu bar.
 

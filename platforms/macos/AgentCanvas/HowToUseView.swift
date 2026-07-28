@@ -133,7 +133,7 @@ struct ChecklistBanner: View {
         GroupBox {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("Get started")
+                    Text("Checklist")
                         .font(.headline)
                     Spacer()
                     Button("Dismiss", action: onDismiss)
