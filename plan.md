@@ -147,6 +147,8 @@ Every new section type or styling knob must pass before merge:
 
 **Cover images (2026-07):** Passed. Adaptive Cards `backgroundImage` + `fillMode: cover` / QML `Image { fillMode: PreserveAspectCrop }` map cleanly; `fit` and image `height` are tokens; cover height is the whole tile; asset store + validation live in Rust (`assets`, schema, packer); Swift only decodes/renders. Tradeoff documented for agents: covers are not Dark Mode / Dynamic Type aware.
 
+**Named icons (2026-07):** Passed. Curated `iconName` enum in the JSON contract (never SF Symbol / Lucide strings). Leaf `type=icon` maps to Adaptive Cards `Image` / QML icon font (or text fallback); optional `icon` shorthand on `header` / list items / metrics items is host chrome only. Size via `sm|md|lg` tokens; heights from `layout_spec`; validation and packing in Rust; macOS maps names → SF Symbols in `CanvasIcon`.
+
 ### Unknown section types (intentional asymmetry)
 
 | Layer | Behavior |
@@ -214,20 +216,22 @@ Agents write a full document per canvas (replace, not patch):
 
 | Type | Purpose | Notes |
 |------|---------|--------|
-| `header` | Title + optional subtitle | Prefer one near the top |
+| `header` | Title + optional subtitle / `icon` | Prefer one near the top |
 | `text` | Body copy | v1: plain text; soft-wrap |
 | *(document)* `onOpen` | Tile tap | Optional `Action`; default expand |
 | *(document)* `detail` | Expand layout | Optional `{ sections }`; not in glance density |
 | *(list item)* `action` | Row tap | Optional `Action` |
-| `metrics` | 2–4 key numbers + optional trend | Horizontal on large; stacked on small |
+| `metrics` | 2–4 key numbers + optional trend / `icon` | Horizontal on large; stacked on small |
 | `chart` | `bar` \| `line` \| `pie` \| `gauge` | Swift Charts on macOS; degrade gracefully on tiny sizes |
-| `list` | Rows | `primary`, optional `secondary`, optional `badge` |
+| `list` | Rows | `primary`, optional `secondary`, optional `badge`, optional `icon` |
 | `image` | Contained image | Prefer small base64 or `file://` under app data; cache; size limits |
 | `spacer` | Vertical gap | Optional `size`: `sm` \| `md` \| `lg` |
 | `progress` | Progress bar | `value` (+ optional `max`, `tone`); degrade to text on Adaptive Cards |
 | `divider` | Horizontal rule | |
 | `keyValue` | Label/value rows | Optional per-item `tone` |
 | `badges` | Chip row | Optional per-item `tone` |
+| `icon` | Named glyph leaf | Curated `name` + optional `tone` / `size` (`sm`\|`md`\|`lg`); composable in detail `group` |
+| *(header / list / metrics)* `icon` | Leading glyph shorthand | Same curated names as `type=icon` |
 | `group` | Flex row/column | **Detail-only** (not glance); depth ≤ 2; children ≤ 6; atomic for clipping |
 | *(items/sections)* `tone` / `emphasis` | Semantic style | Never hex/fonts; maps to system + Adaptive Cards color/weight |
 

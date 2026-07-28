@@ -80,6 +80,22 @@ pub fn generate_canvas_schema() -> Value {
                 "enum": ["small", "medium", "large"],
                 "description": "Height token for inline image sections (resolved per widget size in layout_spec)."
             },
+            "iconName": {
+                "type": "string",
+                "enum": [
+                    "check", "close", "warning", "alert", "info", "help", "sparkle",
+                    "search", "link", "copy", "refresh", "play", "pause", "stop",
+                    "rocket", "bug", "clock", "calendar", "person", "people",
+                    "folder", "file", "image", "chart", "settings", "lock", "key",
+                    "cloud", "server", "database"
+                ],
+                "description": "Curated portable icon name (mapped per shell; never platform symbol strings)."
+            },
+            "iconSize": {
+                "type": "string",
+                "enum": ["sm", "md", "lg"],
+                "description": "Size token for standalone icon sections (default md)."
+            },
             "cover": {
                 "type": "object",
                 "required": ["source", "alt"],
@@ -157,7 +173,8 @@ pub fn generate_canvas_schema() -> Value {
                     { "$ref": "#/$defs/progress" },
                     { "$ref": "#/$defs/divider" },
                     { "$ref": "#/$defs/keyValue" },
-                    { "$ref": "#/$defs/badges" }
+                    { "$ref": "#/$defs/badges" },
+                    { "$ref": "#/$defs/icon" }
                 ]
             },
             "section": {
@@ -173,7 +190,8 @@ pub fn generate_canvas_schema() -> Value {
                     { "$ref": "#/$defs/progress" },
                     { "$ref": "#/$defs/divider" },
                     { "$ref": "#/$defs/keyValue" },
-                    { "$ref": "#/$defs/badges" }
+                    { "$ref": "#/$defs/badges" },
+                    { "$ref": "#/$defs/icon" }
                 ]
             },
             "header": {
@@ -184,6 +202,7 @@ pub fn generate_canvas_schema() -> Value {
                     "type": { "const": "header" },
                     "text": { "type": "string", "minLength": 1, "maxLength": 80 },
                     "subtitle": { "type": "string", "maxLength": 120 },
+                    "icon": { "$ref": "#/$defs/iconName" },
                     "tone": { "$ref": "#/$defs/tone" },
                     "emphasis": { "$ref": "#/$defs/emphasis" },
                     "priority": { "$ref": "#/$defs/priority" }
@@ -219,6 +238,7 @@ pub fn generate_canvas_schema() -> Value {
                                 "label": { "type": "string" },
                                 "value": { "type": "string" },
                                 "trend": { "type": "string" },
+                                "icon": { "$ref": "#/$defs/iconName" },
                                 "tone": { "$ref": "#/$defs/tone" },
                                 "emphasis": { "$ref": "#/$defs/emphasis" }
                             }
@@ -273,6 +293,7 @@ pub fn generate_canvas_schema() -> Value {
                                 "primary": { "type": "string" },
                                 "secondary": { "type": "string" },
                                 "badge": { "type": "string" },
+                                "icon": { "$ref": "#/$defs/iconName" },
                                 "action": { "$ref": "#/$defs/action" },
                                 "tone": { "$ref": "#/$defs/tone" },
                                 "emphasis": { "$ref": "#/$defs/emphasis" }
@@ -413,6 +434,19 @@ pub fn generate_canvas_schema() -> Value {
                     },
                     "priority": { "$ref": "#/$defs/priority" }
                 }
+            },
+            "icon": {
+                "type": "object",
+                "required": ["type", "name"],
+                "additionalProperties": false,
+                "description": "Named glyph leaf. Composable in detail group; glance status mark. Optional icon shorthand also on header / list items / metrics items.",
+                "properties": {
+                    "type": { "const": "icon" },
+                    "name": { "$ref": "#/$defs/iconName" },
+                    "tone": { "$ref": "#/$defs/tone" },
+                    "size": { "$ref": "#/$defs/iconSize" },
+                    "priority": { "$ref": "#/$defs/priority" }
+                }
             }
         }
     })
@@ -447,7 +481,8 @@ mod tests {
 
     #[test]
     fn fixtures_validate() {
-        let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../schema/fixtures");
+        let dir =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../schema/fixtures");
         for entry in std::fs::read_dir(&dir).expect("fixtures dir") {
             let entry = entry.unwrap();
             let path = entry.path();

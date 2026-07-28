@@ -79,7 +79,7 @@ enum ContentClip {
     ) -> CGFloat {
         let spec = LayoutSpec.size(size)
         switch section {
-        case let .header(_, subtitle, _, _, _):
+        case let .header(_, subtitle, _, _, _, _):
             return subtitle == nil ? spec.headerHeightNoSubtitle : spec.headerHeightWithSubtitle
         case .metrics:
             return spec.metricsHeight
@@ -106,6 +106,8 @@ enum ContentClip {
             return n * spec.keyValueRowHeight + max(n - 1, 0) * 2
         case .badges:
             return spec.badgesHeight
+        case let .icon(_, _, iconSize, _):
+            return iconHeight(for: size, size: iconSize)
         case let .group(direction, gap, _, children, _, _):
             let heights = children.map { estimatedHeight($0, size: size) }
             let gapPts = gap?.gapPoints ?? 4
@@ -119,6 +121,15 @@ enum ContentClip {
             }
         case .unknown:
             return 12
+        }
+    }
+
+    static func iconHeight(for layout: CanvasSize, size: IconSize?) -> CGFloat {
+        let spec = LayoutSpec.size(layout)
+        switch size ?? .md {
+        case .sm: return spec.iconHeightSm
+        case .md: return spec.iconHeightMd
+        case .lg: return spec.iconHeightLg
         }
     }
 
@@ -235,7 +246,9 @@ enum ContentClip {
             }
 
             let clipped: CanvasSection
-            if (size == .sm || size == .md), case let .header(text, subtitle, tone, emphasis, priority) = section {
+            if (size == .sm || size == .md),
+               case let .header(text, subtitle, icon, tone, emphasis, priority) = section
+            {
                 let keepSub: String? = {
                     guard size == .md, let subtitle, !subtitle.isEmpty else { return nil }
                     return subtitle.count <= 36 ? subtitle : nil
@@ -243,6 +256,7 @@ enum ContentClip {
                 clipped = .header(
                     text: text,
                     subtitle: size == .sm ? nil : keepSub,
+                    icon: icon,
                     tone: tone,
                     emphasis: emphasis,
                     priority: priority

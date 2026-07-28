@@ -88,6 +88,7 @@ struct ListSectionView: View {
             && !(interactionMode == .widgetLink && size == .sm)
 
         return HStack(alignment: .top, spacing: 6) {
+            CanvasIcon.leading(name: item.icon, tone: item.tone, pointSize: 11)
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.primary)
                     .font(.caption.weight(StyleTokens.fontWeight(for: item.emphasis)))

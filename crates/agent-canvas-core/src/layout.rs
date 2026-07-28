@@ -259,7 +259,18 @@ pub fn layout_guide_document() -> Value {
             "divider": "horizontal rule",
             "keyValue": "items[{key,value,tone?}]",
             "badges": "items[{text,tone?}]",
+            "icon": "Named glyph: name (curated enum), tone?, size sm|md|lg. Also optional icon shorthand on header / list items / metrics items.",
             "image": "Inline glance image (not full-bleed). source: asset: preferred; small data: accepted then externalized. caption?, height: small|medium|large. For full-bleed custom art use set_canvas_cover — do not stuff megabyte base64 into update_canvas."
+        },
+        "icons": {
+            "names": [
+                "check", "close", "warning", "alert", "info", "help", "sparkle",
+                "search", "link", "copy", "refresh", "play", "pause", "stop",
+                "rocket", "bug", "clock", "calendar", "person", "people",
+                "folder", "file", "image", "chart", "settings", "lock", "key",
+                "cloud", "server", "database"
+            ],
+            "note": "Portable curated names only — never SF Symbol / Lucide strings. Section type=icon for composition; shorthand icon on header/list/metrics for leading glyphs."
         },
         "agentTips": [
             "Call get_layout_guide or trust size in the canvas id before writing.",
@@ -271,6 +282,7 @@ pub fn layout_guide_document() -> Value {
             "Optional onOpen / list items[].action: expand|url|file|noop. url schemes: http|https|mailto only.",
             "sm tiles cannot tap individual list rows — put row actions for md+ or the expand detail window.",
             "Use tone/emphasis tokens (not hex/fonts). Put group layouts in detail.sections only.",
+            "Use curated icon names (see icons.names); type=icon for status marks / group composition, or icon shorthand on header/list/metrics.",
             "When a custom visual is better than sections, generate a PNG at the cover.targets size and call set_canvas_cover."
         ],
         "portabilityGate": [
@@ -495,6 +507,7 @@ mod tests {
                     label: "A".into(),
                     value: "1".into(),
                     trend: None,
+                    icon: None,
                     tone: None,
                     emphasis: None,
                 }],
@@ -525,6 +538,7 @@ mod tests {
                 label: "A".into(),
                 value: "1".into(),
                 trend: None,
+                icon: None,
                 tone: None,
                 emphasis: None,
             }],
@@ -541,6 +555,7 @@ mod tests {
         doc.sections = vec![
             Section::Header {
                 text: "Title".into(),
+                icon: None,
                 subtitle: Some("sub".into()),
                 tone: None,
                 emphasis: None,
@@ -551,6 +566,7 @@ mod tests {
                     label: "A".into(),
                     value: "1".into(),
                     trend: None,
+                    icon: None,
                     tone: None,
                     emphasis: None,
                 }],
@@ -580,6 +596,7 @@ mod tests {
                     primary: "x".into(),
                     secondary: None,
                     badge: None,
+                    icon: None,
                     action: None,
                     tone: None,
                     emphasis: None,

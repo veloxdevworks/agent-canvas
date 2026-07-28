@@ -144,9 +144,7 @@ fn rebuild_index(dir: &Path) -> HistoryIndex {
             .and_then(|m| m.modified().ok())
             .and_then(|t| {
                 DateTime::<Utc>::from_timestamp(
-                    t.duration_since(std::time::UNIX_EPOCH)
-                        .ok()?
-                        .as_secs() as i64,
+                    t.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs() as i64,
                     0,
                 )
             })
@@ -300,9 +298,9 @@ mod tests {
                 label: "V".into(),
                 value: value.into(),
                 trend: None,
+                icon: None,
                 tone: None,
                 emphasis: None,
-            
             }],
             priority: None,
         });
@@ -335,27 +333,19 @@ mod tests {
         assert!(archive_if_needed(&root, id, &a, &a, HistorySource::Host)
             .unwrap()
             .is_none());
+        assert!(archive_if_needed(
+            &root,
+            id,
+            &CanvasDocument::empty(),
+            &CanvasDocument::empty(),
+            HistorySource::Clear
+        )
+        .unwrap()
+        .is_none());
         assert!(
-            archive_if_needed(
-                &root,
-                id,
-                &CanvasDocument::empty(),
-                &CanvasDocument::empty(),
-                HistorySource::Clear
-            )
-            .unwrap()
-            .is_none()
-        );
-        assert!(
-            archive_if_needed(
-                &root,
-                id,
-                &CanvasDocument::empty(),
-                &a,
-                HistorySource::Mcp
-            )
-            .unwrap()
-            .is_none()
+            archive_if_needed(&root, id, &CanvasDocument::empty(), &a, HistorySource::Mcp)
+                .unwrap()
+                .is_none()
         );
         assert!(list(&root, id).unwrap().is_empty());
     }

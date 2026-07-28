@@ -55,6 +55,10 @@ pub struct SizeLayoutSpec {
     pub divider_height: f64,
     pub key_value_row_height: f64,
     pub badges_height: f64,
+    /// Standalone `icon` section heights for size tokens sm / md / lg.
+    pub icon_height_sm: f64,
+    pub icon_height_md: f64,
+    pub icon_height_lg: f64,
     pub title_chrome_height: f64,
     pub overflow_line_height: f64,
     pub timestamp_height: f64,
@@ -89,6 +93,9 @@ impl WidgetSize {
                 divider_height: 8.0,
                 key_value_row_height: 16.0,
                 badges_height: 20.0,
+                icon_height_sm: 18.0,
+                icon_height_md: 24.0,
+                icon_height_lg: 32.0,
                 title_chrome_height: 16.0,
                 overflow_line_height: 12.0,
                 timestamp_height: 11.0,
@@ -119,6 +126,9 @@ impl WidgetSize {
                 divider_height: 8.0,
                 key_value_row_height: 18.0,
                 badges_height: 22.0,
+                icon_height_sm: 20.0,
+                icon_height_md: 28.0,
+                icon_height_lg: 36.0,
                 title_chrome_height: 16.0,
                 overflow_line_height: 12.0,
                 timestamp_height: 11.0,
@@ -149,6 +159,9 @@ impl WidgetSize {
                 divider_height: 10.0,
                 key_value_row_height: 20.0,
                 badges_height: 24.0,
+                icon_height_sm: 22.0,
+                icon_height_md: 32.0,
+                icon_height_lg: 44.0,
                 title_chrome_height: 18.0,
                 overflow_line_height: 12.0,
                 timestamp_height: 11.0,
@@ -179,6 +192,9 @@ impl WidgetSize {
                 divider_height: 10.0,
                 key_value_row_height: 20.0,
                 badges_height: 24.0,
+                icon_height_sm: 22.0,
+                icon_height_md: 32.0,
+                icon_height_lg: 44.0,
                 title_chrome_height: 18.0,
                 overflow_line_height: 12.0,
                 timestamp_height: 11.0,
@@ -194,6 +210,15 @@ impl SizeLayoutSpec {
             Small => self.image_height_small,
             Medium => self.image_height_medium,
             Large => self.image_height_large,
+        }
+    }
+
+    pub fn icon_height_for(&self, size: crate::schema::IconSize) -> f64 {
+        use crate::schema::IconSize::*;
+        match size {
+            Sm => self.icon_height_sm,
+            Md => self.icon_height_md,
+            Lg => self.icon_height_lg,
         }
     }
 }
@@ -272,6 +297,9 @@ pub fn generate_swift_layout_spec() -> String {
     out.push_str("        let dividerHeight: CGFloat\n");
     out.push_str("        let keyValueRowHeight: CGFloat\n");
     out.push_str("        let badgesHeight: CGFloat\n");
+    out.push_str("        let iconHeightSm: CGFloat\n");
+    out.push_str("        let iconHeightMd: CGFloat\n");
+    out.push_str("        let iconHeightLg: CGFloat\n");
     out.push_str("        let titleChromeHeight: CGFloat\n");
     out.push_str("        let overflowLineHeight: CGFloat\n");
     out.push_str("        let timestampHeight: CGFloat\n");
@@ -289,9 +317,18 @@ pub fn generate_swift_layout_spec() -> String {
         };
         out.push_str(&format!("        case .{case}:\n"));
         out.push_str("            return Size(\n");
-        out.push_str(&format!("                tileWidth: {},\n", spec.tile_width));
-        out.push_str(&format!("                tileHeight: {},\n", spec.tile_height));
-        out.push_str(&format!("                edgeInset: {},\n", spec.edge_inset));
+        out.push_str(&format!(
+            "                tileWidth: {},\n",
+            spec.tile_width
+        ));
+        out.push_str(&format!(
+            "                tileHeight: {},\n",
+            spec.tile_height
+        ));
+        out.push_str(&format!(
+            "                edgeInset: {},\n",
+            spec.edge_inset
+        ));
         out.push_str(&format!(
             "                sectionSpacing: {},\n",
             spec.section_spacing
@@ -300,7 +337,10 @@ pub fn generate_swift_layout_spec() -> String {
             "                listItemCap: {},\n",
             spec.list_item_cap
         ));
-        out.push_str(&format!("                maxCharts: {},\n", spec.max_charts));
+        out.push_str(&format!(
+            "                maxCharts: {},\n",
+            spec.max_charts
+        ));
         out.push_str(&format!(
             "                maxMetrics: {},\n",
             spec.max_metrics
@@ -337,7 +377,10 @@ pub fn generate_swift_layout_spec() -> String {
             "                headerHeightWithSubtitle: {},\n",
             spec.header_height_with_subtitle
         ));
-        out.push_str(&format!("                textHeight: {},\n", spec.text_height));
+        out.push_str(&format!(
+            "                textHeight: {},\n",
+            spec.text_height
+        ));
         out.push_str(&format!(
             "                imageHeightSmall: {},\n",
             spec.image_height_small
@@ -369,6 +412,18 @@ pub fn generate_swift_layout_spec() -> String {
         out.push_str(&format!(
             "                badgesHeight: {},\n",
             spec.badges_height
+        ));
+        out.push_str(&format!(
+            "                iconHeightSm: {},\n",
+            spec.icon_height_sm
+        ));
+        out.push_str(&format!(
+            "                iconHeightMd: {},\n",
+            spec.icon_height_md
+        ));
+        out.push_str(&format!(
+            "                iconHeightLg: {},\n",
+            spec.icon_height_lg
         ));
         out.push_str(&format!(
             "                titleChromeHeight: {},\n",

@@ -1,4 +1,3 @@
-
 fn main() {
     let s = agent_canvas_core::generate_canvas_schema_string();
     std::fs::write("schema/canvas.schema.json", s).unwrap();

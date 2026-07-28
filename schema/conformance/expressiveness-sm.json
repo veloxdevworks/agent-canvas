@@ -2,20 +2,22 @@
   "expected": {
     "chartHeightScale": 0.9,
     "cover": false,
-    "droppedSectionCount": 3,
+    "droppedSectionCount": 4,
     "droppedTypes": [
+      "icon",
       "badges",
       "progress",
       "divider"
     ],
-    "listItemsShown": 0,
-    "listItemsTotal": 0,
+    "listItemsShown": 1,
+    "listItemsTotal": 2,
     "shownIndices": [
       0,
       1,
-      5
+      6,
+      7
     ],
-    "shownSectionCount": 3,
+    "shownSectionCount": 4,
     "truncated": true
   },
   "fixture": "fixtures/expressiveness.json",

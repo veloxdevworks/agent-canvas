@@ -47,8 +47,8 @@ mod tests {
                 continue;
             }
             let raw = std::fs::read_to_string(&path).unwrap();
-            let case: ConformanceCase = serde_json::from_str(&raw)
-                .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+            let case: ConformanceCase =
+                serde_json::from_str(&raw).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
             let fixture_path = root.join(&case.fixture);
             let doc_raw = std::fs::read_to_string(&fixture_path)
                 .unwrap_or_else(|e| panic!("{}: {e}", fixture_path.display()));
@@ -56,23 +56,32 @@ mod tests {
             let size = WidgetSize::parse(&case.size).expect("size");
             let got = pack(&doc, size, None);
             assert_eq!(
-                got.shown_indices, case.expected.shown_indices,
+                got.shown_indices,
+                case.expected.shown_indices,
                 "{} shownIndices",
                 path.display()
             );
             assert_eq!(
-                got.dropped_types, case.expected.dropped_types,
+                got.dropped_types,
+                case.expected.dropped_types,
                 "{} droppedTypes",
                 path.display()
             );
-            assert_eq!(got.truncated, case.expected.truncated, "{} truncated", path.display());
             assert_eq!(
-                got.list_items_shown, case.expected.list_items_shown,
+                got.truncated,
+                case.expected.truncated,
+                "{} truncated",
+                path.display()
+            );
+            assert_eq!(
+                got.list_items_shown,
+                case.expected.list_items_shown,
                 "{} listItemsShown",
                 path.display()
             );
             assert_eq!(
-                got.list_items_total, case.expected.list_items_total,
+                got.list_items_total,
+                case.expected.list_items_total,
                 "{} listItemsTotal",
                 path.display()
             );
@@ -84,12 +93,14 @@ mod tests {
                 case.expected.chart_height_scale
             );
             assert_eq!(
-                got.shown_section_count, case.expected.shown_section_count,
+                got.shown_section_count,
+                case.expected.shown_section_count,
                 "{} shownSectionCount",
                 path.display()
             );
             assert_eq!(
-                got.dropped_section_count, case.expected.dropped_section_count,
+                got.dropped_section_count,
+                case.expected.dropped_section_count,
                 "{} droppedSectionCount",
                 path.display()
             );

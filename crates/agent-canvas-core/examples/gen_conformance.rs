@@ -1,4 +1,3 @@
-
 use agent_canvas_core::{pack, CanvasDocument, WidgetSize};
 use serde_json::json;
 use std::fs;

@@ -208,9 +208,7 @@ impl Action {
             Action::Url { url } => validate_action_url(url, ctx),
             Action::File { path } => {
                 if path.trim().is_empty() {
-                    return Err(Error::Validation(format!(
-                        "{ctx}.file: path is required"
-                    )));
+                    return Err(Error::Validation(format!("{ctx}.file: path is required")));
                 }
                 if path.contains('\0') {
                     return Err(Error::Validation(format!(
@@ -228,9 +226,8 @@ fn validate_action_url(url: &str, ctx: &str) -> Result<()> {
     if trimmed.is_empty() {
         return Err(Error::Validation(format!("{ctx}.url: url is required")));
     }
-    let parsed = url::Url::parse(trimmed).map_err(|e| {
-        Error::Validation(format!("{ctx}.url: invalid URL ({e})"))
-    })?;
+    let parsed = url::Url::parse(trimmed)
+        .map_err(|e| Error::Validation(format!("{ctx}.url: invalid URL ({e})")))?;
     let scheme = parsed.scheme().to_ascii_lowercase();
     match scheme.as_str() {
         "http" | "https" | "mailto" => {}
@@ -268,6 +265,52 @@ pub enum Emphasis {
     Subtle,
 }
 
+/// Curated portable icon names (mapped per shell; never SF Symbol / Lucide strings).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum IconName {
+    Check,
+    Close,
+    Warning,
+    Alert,
+    Info,
+    Help,
+    Sparkle,
+    Search,
+    Link,
+    Copy,
+    Refresh,
+    Play,
+    Pause,
+    Stop,
+    Rocket,
+    Bug,
+    Clock,
+    Calendar,
+    Person,
+    People,
+    Folder,
+    File,
+    Image,
+    Chart,
+    Settings,
+    Lock,
+    Key,
+    Cloud,
+    Server,
+    Database,
+}
+
+/// Size token for standalone `icon` sections.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum IconSize {
+    Sm,
+    #[default]
+    Md,
+    Lg,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum GroupDirection {
@@ -291,6 +334,8 @@ pub enum Section {
         text: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         subtitle: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        icon: Option<IconName>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         tone: Option<Tone>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -386,6 +431,17 @@ pub enum Section {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         priority: Option<u32>,
     },
+    /// Named glyph leaf. Composable in detail `group`; glance status mark.
+    Icon {
+        name: IconName,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tone: Option<Tone>,
+        /// Size token: sm | md | lg (default md).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        size: Option<IconSize>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        priority: Option<u32>,
+    },
 }
 
 impl Section {
@@ -403,6 +459,7 @@ impl Section {
             Section::Divider { .. } => SectionKind::Divider,
             Section::KeyValue { .. } => SectionKind::KeyValue,
             Section::Badges { .. } => SectionKind::Badges,
+            Section::Icon { .. } => SectionKind::Icon,
         }
     }
 
@@ -514,6 +571,7 @@ impl Section {
                     )));
                 }
             }
+            Section::Icon { .. } => {}
         }
         Ok(())
     }
@@ -526,6 +584,8 @@ pub struct MetricItem {
     pub value: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trend: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<IconName>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tone: Option<Tone>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -562,6 +622,8 @@ pub struct ListItem {
     pub secondary: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub badge: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<IconName>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action: Option<Action>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -792,6 +854,7 @@ mod tests {
                 primary: "Bad".into(),
                 secondary: None,
                 badge: None,
+                icon: None,
                 action: Some(Action::Url {
                     url: "data:text/plain,hi".into(),
                 }),
@@ -836,6 +899,7 @@ mod tests {
                     Section::Header {
                         text: "A".into(),
                         subtitle: None,
+                        icon: Some(IconName::Check),
                         tone: Some(Tone::Success),
                         emphasis: Some(Emphasis::Strong),
                         priority: None,
@@ -886,11 +950,39 @@ mod tests {
                 { "type": "divider" },
                 { "type": "progress", "label": "Build", "value": 0.4, "tone": "info" },
                 { "type": "keyValue", "items": [{ "key": "Env", "value": "prod" }] },
-                { "type": "badges", "items": [{ "text": "beta", "tone": "warning" }] }
+                { "type": "badges", "items": [{ "text": "beta", "tone": "warning" }] },
+                { "type": "icon", "name": "check", "tone": "success", "size": "lg" },
+                {
+                    "type": "header",
+                    "text": "Deploy",
+                    "icon": "rocket"
+                },
+                {
+                    "type": "list",
+                    "items": [{ "primary": "SSO flake", "icon": "warning", "badge": "P2" }]
+                },
+                {
+                    "type": "metrics",
+                    "items": [{ "label": "Errors", "value": "3", "icon": "alert", "tone": "critical" }]
+                }
             ]
         });
         let doc: CanvasDocument = serde_json::from_value(raw).unwrap();
         doc.validate().unwrap();
-        assert_eq!(doc.sections.len(), 4);
+        assert_eq!(doc.sections.len(), 8);
+        let Section::Icon { name, size, .. } = &doc.sections[4] else {
+            panic!("icon");
+        };
+        assert_eq!(*name, IconName::Check);
+        assert_eq!(*size, Some(IconSize::Lg));
+    }
+
+    #[test]
+    fn unknown_icon_name_fails_deserialize() {
+        let raw = json!({
+            "version": 1,
+            "sections": [{ "type": "icon", "name": "sf.symbol.fake" }]
+        });
+        assert!(serde_json::from_value::<CanvasDocument>(raw).is_err());
     }
 }

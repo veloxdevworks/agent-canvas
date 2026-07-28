@@ -24,6 +24,7 @@ pub enum SectionKind {
     Divider,
     KeyValue,
     Badges,
+    Icon,
 }
 
 /// Metadata for one section kind.
@@ -115,6 +116,13 @@ pub const SECTION_META: &[SectionMeta] = &[
         kind: SectionKind::Badges,
         type_name: "badges",
         drop_priority: 48,
+        pack_rank: 4,
+        glance_allowed: true,
+    },
+    SectionMeta {
+        kind: SectionKind::Icon,
+        type_name: "icon",
+        drop_priority: 47,
         pack_rank: 4,
         glance_allowed: true,
     },

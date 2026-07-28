@@ -258,9 +258,9 @@ mod tests {
                 label: "A".into(),
                 value: "1".into(),
                 trend: None,
+                icon: None,
                 tone: None,
                 emphasis: None,
-            
             }],
             priority: None,
         });
@@ -282,9 +282,9 @@ mod tests {
                 label: "A".into(),
                 value: "1".into(),
                 trend: None,
+                icon: None,
                 tone: None,
                 emphasis: None,
-            
             }],
             priority: None,
         });
@@ -298,9 +298,9 @@ mod tests {
                 label: "A".into(),
                 value: "2".into(),
                 trend: None,
+                icon: None,
                 tone: None,
                 emphasis: None,
-            
             }],
             priority: None,
         });

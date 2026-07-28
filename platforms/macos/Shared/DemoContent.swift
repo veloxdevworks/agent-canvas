@@ -442,12 +442,12 @@ enum DemoContent {
         case .one:
             d.title = "Platform health"
             d.sections = [
-                .header(text: "Platform health", subtitle: "Prod · last 24h"),
+                .header(text: "Platform health", subtitle: "Prod · last 24h", icon: .server),
                 .metrics(items: [
-                    MetricItem(label: "Uptime", value: "99.97%", trend: "+0.01"),
-                    MetricItem(label: "p95 lat", value: "142ms", trend: "-12ms"),
-                    MetricItem(label: "Errors", value: "0.12%", trend: "-0.03"),
-                    MetricItem(label: "Deploys", value: "4", trend: "+1"),
+                    MetricItem(label: "Uptime", value: "99.97%", trend: "+0.01", icon: .check, tone: .success),
+                    MetricItem(label: "p95 lat", value: "142ms", trend: "-12ms", icon: .clock),
+                    MetricItem(label: "Errors", value: "0.12%", trend: "-0.03", icon: .alert, tone: .critical),
+                    MetricItem(label: "Deploys", value: "4", trend: "+1", icon: .rocket),
                 ]),
                 .chart(chartType: .line, title: "Request rate (k/min)", data: [
                     ChartPoint(label: "00", value: 12),
@@ -463,9 +463,10 @@ enum DemoContent {
                     ChartPoint(label: "Max", value: 100),
                 ]),
                 .list(title: "Active incidents", items: [
-                    ListItem(primary: "Elevated 5xx on payments", secondary: "INC-204", badge: "P1"),
-                    ListItem(primary: "CDN cache miss spike", secondary: "INC-201", badge: "P2"),
+                    ListItem(primary: "Elevated 5xx on payments", secondary: "INC-204", badge: "P1", icon: .alert, tone: .critical),
+                    ListItem(primary: "CDN cache miss spike", secondary: "INC-201", badge: "P2", icon: .warning, tone: .warning),
                 ]),
+                .icon(name: .check, tone: .success, size: .md, priority: nil),
                 .text(content: "On-call: Alex · Secondary: Jordan."),
             ]
         case .two:

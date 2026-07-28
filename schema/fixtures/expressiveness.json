@@ -6,15 +6,22 @@
       "type": "header",
       "text": "Release health",
       "subtitle": "Tokens + leaves",
+      "icon": "rocket",
       "tone": "info",
       "emphasis": "strong"
     },
     {
       "type": "metrics",
       "items": [
-        { "label": "Errors", "value": "3", "trend": "+1", "tone": "critical", "emphasis": "strong" },
-        { "label": "Pass", "value": "98%", "tone": "success" }
+        { "label": "Errors", "value": "3", "trend": "+1", "icon": "alert", "tone": "critical", "emphasis": "strong" },
+        { "label": "Pass", "value": "98%", "icon": "check", "tone": "success" }
       ]
+    },
+    {
+      "type": "icon",
+      "name": "check",
+      "tone": "success",
+      "size": "md"
     },
     {
       "type": "badges",
@@ -38,6 +45,14 @@
         { "key": "Region", "value": "us-west" },
         { "key": "SLA", "value": "99.9%", "tone": "success" }
       ]
+    },
+    {
+      "type": "list",
+      "title": "Open",
+      "items": [
+        { "primary": "SSO flake", "secondary": "ENG-4902", "icon": "warning", "badge": "P2" },
+        { "primary": "Docs pass", "secondary": "ENG-5010", "icon": "check", "badge": "OK", "tone": "success" }
+      ]
     }
   ],
   "detail": {
@@ -45,6 +60,7 @@
       {
         "type": "header",
         "text": "Expanded layout",
+        "icon": "sparkle",
         "emphasis": "strong"
       },
       {
@@ -53,10 +69,16 @@
         "gap": "md",
         "children": [
           {
+            "type": "icon",
+            "name": "server",
+            "tone": "info",
+            "size": "lg"
+          },
+          {
             "type": "metrics",
             "items": [
               { "label": "p50", "value": "42ms" },
-              { "label": "p95", "value": "110ms", "tone": "warning" }
+              { "label": "p95", "value": "110ms", "icon": "warning", "tone": "warning" }
             ]
           },
           {
@@ -69,7 +91,7 @@
       },
       {
         "type": "text",
-        "content": "Group is detail-only; glance tiles keep a flat section list.",
+        "content": "Group is detail-only; glance tiles keep a flat section list. Icon is a leaf primitive plus shorthand on header/list/metrics.",
         "tone": "muted"
       }
     ]

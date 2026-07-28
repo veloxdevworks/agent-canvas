@@ -30,11 +30,7 @@ impl PackResult {
 }
 
 /// Pack `document` for `size` (optional override max content height).
-pub fn pack(
-    document: &CanvasDocument,
-    size: WidgetSize,
-    max_height: Option<f64>,
-) -> PackResult {
+pub fn pack(document: &CanvasDocument, size: WidgetSize, max_height: Option<f64>) -> PackResult {
     if document.cover.is_some() {
         return PackResult {
             shown_indices: vec![],
@@ -87,13 +83,7 @@ pub fn pack(
             } else {
                 title.clone()
             };
-            if let Some(fit) = fit_list(
-                &effective_title,
-                items,
-                *priority,
-                &spec,
-                remaining,
-            ) {
+            if let Some(fit) = fit_list(&effective_title, items, *priority, &spec, remaining) {
                 list_shown = list_shown.max(fit.rows);
                 used += gap + fit.height;
                 packed[index] = Some(fit.section);
@@ -146,13 +136,7 @@ pub fn pack(
             } else {
                 title.clone()
             };
-            if let Some(fit) = fit_list(
-                &effective_title,
-                items,
-                *priority,
-                &spec,
-                remaining,
-            ) {
+            if let Some(fit) = fit_list(&effective_title, items, *priority, &spec, remaining) {
                 list_shown = list_shown.max(fit.rows);
                 used += gap + fit.height;
                 packed[index] = Some(fit.section);
@@ -325,11 +309,7 @@ fn list_section_height(spec: &SizeLayoutSpec, title: Option<&str>, rows: usize) 
 }
 
 /// Compositional height estimate for a section (and nested group children).
-pub fn estimated_height(
-    section: &Section,
-    spec: &SizeLayoutSpec,
-    chart_scale: Option<f64>,
-) -> f64 {
+pub fn estimated_height(section: &Section, spec: &SizeLayoutSpec, chart_scale: Option<f64>) -> f64 {
     match section {
         Section::Header { subtitle, .. } => {
             if subtitle.is_none() {
@@ -354,9 +334,7 @@ pub fn estimated_height(
             list_section_height(spec, title.as_deref(), items.len())
         }
         Section::Text { .. } => spec.text_height,
-        Section::Image { height, .. } => {
-            spec.image_height_for(height.unwrap_or_default())
-        }
+        Section::Image { height, .. } => spec.image_height_for(height.unwrap_or_default()),
         Section::Spacer { size, .. } => size.map(|s| s.gap_points()).unwrap_or(spec.spacer_height),
         Section::Progress { .. } => spec.progress_height,
         Section::Divider { .. } => spec.divider_height,
@@ -365,6 +343,7 @@ pub fn estimated_height(
             n * spec.key_value_row_height + (n - 1.0).max(0.0) * 2.0
         }
         Section::Badges { .. } => spec.badges_height,
+        Section::Icon { size, .. } => spec.icon_height_for(size.unwrap_or_default()),
         Section::Group {
             direction,
             gap,
@@ -405,14 +384,7 @@ fn fit_chart(section: &Section, spec: &SizeLayoutSpec, max_height: f64) -> Optio
         return None;
     };
     let base = spec.chart_height_scale;
-    let scales = [
-        base,
-        base * 0.85,
-        base * 0.7,
-        base * 0.55,
-        0.5,
-        0.4,
-    ];
+    let scales = [base, base * 0.85, base * 0.7, base * 0.55, 0.5, 0.4];
     let variants = [
         Section::Chart {
             chart_type: *chart_type,
@@ -531,6 +503,7 @@ fn clip_for_pack(section: &Section, size: WidgetSize, spec: &SizeLayoutSpec) -> 
         if let Section::Header {
             text,
             subtitle,
+            icon,
             tone,
             emphasis,
             priority,
@@ -548,6 +521,7 @@ fn clip_for_pack(section: &Section, size: WidgetSize, spec: &SizeLayoutSpec) -> 
             return Section::Header {
                 text: text.clone(),
                 subtitle: keep_sub,
+                icon: *icon,
                 tone: *tone,
                 emphasis: *emphasis,
                 priority: *priority,
@@ -639,7 +613,8 @@ impl Section {
             | Section::Progress { priority, .. }
             | Section::Divider { priority, .. }
             | Section::KeyValue { priority, .. }
-            | Section::Badges { priority, .. } => *priority,
+            | Section::Badges { priority, .. }
+            | Section::Icon { priority, .. } => *priority,
         }
     }
 
@@ -672,6 +647,7 @@ mod tests {
         doc.sections = vec![
             Section::Header {
                 text: "Title".into(),
+                icon: None,
                 subtitle: Some("sub".into()),
                 tone: None,
                 emphasis: None,
@@ -682,6 +658,7 @@ mod tests {
                     label: "A".into(),
                     value: "1".into(),
                     trend: None,
+                    icon: None,
                     tone: None,
                     emphasis: None,
                 }],
@@ -711,6 +688,7 @@ mod tests {
                     primary: "x".into(),
                     secondary: None,
                     badge: None,
+                    icon: None,
                     action: None,
                     tone: None,
                     emphasis: None,
@@ -720,6 +698,9 @@ mod tests {
         ];
         let r = pack(&doc, WidgetSize::Medium, None);
         let charts_dropped = r.dropped_types.iter().filter(|t| *t == "chart").count();
-        assert!(charts_dropped >= 1, "md should drop at least one chart: {r:?}");
+        assert!(
+            charts_dropped >= 1,
+            "md should drop at least one chart: {r:?}"
+        );
     }
 }

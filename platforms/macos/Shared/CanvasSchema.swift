@@ -173,7 +173,14 @@ enum GroupAlign: String, Codable, Equatable {
 }
 
 enum CanvasSection: Codable, Equatable {
-    case header(text: String, subtitle: String?, tone: CanvasTone?, emphasis: CanvasEmphasis?, priority: Int?)
+    case header(
+        text: String,
+        subtitle: String?,
+        icon: IconName?,
+        tone: CanvasTone?,
+        emphasis: CanvasEmphasis?,
+        priority: Int?
+    )
     case text(content: String, tone: CanvasTone?, emphasis: CanvasEmphasis?, priority: Int?)
     case metrics(items: [MetricItem], priority: Int?)
     case chart(chartType: ChartType, title: String?, data: [ChartPoint], priority: Int?)
@@ -192,10 +199,11 @@ enum CanvasSection: Codable, Equatable {
     case divider(priority: Int?)
     case keyValue(items: [KeyValueItem], priority: Int?)
     case badges(items: [BadgeItem], priority: Int?)
+    case icon(name: IconName, tone: CanvasTone?, size: IconSize?, priority: Int?)
     case unknown(type: String)
 
-    static func header(text: String, subtitle: String? = nil) -> CanvasSection {
-        .header(text: text, subtitle: subtitle, tone: nil, emphasis: nil, priority: nil)
+    static func header(text: String, subtitle: String? = nil, icon: IconName? = nil) -> CanvasSection {
+        .header(text: text, subtitle: subtitle, icon: icon, tone: nil, emphasis: nil, priority: nil)
     }
 
     static func text(content: String) -> CanvasSection {
@@ -236,6 +244,7 @@ enum CanvasSection: Codable, Equatable {
         case .divider: return "divider"
         case .keyValue: return "keyValue"
         case .badges: return "badges"
+        case .icon: return "icon"
         case .unknown(let t): return t
         }
     }
@@ -244,7 +253,7 @@ enum CanvasSection: Codable, Equatable {
     var sortPriority: Int {
         let explicit: Int?
         switch self {
-        case let .header(_, _, _, _, p),
+        case let .header(_, _, _, _, _, p),
              let .text(_, _, _, p),
              let .metrics(_, p),
              let .chart(_, _, _, p),
@@ -255,7 +264,8 @@ enum CanvasSection: Codable, Equatable {
              let .progress(_, _, _, _, p),
              let .divider(p),
              let .keyValue(_, p),
-             let .badges(_, p):
+             let .badges(_, p),
+             let .icon(_, _, _, p):
             explicit = p
         case .unknown:
             explicit = 100
@@ -267,7 +277,7 @@ enum CanvasSection: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case type, text, subtitle, content, items, chartType, title, data, source, url, caption
         case size, priority, tone, emphasis, direction, gap, align, children, weight
-        case label, value, max, key, height
+        case label, value, max, key, height, icon, name
     }
 
     init(from decoder: Decoder) throws {
@@ -281,6 +291,7 @@ enum CanvasSection: Codable, Equatable {
             self = .header(
                 text: try c.decode(String.self, forKey: .text),
                 subtitle: try c.decodeIfPresent(String.self, forKey: .subtitle),
+                icon: try c.decodeIfPresent(IconName.self, forKey: .icon),
                 tone: tone,
                 emphasis: emphasis,
                 priority: priority
@@ -341,6 +352,13 @@ enum CanvasSection: Codable, Equatable {
             self = .keyValue(items: try c.decode([KeyValueItem].self, forKey: .items), priority: priority)
         case "badges":
             self = .badges(items: try c.decode([BadgeItem].self, forKey: .items), priority: priority)
+        case "icon":
+            self = .icon(
+                name: try c.decode(IconName.self, forKey: .name),
+                tone: tone,
+                size: try c.decodeIfPresent(IconSize.self, forKey: .size),
+                priority: priority
+            )
         default:
             self = .unknown(type: type)
         }
@@ -349,10 +367,11 @@ enum CanvasSection: Codable, Equatable {
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case let .header(text, subtitle, tone, emphasis, priority):
+        case let .header(text, subtitle, icon, tone, emphasis, priority):
             try c.encode("header", forKey: .type)
             try c.encode(text, forKey: .text)
             try c.encodeIfPresent(subtitle, forKey: .subtitle)
+            try c.encodeIfPresent(icon, forKey: .icon)
             try c.encodeIfPresent(tone, forKey: .tone)
             try c.encodeIfPresent(emphasis, forKey: .emphasis)
             try c.encodeIfPresent(priority, forKey: .priority)
@@ -413,6 +432,12 @@ enum CanvasSection: Codable, Equatable {
             try c.encode("badges", forKey: .type)
             try c.encode(items, forKey: .items)
             try c.encodeIfPresent(priority, forKey: .priority)
+        case let .icon(name, tone, size, priority):
+            try c.encode("icon", forKey: .type)
+            try c.encode(name, forKey: .name)
+            try c.encodeIfPresent(tone, forKey: .tone)
+            try c.encodeIfPresent(size, forKey: .size)
+            try c.encodeIfPresent(priority, forKey: .priority)
         case let .unknown(type):
             try c.encode(type, forKey: .type)
         }
@@ -423,6 +448,7 @@ struct MetricItem: Codable, Equatable {
     var label: String
     var value: String
     var trend: String?
+    var icon: IconName?
     var tone: CanvasTone?
     var emphasis: CanvasEmphasis?
 
@@ -430,12 +456,14 @@ struct MetricItem: Codable, Equatable {
         label: String,
         value: String,
         trend: String? = nil,
+        icon: IconName? = nil,
         tone: CanvasTone? = nil,
         emphasis: CanvasEmphasis? = nil
     ) {
         self.label = label
         self.value = value
         self.trend = trend
+        self.icon = icon
         self.tone = tone
         self.emphasis = emphasis
     }
@@ -454,6 +482,7 @@ struct ListItem: Codable, Equatable {
     var primary: String
     var secondary: String?
     var badge: String?
+    var icon: IconName?
     var action: CanvasAction?
     var tone: CanvasTone?
     var emphasis: CanvasEmphasis?
@@ -462,6 +491,7 @@ struct ListItem: Codable, Equatable {
         primary: String,
         secondary: String? = nil,
         badge: String? = nil,
+        icon: IconName? = nil,
         action: CanvasAction? = nil,
         tone: CanvasTone? = nil,
         emphasis: CanvasEmphasis? = nil
@@ -469,6 +499,7 @@ struct ListItem: Codable, Equatable {
         self.primary = primary
         self.secondary = secondary
         self.badge = badge
+        self.icon = icon
         self.action = action
         self.tone = tone
         self.emphasis = emphasis

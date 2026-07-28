@@ -402,6 +402,7 @@ mod tests {
         doc.sections.push(Section::Header {
             text: "Hello".into(),
             subtitle: None,
+            icon: None,
             tone: None,
             emphasis: None,
             priority: None,
@@ -411,9 +412,9 @@ mod tests {
                 label: "Status".into(),
                 value: "OK".into(),
                 trend: None,
+                icon: None,
                 tone: None,
                 emphasis: None,
-            
             }],
             priority: None,
         });

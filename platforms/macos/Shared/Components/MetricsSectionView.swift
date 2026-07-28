@@ -26,12 +26,15 @@ struct MetricsSectionView: View {
     private func fullCell(_ item: MetricItem) -> some View {
         let valueWeight: Font.Weight = item.emphasis == .subtle ? .medium : .bold
         return VStack(alignment: .leading, spacing: 2) {
-            Text(item.value)
-                .font(size == .sm ? .subheadline.weight(valueWeight) : .title3.weight(valueWeight))
-                .foregroundStyle(StyleTokens.foreground(tone: item.tone))
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .monospacedDigit()
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                CanvasIcon.leading(name: item.icon, tone: item.tone, pointSize: size == .sm ? 11 : 13)
+                Text(item.value)
+                    .font(size == .sm ? .subheadline.weight(valueWeight) : .title3.weight(valueWeight))
+                    .foregroundStyle(StyleTokens.foreground(tone: item.tone))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .monospacedDigit()
+            }
             Text(item.label)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -50,6 +53,7 @@ struct MetricsSectionView: View {
     private func compactCell(_ item: MetricItem) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
+                CanvasIcon.leading(name: item.icon, tone: item.tone, pointSize: 11)
                 Text(item.value)
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(StyleTokens.foreground(tone: item.tone))

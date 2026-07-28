@@ -310,7 +310,7 @@ struct CanvasView: View {
     }
 
     private func isRedundantTitle(_ title: String, sections: [CanvasSection]) -> Bool {
-        if case let .header(text, _, _, _, _)? = sections.first {
+        if case let .header(text, _, _, _, _, _)? = sections.first {
             return title.localizedCaseInsensitiveContains(text)
                 || text.localizedCaseInsensitiveContains(title)
         }
@@ -334,20 +334,23 @@ struct CanvasView: View {
         documentSectionIndex: Int
     ) -> some View {
         switch section {
-        case let .header(text, subtitle, tone, emphasis, _):
-            VStack(alignment: .leading, spacing: 2) {
-                Text(text)
-                    .font(
-                        (disableClipping ? Font.title3 : Font.subheadline)
-                            .weight(emphasis == .strong ? .bold : .semibold)
-                    )
-                    .foregroundStyle(StyleTokens.foreground(tone: tone))
-                    .lineLimit(disableClipping ? 4 : 2)
-                if let subtitle, !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(disableClipping ? .subheadline : .caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(disableClipping ? 3 : 1)
+        case let .header(text, subtitle, icon, tone, emphasis, _):
+            HStack(alignment: .top, spacing: 6) {
+                CanvasIcon.leading(name: icon, tone: tone, pointSize: disableClipping ? 16 : 13)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(text)
+                        .font(
+                            (disableClipping ? Font.title3 : Font.subheadline)
+                                .weight(emphasis == .strong ? .bold : .semibold)
+                        )
+                        .foregroundStyle(StyleTokens.foreground(tone: tone))
+                        .lineLimit(disableClipping ? 4 : 2)
+                    if let subtitle, !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(disableClipping ? .subheadline : .caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(disableClipping ? 3 : 1)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -448,6 +451,13 @@ struct CanvasView: View {
             KeyValueSectionView(items: items, size: sectionLayoutSize)
         case let .badges(items, _):
             BadgesSectionView(items: items, size: sectionLayoutSize)
+        case let .icon(name, tone, iconSize, _):
+            IconSectionView(
+                name: name,
+                tone: tone,
+                size: iconSize,
+                layoutSize: sectionLayoutSize
+            )
         case let .unknown(type):
             Text("Unsupported: \(type)")
                 .font(.caption2)

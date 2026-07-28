@@ -112,6 +112,7 @@ async fn main() -> anyhow::Result<()> {
                         id.size.display_label(),
                         id.slot.as_str()
                     )),
+                    icon: None,
                     tone: None,
                     emphasis: None,
                     priority: None,
@@ -381,7 +382,7 @@ struct UpdateCanvasArgs {
     /// Full canvas document object (NOT a string). Prefer starting from this minimal shape:
     /// {"version":1,"title":"Hello","sections":[{"type":"header","text":"Hello World","subtitle":"status"},{"type":"metrics","items":[{"label":"Status","value":"OK"}]}]}
     /// Section types: header|text|metrics|chart|list|image|spacer. chartType: bar|line|pie|gauge.
-    /// metrics items: {label, value, trend?}. list items: {primary, secondary?, badge?, action?}.
+    /// metrics items: {label, value, trend?, icon?}. list items: {primary, secondary?, badge?, icon?, action?}.
     /// Optional onOpen / items[].action: {type:expand|url|file|noop}. url: http|https|mailto only.
     /// Optional detail.sections for a richer expand window (not counted in glance density).
     /// Optional cover: {source, alt, fit?} for a full-bleed glance image (prefer set_canvas_cover for base64).
@@ -537,7 +538,8 @@ Optional onOpen / list items[].action: expand|url|file|noop (url: http|https|mai
 Optional detail.sections for expand window (may include type=group). \
 For a full-bleed custom PNG/JPEG use set_canvas_cover(imageBase64) — do NOT embed large base64 in update_canvas (slow + bloats history). \
 Inline image sections accept asset: refs (or small data: that is externalized on write). \
-Leaves: progress|divider|keyValue|badges|image; optional tone/emphasis tokens (critical|warning|success|info|muted; strong|normal|subtle). \
+Leaves: progress|divider|keyValue|badges|icon|image; optional tone/emphasis tokens (critical|warning|success|info|muted; strong|normal|subtle). \
+icon: curated name (check|warning|rocket|…) + optional tone/size; optional icon shorthand on header/list/metrics. \
 group is detail-only (not glance sections). sm tiles: whole-tile onOpen only (no per-row taps). \
 HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. Full document replace only."
     )]
@@ -990,10 +992,7 @@ AGENT_CANVAS_API_URL. canvas: local id (md-one); optional slug."
         };
         let has_cover = {
             let store = self.store.lock().await;
-            store
-                .read(id)
-                .map(|d| d.cover.is_some())
-                .unwrap_or(false)
+            store.read(id).map(|d| d.cover.is_some()).unwrap_or(false)
         };
         match self.cloud.share_canvas(id, args.slug.as_deref()).await {
             Ok(res) => {
@@ -1296,7 +1295,8 @@ impl ServerHandler for AgentCanvasMcp {
                  (url schemes http|https|mailto only; file reveals in Finder, never launches). \
                  Optional detail.sections for the expand window (group layouts allowed there only). \
                  Style with tone/emphasis tokens — never hex colors or point sizes. \
-                 Leaves: progress, divider, keyValue, badges, image. sm: whole-tile taps only. \
+                 Leaves: progress, divider, keyValue, badges, icon, image. \
+                 Curated icon names on type=icon or header/list/metrics icon shorthand. sm: whole-tile taps only. \
                  HARD budgets: sm≤2 sections (no charts); md≤4/4/8; lg≤6/8/12; xl≤8/12/20. \
                  If a call fails, read the error JSON (example + tip) and retry once. \
                  Canvas is a glanceable headline, not a document."

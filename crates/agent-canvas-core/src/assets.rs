@@ -209,7 +209,17 @@ fn read_jpeg_dimensions(bytes: &[u8]) -> Result<(u32, u32)> {
         // SOF0..SOF3, SOF5..SOF7, SOF9..SOF11, SOF13..SOF15
         let is_sof = matches!(
             marker,
-            0xC0 | 0xC1 | 0xC2 | 0xC3 | 0xC5 | 0xC6 | 0xC7 | 0xC9 | 0xCA | 0xCB | 0xCD | 0xCE
+            0xC0 | 0xC1
+                | 0xC2
+                | 0xC3
+                | 0xC5
+                | 0xC6
+                | 0xC7
+                | 0xC9
+                | 0xCA
+                | 0xCB
+                | 0xCD
+                | 0xCE
                 | 0xCF
         );
         if is_sof {
@@ -219,9 +229,7 @@ fn read_jpeg_dimensions(bytes: &[u8]) -> Result<(u32, u32)> {
             let height = u16::from_be_bytes([bytes[i + 3], bytes[i + 4]]) as u32;
             let width = u16::from_be_bytes([bytes[i + 5], bytes[i + 6]]) as u32;
             if width == 0 || height == 0 {
-                return Err(Error::Validation(
-                    "image: JPEG has zero dimensions".into(),
-                ));
+                return Err(Error::Validation("image: JPEG has zero dimensions".into()));
             }
             return Ok((width, height));
         }
@@ -322,9 +330,9 @@ pub fn validate_image_source(source: &str, ctx: &str) -> Result<()> {
 }
 
 fn validate_asset_ref(rest: &str, ctx: &str) -> Result<()> {
-    let (hash, ext) = rest
-        .rsplit_once('.')
-        .ok_or_else(|| Error::Validation(format!("{ctx}: asset ref must be asset:{{sha}}.{{ext}}")))?;
+    let (hash, ext) = rest.rsplit_once('.').ok_or_else(|| {
+        Error::Validation(format!("{ctx}: asset ref must be asset:{{sha}}.{{ext}}"))
+    })?;
     if hash.len() != 64 || !hash.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err(Error::Validation(format!(
             "{ctx}: asset hash must be 64 hex chars"
@@ -341,9 +349,9 @@ fn validate_asset_ref(rest: &str, ctx: &str) -> Result<()> {
 /// Resolve `asset:{sha}.{ext}` to an absolute path under `assets/`, with containment.
 pub fn resolve_asset(root: &Path, source: &str) -> Result<PathBuf> {
     let s = source.trim();
-    let rest = s.strip_prefix("asset:").ok_or_else(|| {
-        Error::Validation("resolve: expected asset: reference".into())
-    })?;
+    let rest = s
+        .strip_prefix("asset:")
+        .ok_or_else(|| Error::Validation("resolve: expected asset: reference".into()))?;
     validate_asset_ref(rest, "resolve")?;
     let dir = assets_dir(root);
     let path = dir.join(rest);
@@ -393,11 +401,7 @@ pub fn write_asset(root: &Path, bytes: &[u8]) -> Result<(String, ImageMeta)> {
 }
 
 fn hex_encode(bytes: impl AsRef<[u8]>) -> String {
-    bytes
-        .as_ref()
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect()
+    bytes.as_ref().iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// Collect all `asset:` refs from a document.
@@ -499,9 +503,7 @@ fn externalize_source(root: &Path, source: &str) -> Result<String> {
         // Ensure the file exists under assets/.
         let path = resolve_asset(root, s)?;
         if !path.exists() {
-            return Err(Error::Validation(format!(
-                "image: asset not found: {s}"
-            )));
+            return Err(Error::Validation(format!("image: asset not found: {s}")));
         }
         return Ok(s.to_string());
     }
@@ -610,10 +612,7 @@ mod tests {
         let crc = png_crc(&bad[idat..data_end]);
         bad[data_end..data_end + 4].copy_from_slice(&crc.to_be_bytes());
         let err = validate_image_bytes(&bad).unwrap_err().to_string();
-        assert!(
-            err.contains("corrupt PNG") || err.contains("IDAT"),
-            "{err}"
-        );
+        assert!(err.contains("corrupt PNG") || err.contains("IDAT"), "{err}");
     }
 
     fn png_crc(type_and_data: &[u8]) -> u32 {
@@ -655,8 +654,13 @@ mod tests {
     fn reject_traversal() {
         let root = tmp();
         fs::create_dir_all(assets_dir(&root)).unwrap();
-        let err = resolve_asset(&root, "asset:../evil.png").unwrap_err().to_string();
-        assert!(err.contains("hash") || err.contains("..") || err.contains("escapes"), "{err}");
+        let err = resolve_asset(&root, "asset:../evil.png")
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("hash") || err.contains("..") || err.contains("escapes"),
+            "{err}"
+        );
     }
 
     #[test]

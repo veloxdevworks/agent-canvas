@@ -20,6 +20,7 @@ enum LayoutSpec {
         "divider": 75,
         "keyValue": 42,
         "badges": 48,
+        "icon": 47,
         "group": 55,
     ]
 
@@ -35,6 +36,7 @@ enum LayoutSpec {
         "divider": 6,
         "keyValue": 2,
         "badges": 4,
+        "icon": 4,
         "group": 2,
     ]
 
@@ -63,6 +65,9 @@ enum LayoutSpec {
         let dividerHeight: CGFloat
         let keyValueRowHeight: CGFloat
         let badgesHeight: CGFloat
+        let iconHeightSm: CGFloat
+        let iconHeightMd: CGFloat
+        let iconHeightLg: CGFloat
         let titleChromeHeight: CGFloat
         let overflowLineHeight: CGFloat
         let timestampHeight: CGFloat
@@ -96,6 +101,9 @@ enum LayoutSpec {
                 dividerHeight: 8,
                 keyValueRowHeight: 16,
                 badgesHeight: 20,
+                iconHeightSm: 18,
+                iconHeightMd: 24,
+                iconHeightLg: 32,
                 titleChromeHeight: 16,
                 overflowLineHeight: 12,
                 timestampHeight: 11
@@ -126,6 +134,9 @@ enum LayoutSpec {
                 dividerHeight: 8,
                 keyValueRowHeight: 18,
                 badgesHeight: 22,
+                iconHeightSm: 20,
+                iconHeightMd: 28,
+                iconHeightLg: 36,
                 titleChromeHeight: 16,
                 overflowLineHeight: 12,
                 timestampHeight: 11
@@ -156,6 +167,9 @@ enum LayoutSpec {
                 dividerHeight: 10,
                 keyValueRowHeight: 20,
                 badgesHeight: 24,
+                iconHeightSm: 22,
+                iconHeightMd: 32,
+                iconHeightLg: 44,
                 titleChromeHeight: 18,
                 overflowLineHeight: 12,
                 timestampHeight: 11
@@ -186,6 +200,9 @@ enum LayoutSpec {
                 dividerHeight: 10,
                 keyValueRowHeight: 20,
                 badgesHeight: 24,
+                iconHeightSm: 22,
+                iconHeightMd: 32,
+                iconHeightLg: 44,
                 titleChromeHeight: 18,
                 overflowLineHeight: 12,
                 timestampHeight: 11

@@ -239,6 +239,9 @@
         },
         {
           "$ref": "#/$defs/badges"
+        },
+        {
+          "$ref": "#/$defs/icon"
         }
       ]
     },
@@ -302,6 +305,9 @@
         "emphasis": {
           "$ref": "#/$defs/emphasis"
         },
+        "icon": {
+          "$ref": "#/$defs/iconName"
+        },
         "priority": {
           "$ref": "#/$defs/priority"
         },
@@ -326,6 +332,77 @@
         "text"
       ],
       "type": "object"
+    },
+    "icon": {
+      "additionalProperties": false,
+      "description": "Named glyph leaf. Composable in detail group; glance status mark. Optional icon shorthand also on header / list items / metrics items.",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/iconName"
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "size": {
+          "$ref": "#/$defs/iconSize"
+        },
+        "tone": {
+          "$ref": "#/$defs/tone"
+        },
+        "type": {
+          "const": "icon"
+        }
+      },
+      "required": [
+        "type",
+        "name"
+      ],
+      "type": "object"
+    },
+    "iconName": {
+      "description": "Curated portable icon name (mapped per shell; never platform symbol strings).",
+      "enum": [
+        "check",
+        "close",
+        "warning",
+        "alert",
+        "info",
+        "help",
+        "sparkle",
+        "search",
+        "link",
+        "copy",
+        "refresh",
+        "play",
+        "pause",
+        "stop",
+        "rocket",
+        "bug",
+        "clock",
+        "calendar",
+        "person",
+        "people",
+        "folder",
+        "file",
+        "image",
+        "chart",
+        "settings",
+        "lock",
+        "key",
+        "cloud",
+        "server",
+        "database"
+      ],
+      "type": "string"
+    },
+    "iconSize": {
+      "description": "Size token for standalone icon sections (default md).",
+      "enum": [
+        "sm",
+        "md",
+        "lg"
+      ],
+      "type": "string"
     },
     "image": {
       "additionalProperties": false,
@@ -423,6 +500,9 @@
               "emphasis": {
                 "$ref": "#/$defs/emphasis"
               },
+              "icon": {
+                "$ref": "#/$defs/iconName"
+              },
               "primary": {
                 "type": "string"
               },
@@ -466,6 +546,9 @@
             "properties": {
               "emphasis": {
                 "$ref": "#/$defs/emphasis"
+              },
+              "icon": {
+                "$ref": "#/$defs/iconName"
               },
               "label": {
                 "type": "string"
@@ -575,6 +658,9 @@
         },
         {
           "$ref": "#/$defs/badges"
+        },
+        {
+          "$ref": "#/$defs/icon"
         }
       ]
     },
