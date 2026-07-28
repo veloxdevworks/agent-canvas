@@ -37,7 +37,33 @@ lipo_pair() {
   local dest="$OUT/$rel"
   if [[ -f "$a" && -f "$b" ]]; then
     mkdir -p "$(dirname "$dest")"
-    echo "    lipo: $rel"
+    local archs_a archs_b
+    archs_a=$(lipo -archs "$a" 2>/dev/null || true)
+    archs_b=$(lipo -archs "$b" 2>/dev/null || true)
+    # SPM Sparkle (and similar) often ships already-fat Mach-Os into each
+    # single-arch app. lipo -create fails if any architecture overlaps.
+    local overlap=0
+    local arch
+    for arch in $archs_a; do
+      if [[ " $archs_b " == *" $arch "* ]]; then
+        overlap=1
+        break
+      fi
+    done
+    if [[ $overlap -eq 1 ]]; then
+      local count_a count_b
+      count_a=$(wc -w <<<"$archs_a" | tr -d ' ')
+      count_b=$(wc -w <<<"$archs_b" | tr -d ' ')
+      if [[ "$count_a" -gt "$count_b" ]]; then
+        ditto "$a" "$dest"
+        echo "    keep (overlap, richer x86 tree): $rel [$archs_a]"
+      else
+        # OUT already has the arm64 tree copy from ditto.
+        echo "    keep (overlap, arm64 tree): $rel [$archs_b]"
+      fi
+      return
+    fi
+    echo "    lipo: $rel ($archs_a + $archs_b)"
     lipo -create "$a" "$b" -output "$dest"
     chmod +x "$dest" 2>/dev/null || true
   elif [[ -f "$b" ]]; then
