@@ -166,15 +166,15 @@ The private workflow prefers a dedicated runner keychain
 ```bash
 # After the public tag exists (and Release workflow has created the GitHub Release):
 gh workflow run release.yml --repo veloxdevworks/agent-canvas-release \
-  -f ref=v0.2.8 \
-  -f release_tag=public-v0.2.8 \
+  -f ref=v0.2.9 \
+  -f release_tag=public-v0.2.9 \
   -f publish_public=true
 ```
 
 Attaches to the **public** Release:
 
-- `AgentCanvas-v0.2.8-x86_64.dmg` / `…-arm64.dmg` (first-time install)
-- `AgentCanvas-v0.2.8.zip` (Sparkle enclosure, universal)
+- `AgentCanvas-v0.2.9-x86_64.dmg` / `…-arm64.dmg` (first-time install)
+- `AgentCanvas-v0.2.9.zip` (Sparkle enclosure, universal)
 - `appcast.xml` (also reachable via `…/releases/latest/download/appcast.xml`)
 - `SHA256SUMS.txt`
 

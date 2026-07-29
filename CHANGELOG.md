@@ -7,6 +7,17 @@ Version tags match GitHub Releases (`vMAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-07-28
+
+### Added
+- **Content-change notifications:** opt-in system banners when an agent updates canvas content (`contentEqual` gate), with per-canvas mute and coalesced multi-slot updates
+- **Check for Updates…** in the menu bar (above Quit) and Settings → General → App
+- Privacy link in Settings → General (moved out of the menu bar)
+- `just release-preflight` + ship checklist in `.github/CI.md` (clean tree, menu/settings UX contract, Release build)
+
+### Changed
+- Menu bar labels drop unnecessary ellipses; Privacy no longer listed in the menu bar dropdown
+
 ## [0.2.8] - 2026-07-28
 
 ### Notes
