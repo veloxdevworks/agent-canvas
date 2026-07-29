@@ -186,6 +186,8 @@ STAGE_DMG="$WORK/dmg-root"
 rm -rf "$STAGE_DMG"
 mkdir -p "$STAGE_DMG"
 ditto "$APP" "$STAGE_DMG/AgentCanvas.app"
+# Classic drag-and-drop install: app + Applications folder alias
+ln -s /Applications "$STAGE_DMG/Applications"
 
 echo "==> Creating DMG → $DMG_PATH"
 rm -f "$DMG_PATH"
