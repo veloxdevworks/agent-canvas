@@ -49,25 +49,25 @@ struct MenuBarExtraView: View {
 
             Divider()
 
-            Button("How to Use…") {
+            Button("How to Use") {
                 openWindow(id: "main")
                 activateApp()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                     NotificationCenter.default.post(name: .agentCanvasShowHowTo, object: nil)
                 }
             }
-            Button("Privacy…") {
-                UserGuide.openPrivacy()
-            }
-            Button("Send Feedback…") {
+            Button("Send Feedback") {
                 UserGuide.openSendFeedback()
             }
-            Button("Report Issue…") {
+            Button("Report Issue") {
                 UserGuide.openReportIssue()
             }
 
             Divider()
 
+            Button("Check for Updates…") {
+                AppUpdater.shared.checkForUpdates()
+            }
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }

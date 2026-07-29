@@ -100,9 +100,44 @@ Job state **in_progress** on your Mac = wired correctly. **Queued / Waiting for 
 
 ## Releasing
 
+Cut only from a clean tree after preflight. Do **not** use a real version tag
+only to discover notarize/Sparkle or menu-bar UX bugs — dry-run packaging
+first when those scripts change.
+
+### Ship checklist (before `git tag`)
+
 ```bash
-# 1. Update CHANGELOG.md [Unreleased] → [x.y.z]
+# 1. Move CHANGELOG.md [Unreleased] → [x.y.z] (leave [Unreleased] empty)
 # 2. Bump MARKETING_VERSION / CURRENT_PROJECT_VERSION in platforms/macos/project.yml
+# 3. Commit everything that belongs in the cut (no half-landed features)
+just release-preflight
+```
+
+`just release-preflight` fails the cut early if:
+
+- the working tree is dirty (override: `ALLOW_DIRTY=1`)
+- `CHANGELOG` lacks `## [x.y.z]` for the version in `project.yml`
+- menu-bar UX is incomplete (`MenuBarExtraView` is the primary surface — items
+  only in `AgentCanvasCommands` do **not** count as shipped)
+- Settings General is missing Updates / Privacy
+- Sparkle `Info.plist` keys are missing
+- a **Release** `.app` build fails (catches `#if DEBUG` / Release-only breakage)
+- Swift unit tests fail
+
+Optional: `SKIP_BUILD=1 just release-preflight` for string/git checks only.
+
+After automated checks pass, walk the printed human checklist on a Release
+install (`CONFIGURATION=Release just macos-install && just macos-run`):
+
+- [ ] Menu bar: Settings, Connect MCP, How to Use, Send Feedback, Report Issue,
+      Check for Updates…, Quit
+- [ ] Settings → General: Updates + Privacy match the product story
+- [ ] If packaging / Sparkle scripts changed: private workflow with
+      `publish_public=false` (or local notarize) before a public tag
+
+Then tag and push:
+
+```bash
 git tag v0.2.0
 git push origin v0.2.0
 ```

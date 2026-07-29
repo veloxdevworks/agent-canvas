@@ -229,6 +229,18 @@ macos-reload:
     printf 'md-one\n%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$dir/.reload-request"
     echo "Wrote $dir/.reload-request — host app will reload within ~1s if running"
 
+# ── Release ─────────────────────────────────────────────────────────────────
+
+# Pre-tag checks: clean tree, menu/settings UX contract, CHANGELOG/version,
+# Sparkle plist keys, Release build + Swift tests. Prints a short human smoke
+# checklist afterward (menu bar walk). See .github/CI.md → Releasing.
+#
+#   just release-preflight
+#   SKIP_BUILD=1 just release-preflight     # strings + git only
+#   ALLOW_DIRTY=1 just release-preflight    # permit uncommitted changes
+release-preflight:
+    bash "{{root}}/scripts/macos/release-preflight.sh"
+
 # ── Housekeeping ────────────────────────────────────────────────────────────
 
 clean:

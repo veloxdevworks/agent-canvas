@@ -216,6 +216,8 @@ private struct GeneralSettingsDetail: View {
     @Binding var showHowTo: Bool
 
     @State private var confirmClearAll = false
+    @State private var notificationsEnabled = NotificationPrefs.notificationsEnabled
+    @State private var notificationNote = ""
 
     var body: some View {
         Form {
@@ -255,6 +257,44 @@ private struct GeneralSettingsDetail: View {
             }
 
             Section {
+                Toggle(
+                    "Notify when canvases change",
+                    isOn: Binding(
+                        get: { notificationsEnabled },
+                        set: { newValue in
+                            if newValue {
+                                Task {
+                                    let granted = await CanvasChangeNotifier.shared.requestAuthorization()
+                                    await MainActor.run {
+                                        NotificationPrefs.notificationsEnabled = granted
+                                        notificationsEnabled = granted
+                                        notificationNote = granted
+                                            ? ""
+                                            : "Notification permission denied. Enable Agent Canvas in System Settings → Notifications."
+                                    }
+                                }
+                            } else {
+                                NotificationPrefs.notificationsEnabled = false
+                                notificationsEnabled = false
+                                notificationNote = ""
+                            }
+                        }
+                    )
+                )
+                if !notificationNote.isEmpty {
+                    Text(notificationNote)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Notifications")
+            } footer: {
+                Text(
+                    "Shows a system notification when an agent changes canvas content. The Agent Canvas host must be running."
+                )
+            }
+
+            Section {
                 LabeledContent("Timelines") {
                     Button("Reload") {
                         CanvasStorage.mirrorAllAndReload()
@@ -265,6 +305,23 @@ private struct GeneralSettingsDetail: View {
                 Text("Widgets")
             } footer: {
                 Text("Force WidgetKit to refresh every Agent Canvas widget on the desktop.")
+            }
+
+            Section {
+                LabeledContent("Updates") {
+                    Button("Check for Updates…") {
+                        AppUpdater.shared.checkForUpdates()
+                    }
+                }
+                LabeledContent("Privacy") {
+                    Button("View…") {
+                        UserGuide.openPrivacy()
+                    }
+                }
+            } header: {
+                Text("App")
+            } footer: {
+                Text("Agent Canvas also checks for updates automatically in the background.")
             }
 
             Section {
@@ -299,6 +356,7 @@ private struct GeneralSettingsDetail: View {
         ) {
             Button("Clear All", role: .destructive) {
                 try? CanvasStorage.clearAll()
+                reloadWatcher.syncAllLastSeen()
                 reloadWatcher.refreshCanvasCounts()
             }
             Button("Cancel", role: .cancel) {}
@@ -621,6 +679,7 @@ private struct CanvasSettingsDetail: View {
     @State private var busy = false
     @State private var lastPublicURL = ""
     @State private var cloudConfig = CloudConfigStore.load()
+    @State private var muteNotifications = false
     @ObservedObject private var oauth = VeloxOAuthSession.shared
 
     private var document: CanvasDocument {
@@ -650,6 +709,7 @@ private struct CanvasSettingsDetail: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 metaBlock
+                notificationsBlock
                 previewBlock
                 historyBlock
                 #if DEBUG
@@ -704,6 +764,7 @@ private struct CanvasSettingsDetail: View {
                     Divider()
                     Button(role: .destructive) {
                         try? CanvasStorage.clear(address: address)
+                        reloadWatcher.syncLastSeen(address: address)
                         statusNote = "Cleared \(address.rawValue)"
                         reloadWatcher.refreshCanvasCounts()
                     } label: {
@@ -726,6 +787,7 @@ private struct CanvasSettingsDetail: View {
         #endif
         .onAppear {
             cloudConfig = CloudConfigStore.load()
+            muteNotifications = NotificationPrefs.isMuted(address)
             if let s = share {
                 publishSlug = s.slug
                 lastPublicURL = s.publicUrl
@@ -817,6 +879,25 @@ private struct CanvasSettingsDetail: View {
             if subscription != nil {
                 badge("Subscribed", color: .orange)
             }
+        }
+    }
+
+    private var notificationsBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(
+                "Mute notifications for this canvas",
+                isOn: Binding(
+                    get: { muteNotifications },
+                    set: { newValue in
+                        muteNotifications = newValue
+                        NotificationPrefs.setMuted(address, newValue)
+                    }
+                )
+            )
+            .toggleStyle(.switch)
+            Text("When notifications are enabled in General, skip banners for this slot.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -993,6 +1074,7 @@ private struct CanvasSettingsDetail: View {
     private func restoreHistory(_ entry: CanvasHistory.Entry) {
         do {
             try CanvasHistory.restore(address: address, entryId: entry.id)
+            reloadWatcher.syncLastSeen(address: address)
             statusNote = "Restored version from \(entry.savedAt.formatted(date: .abbreviated, time: .shortened))"
             reloadWatcher.refreshCanvasCounts()
         } catch {

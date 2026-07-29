@@ -209,6 +209,7 @@ struct SeedDemosView: View {
             let doc = DemoContent.document(for: address, kind: seedKind)
             try? CanvasStorage.write(doc, address: address, source: .seed)
             CanvasStorage.reload(address: address)
+            reloadWatcher.syncLastSeen(address: address)
         }
         let ids = targets.map(\.rawValue).joined(separator: ", ")
         reloadWatcher.statusLine =
@@ -220,6 +221,7 @@ struct SeedDemosView: View {
         let targets = DemoContent.addresses(size: seedSize, slot: seedSlot)
         for address in targets {
             try? CanvasStorage.clear(address: address)
+            reloadWatcher.syncLastSeen(address: address)
         }
         reloadWatcher.statusLine = "Cleared \(targets.count) canvas(es)"
         refresh()

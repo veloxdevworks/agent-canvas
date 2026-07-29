@@ -1,6 +1,7 @@
 import SwiftUI
 import WidgetKit
 import AppKit
+import UserNotifications
 
 @main
 struct AgentCanvasApp: App {
@@ -266,6 +267,8 @@ final class ReloadWatcher: ObservableObject {
     /// Debounce auto-push after local reloads.
     private var lastAutoPushAt: [String: Date] = [:]
     private var autoPushInFlight: Set<String> = []
+    /// Snapshots for content-change notifications (seeded on start; no notify).
+    private var lastSeen: [CanvasAddress: CanvasDocument] = [:]
 
     var canvasFillSummary: String {
         "\(filledCount)/\(totalCount) filled"
@@ -277,6 +280,7 @@ final class ReloadWatcher: ObservableObject {
         HostRuntime.reloadWatcher = self
         CanvasStorage.ensureDirectories()
         CanvasStorage.mirrorAllAndReload()
+        seedLastSeen()
         refreshCanvasCounts()
         isWatching = true
         setStatusLine("Watching for agent updates…")
@@ -289,6 +293,39 @@ final class ReloadWatcher: ObservableObject {
         }
         RunLoop.main.add(t, forMode: .common)
         timer = t
+    }
+
+    /// Resync snapshot after host-side writes (clear, etc.) without notifying.
+    func syncLastSeen(address: CanvasAddress) {
+        lastSeen[address] = CanvasStorage.load(address: address)
+    }
+
+    func syncAllLastSeen() {
+        seedLastSeen()
+    }
+
+    private func seedLastSeen() {
+        for address in CanvasAddress.allCases {
+            lastSeen[address] = CanvasStorage.load(address: address)
+        }
+    }
+
+    /// Compare disk content to `lastSeen`; enqueue notifications for real changes.
+    private func noteContentChanges(for addresses: [CanvasAddress]) {
+        var changed: [(CanvasAddress, String)] = []
+        for address in addresses {
+            let doc = CanvasStorage.load(address: address)
+            let previous = lastSeen[address] ?? .empty
+            lastSeen[address] = doc
+            guard !CanvasHistory.contentEqual(previous, doc) else { continue }
+            guard NotificationPrefs.notificationsEnabled else { continue }
+            guard !NotificationPrefs.isMuted(address) else { continue }
+            let title = CanvasChangeNotifier.displayTitle(for: doc, address: address)
+            changed.append((address, title))
+        }
+        if !changed.isEmpty {
+            CanvasChangeNotifier.shared.enqueueChanges(changed)
+        }
     }
 
     func noteManualReload() {
@@ -364,6 +401,7 @@ final class ReloadWatcher: ObservableObject {
             switch request {
             case .one(let address):
                 CanvasStorage.reload(address: address)
+                noteContentChanges(for: [address])
                 lastReload = Date()
                 setStatusLine(
                     "Reloaded \(address.displayName) (\(address.rawValue)) at \(lastReload!.formatted(date: .omitted, time: .standard))"
@@ -371,6 +409,7 @@ final class ReloadWatcher: ObservableObject {
                 pushSharedIfNeeded(address: address)
             case .all:
                 CanvasStorage.reloadAllTimelines()
+                noteContentChanges(for: Array(CanvasAddress.allCases))
                 lastReload = Date()
                 setStatusLine(
                     "Reloaded all widgets at \(lastReload!.formatted(date: .omitted, time: .standard))"
@@ -469,7 +508,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Accessory = menu bar agent: survives with no open windows (and no Dock icon).
         NSApp.setActivationPolicy(.accessory)
 
+        UNUserNotificationCenter.current().delegate = self
         Task { @MainActor in
+            CanvasChangeNotifier.shared.configure()
             let watcher = self.reloadWatcher
             HostRuntime.reloadWatcher = watcher
             watcher.start()
@@ -563,5 +604,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 window.orderOut(nil)
             }
         }
+    }
+}
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound])
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        CanvasChangeNotifier.handleNotificationResponse(response)
+        completionHandler()
     }
 }
