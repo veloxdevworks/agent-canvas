@@ -218,6 +218,8 @@ private struct GeneralSettingsDetail: View {
     @State private var confirmClearAll = false
     @State private var notificationsEnabled = NotificationPrefs.notificationsEnabled
     @State private var notificationNote = ""
+    @State private var showNotificationSettingsButton = false
+    @State private var notificationEnableInFlight = false
 
     var body: some View {
         Form {
@@ -263,28 +265,42 @@ private struct GeneralSettingsDetail: View {
                         get: { notificationsEnabled },
                         set: { newValue in
                             if newValue {
+                                guard !notificationEnableInFlight else { return }
+                                notificationEnableInFlight = true
+                                // Keep the toggle on while the system dialog is up so SwiftUI
+                                // doesn't snap back and call set(false) mid-request.
+                                notificationsEnabled = true
+                                notificationNote = ""
+                                showNotificationSettingsButton = false
                                 Task {
-                                    let granted = await CanvasChangeNotifier.shared.requestAuthorization()
-                                    await MainActor.run {
-                                        NotificationPrefs.notificationsEnabled = granted
-                                        notificationsEnabled = granted
-                                        notificationNote = granted
-                                            ? ""
-                                            : "Notification permission denied. Enable Agent Canvas in System Settings → Notifications."
-                                    }
+                                    let result = await CanvasChangeNotifier.shared.enableFromUser()
+                                    notificationsEnabled = result.enabled
+                                    notificationNote = result.note
+                                    showNotificationSettingsButton = result.showOpenSettings
+                                    notificationEnableInFlight = false
                                 }
+                            } else if notificationEnableInFlight {
+                                // Ignore binding churn while permission is in flight.
+                                return
                             } else {
-                                NotificationPrefs.notificationsEnabled = false
+                                CanvasChangeNotifier.shared.disableFromUser()
                                 notificationsEnabled = false
                                 notificationNote = ""
+                                showNotificationSettingsButton = false
                             }
                         }
                     )
                 )
+                .disabled(notificationEnableInFlight)
                 if !notificationNote.isEmpty {
                     Text(notificationNote)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+                if showNotificationSettingsButton {
+                    Button("Open System Settings…") {
+                        CanvasChangeNotifier.openSystemNotificationSettings()
+                    }
                 }
             } header: {
                 Text("Notifications")
@@ -292,6 +308,14 @@ private struct GeneralSettingsDetail: View {
                 Text(
                     "Shows a system notification when an agent changes canvas content. The Agent Canvas host must be running."
                 )
+            }
+            .task {
+                let result = await CanvasChangeNotifier.shared.reconcilePreferenceWithSystem()
+                notificationsEnabled = result.enabled
+                if !result.note.isEmpty {
+                    notificationNote = result.note
+                    showNotificationSettingsButton = result.showOpenSettings
+                }
             }
 
             Section {
