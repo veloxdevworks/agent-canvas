@@ -1,5 +1,7 @@
 import SwiftUI
+#if os(macOS)
 import AppKit
+#endif
 
 struct ListSectionView: View {
     let title: String?
@@ -69,6 +71,7 @@ struct ListSectionView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                #if os(macOS)
                 .onHover { hovering in
                     if hovering {
                         NSCursor.pointingHand.push()
@@ -76,6 +79,7 @@ struct ListSectionView: View {
                         NSCursor.pop()
                     }
                 }
+                #endif
             } else {
                 content
             }

@@ -1,17 +1,27 @@
 import Foundation
-import AppKit
 import ImageIO
 import CoreGraphics
 import SwiftUI
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
-/// Resolve and downsample canvas images (`asset:` under `~/.velox/canvas/assets/`,
+/// Resolve and downsample canvas images (`asset:` under canvas `assets/`,
 /// or legacy inline `data:image/…;base64,…`).
 /// WidgetKit-safe: never loads full-size bitmaps into memory.
 enum CanvasImageLoader {
-    private static let cache = NSCache<NSString, NSImage>()
+    #if os(macOS)
+    typealias PlatformImage = NSImage
+    #else
+    typealias PlatformImage = UIImage
+    #endif
+
+    private static let cache = NSCache<NSString, PlatformImage>()
 
     /// Load a downsampled image for the given target pixel size (max edge).
-    static func load(source: String, maxPixelSize: CGFloat) -> NSImage? {
+    static func load(source: String, maxPixelSize: CGFloat) -> PlatformImage? {
         let trimmed = source.trimmingCharacters(in: .whitespacesAndNewlines)
         // Cache key for data: must not use the full base64 string (huge / collision-prone).
         let key: NSString = {
@@ -23,7 +33,7 @@ enum CanvasImageLoader {
         if let cached = cache.object(forKey: key) {
             return cached
         }
-        let image: NSImage?
+        let image: PlatformImage?
         if trimmed.hasPrefix("asset:") {
             guard let url = resolveAssetURL(source: trimmed) else { return nil }
             image = downsample(url: url, maxPixelSize: maxPixelSize)
@@ -87,17 +97,17 @@ enum CanvasImageLoader {
         return data
     }
 
-    private static func downsample(url: URL, maxPixelSize: CGFloat) -> NSImage? {
+    private static func downsample(url: URL, maxPixelSize: CGFloat) -> PlatformImage? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         return downsample(source: source, maxPixelSize: maxPixelSize)
     }
 
-    private static func downsample(data: Data, maxPixelSize: CGFloat) -> NSImage? {
+    private static func downsample(data: Data, maxPixelSize: CGFloat) -> PlatformImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
         return downsample(source: source, maxPixelSize: maxPixelSize)
     }
 
-    private static func downsample(source: CGImageSource, maxPixelSize: CGFloat) -> NSImage? {
+    private static func downsample(source: CGImageSource, maxPixelSize: CGFloat) -> PlatformImage? {
         // Reject files ImageIO cannot fully decode (corrupt IDAT still often exposes IHDR).
         let status = CGImageSourceGetStatus(source)
         let statusAt = CGImageSourceGetStatusAtIndex(source, 0)
@@ -129,7 +139,11 @@ enum CanvasImageLoader {
         if isSolidBlack(cgImage) {
             return nil
         }
+        #if os(macOS)
         return NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
+        #else
+        return UIImage(cgImage: cgImage)
+        #endif
     }
 
     /// True when every sampled pixel is RGB(0,0,0). ImageIO does this for some broken PNGs.
@@ -176,10 +190,10 @@ struct CanvasRemoteImage: View {
 
     var body: some View {
         Group {
-            if let nsImage = CanvasImageLoader.load(source: source, maxPixelSize: maxPixelSize) {
+            if let image = CanvasImageLoader.load(source: source, maxPixelSize: maxPixelSize) {
                 // macOS dims desktop widgets when an app is focused (accented/glass mode).
                 // Without this, ImageIO bitmaps become solid gray placeholders.
-                imageView(nsImage)
+                imageView(image)
                     .aspectRatio(contentMode: contentMode)
                     .accessibilityLabel(alt)
             } else {
@@ -192,8 +206,9 @@ struct CanvasRemoteImage: View {
     }
 
     @ViewBuilder
-    private func imageView(_ nsImage: NSImage) -> some View {
-        let base = Image(nsImage: nsImage).resizable()
+    private func imageView(_ image: CanvasImageLoader.PlatformImage) -> some View {
+        #if os(macOS)
+        let base = Image(nsImage: image).resizable()
         if #available(macOS 15.0, *) {
             // Accented/glass desktop mode (app focused): keep the bitmap visible but
             // desaturated so it blends with system widget chrome instead of a gray void.
@@ -201,5 +216,8 @@ struct CanvasRemoteImage: View {
         } else {
             base
         }
+        #else
+        Image(uiImage: image).resizable()
+        #endif
     }
 }

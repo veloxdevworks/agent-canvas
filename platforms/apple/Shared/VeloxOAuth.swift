@@ -1,7 +1,11 @@
 import Foundation
 import AuthenticationServices
 import CryptoKit
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 
 /// Velox OAuth 2.1 authorization code + PKCE S256 (public client).
 /// Gated by `CloudFeature`. No session cookies on token/API traffic.
@@ -75,7 +79,7 @@ final class VeloxOAuthSession: NSObject, ObservableObject {
 
     // MARK: - Sign in / out
 
-    func signIn(config: CloudConfigStore = .load(), presentingWindow: NSWindow? = nil) async throws {
+    func signIn(config: CloudConfigStore = .load(), presentingWindow: AnyObject? = nil) async throws {
         guard CloudFeature.isEnabled else { throw OAuthError.featureDisabled }
 
         isBusy = true
@@ -386,8 +390,20 @@ final class VeloxOAuthSession: NSObject, ObservableObject {
 
     // MARK: - Browser
 
-    private func startWebAuth(url: URL, presentingWindow: NSWindow?) {
-        presentationAnchor = presentingWindow ?? NSApp.keyWindow ?? NSApp.windows.first
+    private func startWebAuth(url: URL, presentingWindow: AnyObject?) {
+        #if os(macOS)
+        if let window = presentingWindow as? NSWindow {
+            presentationAnchor = window
+        } else {
+            presentationAnchor = NSApp.keyWindow ?? NSApp.windows.first
+        }
+        #else
+        if let window = presentingWindow as? UIWindow {
+            presentationAnchor = window
+        } else {
+            presentationAnchor = Self.keyWindow
+        }
+        #endif
         let session = ASWebAuthenticationSession(
             url: url,
             callbackURLScheme: AgentCanvasConstants.oauthURLScheme
@@ -421,9 +437,22 @@ final class VeloxOAuthSession: NSObject, ObservableObject {
         authSession = session
         if !session.start() {
             // Fallback: open system browser; rely on URL scheme handler.
+            #if os(macOS)
             NSWorkspace.shared.open(url)
+            #else
+            UIApplication.shared.open(url)
+            #endif
         }
     }
+
+    #if os(iOS)
+    private static var keyWindow: UIWindow? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)
+    }
+    #endif
 
     private func failPending(_ error: Error) {
         lastError = error.localizedDescription
@@ -498,8 +527,12 @@ final class VeloxOAuthSession: NSObject, ObservableObject {
 extension VeloxOAuthSession: ASWebAuthenticationPresentationContextProviding {
     nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         MainActor.assumeIsolated {
+            #if os(macOS)
             presentationAnchor ?? NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first
                 ?? ASPresentationAnchor()
+            #else
+            presentationAnchor ?? Self.keyWindow ?? ASPresentationAnchor()
+            #endif
         }
     }
 }

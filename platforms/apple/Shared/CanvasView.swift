@@ -21,6 +21,8 @@ struct CanvasView: View {
     /// Host detail: called with document section index, item index, and item.
     var onListItemAction: ((Int, Int, ListItem) -> Void)? = nil
 
+    @Environment(\.colorScheme) private var colorScheme
+
     private var size: CanvasSize { entry.address.size }
 
     private var resolvedInteraction: CanvasActionInteractionMode {
@@ -63,8 +65,8 @@ struct CanvasView: View {
                 surface
                     .background {
                         RoundedRectangle(cornerRadius: previewCornerRadius, style: .continuous)
-                            // Approximate macOS widget material for agent screenshots.
-                            .fill(Color(red: 0.13, green: 0.13, blue: 0.14))
+                            // Approximate macOS widget material; follows host appearance.
+                            .fill(previewChromeFill)
                     }
                     .clipShape(RoundedRectangle(cornerRadius: previewCornerRadius, style: .continuous))
             } else {
@@ -171,6 +173,18 @@ struct CanvasView: View {
         switch size {
         case .sm, .md: return 22
         case .lg, .xl: return 24
+        }
+    }
+
+    /// Solid stand-in for WidgetKit material in Settings / ImageRenderer previews.
+    private var previewChromeFill: Color {
+        switch colorScheme {
+        case .light:
+            return Color(red: 0.94, green: 0.94, blue: 0.96)
+        case .dark:
+            return Color(red: 0.13, green: 0.13, blue: 0.14)
+        @unknown default:
+            return Color(red: 0.13, green: 0.13, blue: 0.14)
         }
     }
 

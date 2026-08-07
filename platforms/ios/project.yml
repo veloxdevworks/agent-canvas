@@ -1,0 +1,129 @@
+# XcodeGen spec — regenerate with: just ios-gen
+# https://github.com/yonaskolb/XcodeGen
+name: AgentCanvasiOS
+options:
+  bundleIdPrefix: com.velox
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  developmentLanguage: en
+  xcodeVersion: "16.0"
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: 1
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: "Apple Development"
+    DEAD_CODE_STRIPPING: YES
+    ONLY_ACTIVE_ARCH: YES
+    TARGETED_DEVICE_FAMILY: "1,2"
+
+configs:
+  Debug: debug
+  Release: release
+
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+
+targets:
+  AgentCanvasiOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: AgentCanvas
+      - path: ../apple/Shared
+    settings:
+      base:
+        PRODUCT_NAME: AgentCanvas
+        PRODUCT_MODULE_NAME: AgentCanvasiOS
+        PRODUCT_BUNDLE_IDENTIFIER: com.velox.agentcanvas.ios
+        INFOPLIST_FILE: AgentCanvas/Info.plist
+        CODE_SIGN_ENTITLEMENTS: AgentCanvas/AgentCanvas.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: NO
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+        SKIP_INSTALL: NO
+        INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright © Velox"
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: NO
+        SUPPORTS_MACCATALYST: NO
+    entitlements:
+      path: AgentCanvas/AgentCanvas.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.velox.agentcanvas
+    dependencies:
+      - target: AgentCanvasWidget
+        embed: true
+        codeSign: true
+    scheme:
+      testTargets:
+        - AgentCanvasiOSTests
+      gatherCoverageData: false
+
+  AgentCanvasiOSTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: AgentCanvasTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.velox.agentcanvas.ios.tests
+        GENERATE_INFOPLIST_FILE: YES
+        IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+        # Host app PRODUCT_NAME is AgentCanvas (not the target name).
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/AgentCanvas.app/AgentCanvas"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+    dependencies:
+      - target: AgentCanvasiOS
+
+  AgentCanvasWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: AgentCanvasWidget
+      - path: ../apple/Shared
+        excludes:
+          - CloudAPIClient.swift
+          - CloudConfigStore.swift
+          - CloudFeature.swift
+          - CloudKeychain.swift
+          - CloudShareIndex.swift
+          - CloudSubscriptionStore.swift
+          - OAuthKeychain.swift
+          - VeloxOAuth.swift
+    settings:
+      base:
+        PRODUCT_NAME: AgentCanvasWidget
+        PRODUCT_BUNDLE_IDENTIFIER: com.velox.agentcanvas.ios.widget
+        INFOPLIST_FILE: AgentCanvasWidget/Info.plist
+        CODE_SIGN_ENTITLEMENTS: AgentCanvasWidget/AgentCanvasWidget.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+        APPLICATION_EXTENSION_API_ONLY: YES
+    entitlements:
+      path: AgentCanvasWidget/AgentCanvasWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.velox.agentcanvas
+
+schemes:
+  AgentCanvasiOS:
+    build:
+      targets:
+        AgentCanvasiOS: all
+        AgentCanvasWidget: all
+        AgentCanvasiOSTests: [test]
+    run:
+      config: Debug
+      executable: AgentCanvasiOS
+    test:
+      config: Debug
+      targets:
+        - AgentCanvasiOSTests

@@ -6,12 +6,14 @@ import CryptoKit
 /// Widget emits `agentcanvas://action?…`; host re-reads JSON and executes.
 /// Legacy `agentcanvas://detail?id=` remains an alias for expand.
 /// Canvas web (PLAT-105): `agentcanvas://subscribe?slug={slug}`.
+/// iOS detail: `agentcanvas://canvas/{id}` (path-style).
 enum CanvasActionURL {
     static let scheme = "agentcanvas"
     static let actionHost = "action"
     static let detailHost = "detail"
     static let howToHost = "howto"
     static let subscribeHost = "subscribe"
+    static let canvasHost = "canvas"
 
     enum Target: Equatable {
         /// Document `onOpen` (or legacy detail expand).
@@ -33,6 +35,15 @@ enum CanvasActionURL {
         components.queryItems = [
             URLQueryItem(name: "id", value: canvasId),
         ]
+        return components.url!
+    }
+
+    /// iOS-friendly detail deep link: `agentcanvas://canvas/{id}`.
+    static func canvasDetailURL(canvasId: String) -> URL {
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = canvasHost
+        components.path = "/\(canvasId)"
         return components.url!
     }
 
@@ -83,6 +94,12 @@ enum CanvasActionURL {
 
         if url.host?.lowercased() == detailHost {
             guard let id = queryValue(url, name: "id"), !id.isEmpty else { return nil }
+            return .document(id: id)
+        }
+
+        if url.host?.lowercased() == canvasHost {
+            let id = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            guard !id.isEmpty else { return nil }
             return .document(id: id)
         }
 

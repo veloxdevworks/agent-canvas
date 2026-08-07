@@ -83,8 +83,13 @@ enum CanvasAddress: String, CaseIterable, Identifiable, Codable {
     }
 
     var galleryDescription: String {
+        #if os(iOS)
+        "Fixed \(size.galleryLabel.lowercased()) agent canvas (slot \(slot.shortLabel.lowercased())). "
+            + "Id: \(rawValue)."
+        #else
         "Fixed \(size.galleryLabel.lowercased()) agent canvas (slot \(slot.shortLabel.lowercased())). "
             + "MCP id: \(rawValue)."
+        #endif
     }
 
     /// Single WidgetFamily — not multi-size.

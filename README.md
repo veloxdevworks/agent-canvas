@@ -36,6 +36,7 @@ Privacy details: [`PRIVACY.md`](./PRIVACY.md). Third-party notices: [`NOTICE`](.
 | **Portability** | Layout constants + packer live in Rust; macOS renderer consumes generated `LayoutSpec`; `schema/conformance` goldens |
 | **Data** | `~/.velox/canvas/canvases/{id}.json`; assets under `~/.velox/canvas/assets/` |
 | **Distribution** | Direct / developer install (not Mac App Store) |
+| **iOS (subscribe)** | Sign-in + cloud subscribe → App Group + WidgetKit (`platforms/ios`); no MCP |
 
 ### Canvas ids
 
@@ -129,6 +130,25 @@ just mcp-seed canvas=md-one
 
 Useful recipes: `just --list`, `just macos-diagnose`, `just macos-widgets-reset`, `just mcp-paths`.
 
+## Develop (iOS)
+
+Subscribe-only companion: Velox sign-in, map cloud canvases to the same 12 slots, WidgetKit via App Group storage. No MCP on iOS.
+
+Requires Xcode, Just, and XcodeGen. Enable the App Group `group.com.velox.agentcanvas` on the app + widget App IDs in the Apple Developer portal (or let Xcode manage it with Automatic signing).
+
+```bash
+cd agent-canvas
+
+just ios-team TEAM=XXXXXXXXXX   # once (or reuse macOS Local.xcconfig via just ios-ensure-team)
+just ios-gen
+just ios-build                  # Simulator
+just ios-run                    # install + launch on Simulator
+just ios-test                   # packing conformance
+just ios-xcode                  # open Xcode
+```
+
+Widgets: Home Screen → Edit Widgets → **Agent Canvas**. Data lives in the App Group (`group.com.velox.agentcanvas/canvas`). Sync runs on launch / foreground; `BGAppRefresh` is opportunistic (~15–60 min). Deep links: `agentcanvas://subscribe?slug=…`, `agentcanvas://canvas/{id}`.
+
 ### Repo layout
 
 ```
@@ -137,7 +157,10 @@ agent-canvas/
 ├── crates/
 │   ├── agent-canvas-core/  # ids, validation, storage
 │   └── agent-canvas-mcp/   # stdio MCP server
-├── platforms/macos/        # Host + WidgetKit (XcodeGen)
+├── platforms/
+│   ├── apple/Shared/       # SwiftUI renderer + schema + cloud client (macOS + iOS)
+│   ├── macos/              # Host + WidgetKit (XcodeGen)
+│   └── ios/                # Subscribe-only app + WidgetKit (XcodeGen)
 ├── scripts/macos/          # install, diagnose, icons
 └── plan.md
 ```

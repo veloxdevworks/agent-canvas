@@ -9,10 +9,19 @@ enum CanvasWidgetFactory {
             kind: address.widgetKind,
             provider: CanvasTimelineProvider(address: address)
         ) { entry in
-            let url: URL =
-                (entry.document.isEmptyContent || entry.isPlaceholder)
-                ? CanvasActionURL.howToURL()
-                : CanvasActionURL.documentURL(canvasId: address.rawValue)
+            let url: URL = {
+                #if os(iOS)
+                if entry.document.isEmptyContent || entry.isPlaceholder {
+                    return CanvasActionURL.howToURL()
+                }
+                return CanvasActionURL.canvasDetailURL(canvasId: address.rawValue)
+                #else
+                if entry.document.isEmptyContent || entry.isPlaceholder {
+                    return CanvasActionURL.howToURL()
+                }
+                return CanvasActionURL.documentURL(canvasId: address.rawValue)
+                #endif
+            }()
             CanvasView(entry: entry, actionInteraction: .widgetLink)
                 .widgetURL(url)
         }

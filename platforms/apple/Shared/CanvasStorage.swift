@@ -4,8 +4,9 @@ import WidgetKit
 import Darwin
 #endif
 
-/// Reads/writes canvas JSON under `~/.velox/canvas`.
-/// MCP and host share the same tree; widgets use temporary-exception + real user home.
+/// Reads/writes canvas JSON under the platform storage root.
+/// - macOS: `~/.velox/canvas` (MCP + host + widgets via temporary-exception)
+/// - iOS: App Group `group.com.velox.agentcanvas/canvas`
 enum CanvasStorage {
     private static let decoder: JSONDecoder = {
         let d = JSONDecoder()
@@ -20,21 +21,9 @@ enum CanvasStorage {
         return e
     }()
 
-    /// Real login home — not the App Sandbox container home.
-    static var realUserHome: URL {
-        #if canImport(Darwin)
-        if let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir {
-            return URL(fileURLWithPath: String(cString: dir), isDirectory: true)
-        }
-        #endif
-        return FileManager.default.homeDirectoryForCurrentUser
-    }
-
-    /// `~/.velox/canvas` — keep name `applicationSupportRoot` for call-site stability.
+    /// Platform data root (`…/canvas`).
     static var applicationSupportRoot: URL {
-        realUserHome
-            .appendingPathComponent(AgentCanvasConstants.veloxDirName, isDirectory: true)
-            .appendingPathComponent(AgentCanvasConstants.canvasDirName, isDirectory: true)
+        CanvasStorageRoot.root
     }
 
     static var applicationSupportCanvases: URL {
@@ -235,6 +224,39 @@ enum CanvasStorage {
         let token = lines.count > 1 ? lines[1] : UUID().uuidString
         return PreviewRequest(address: address, token: token)
     }
+}
+
+/// Resolves the on-disk canvas root for the current platform.
+enum CanvasStorageRoot {
+    static var root: URL {
+        #if os(iOS)
+        if let container = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: AgentCanvasConstants.appGroupId
+        ) {
+            return container
+                .appendingPathComponent(AgentCanvasConstants.canvasDirName, isDirectory: true)
+        }
+        // Simulator / misconfigured entitlements fallback.
+        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(AgentCanvasConstants.canvasDirName, isDirectory: true)
+        #else
+        return realUserHome
+            .appendingPathComponent(AgentCanvasConstants.veloxDirName, isDirectory: true)
+            .appendingPathComponent(AgentCanvasConstants.canvasDirName, isDirectory: true)
+        #endif
+    }
+
+    #if os(macOS)
+    /// Real login home — not the App Sandbox container home.
+    static var realUserHome: URL {
+        #if canImport(Darwin)
+        if let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir {
+            return URL(fileURLWithPath: String(cString: dir), isDirectory: true)
+        }
+        #endif
+        return FileManager.default.homeDirectoryForCurrentUser
+    }
+    #endif
 }
 
 enum ReloadRequest: Equatable {

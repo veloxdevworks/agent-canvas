@@ -34,8 +34,15 @@ struct CanvasTimelineProvider: TimelineProvider {
             recordRender: true,
             displaySize: context.displaySize
         )
+        #if os(iOS)
+        // Opportunistic self-refresh when the host app is not open (~45 min).
+        let next = Calendar.current.date(byAdding: .minute, value: 45, to: Date())
+            ?? Date().addingTimeInterval(45 * 60)
+        #else
+        // Mac host forces reloads; long fallback is fine.
         let next = Calendar.current.date(byAdding: .hour, value: 12, to: Date())
             ?? Date().addingTimeInterval(3600)
+        #endif
         completion(Timeline(entries: [entry], policy: .after(next)))
     }
 

@@ -1,10 +1,10 @@
 import Foundation
 
-/// Pre-release cloud publish / subscribe UI + host hooks.
+/// Cloud publish / subscribe UI + host hooks.
 ///
-/// Matches MCP gate:
-/// - **Release** builds: always off (unless you add a compile flag later).
-/// - **Debug**: requires `AGENT_CANVAS_CLOUD_PUBLISH=1` **or** the Settings toggle
+/// - **iOS**: always on (subscribe-only product surface).
+/// - **macOS Release**: always off (unless you add a compile flag later).
+/// - **macOS Debug**: requires `AGENT_CANVAS_CLOUD_PUBLISH=1` **or** the Settings toggle
 ///   (`UserDefaults` key below) so Xcode runs don't need a shell env.
 enum CloudFeature {
     static let envName = "AGENT_CANVAS_CLOUD_PUBLISH"
@@ -12,7 +12,9 @@ enum CloudFeature {
 
     /// Whether cloud UI and host publish/subscribe actions may run.
     static var isEnabled: Bool {
-        #if DEBUG
+        #if os(iOS)
+        return true
+        #elseif DEBUG
         if envEnabled { return true }
         return UserDefaults.standard.bool(forKey: defaultsKey)
         #else
@@ -35,7 +37,9 @@ enum CloudFeature {
     }
 
     static var statusDescription: String {
-        #if DEBUG
+        #if os(iOS)
+        return "On"
+        #elseif DEBUG
         if envEnabled { return "On (env \(envName)=1)" }
         if userToggleEnabled { return "On (Settings toggle)" }
         return "Off — set \(envName)=1 or enable in Cloud settings"

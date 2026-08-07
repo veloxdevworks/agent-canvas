@@ -1,0 +1,8 @@
+// Copy to Local.xcconfig and set your Apple Development Team ID.
+//   just ios-team TEAM=XXXXXXXXXX
+//
+// Or reuse the same team as macOS (`just macos-ensure-team`).
+
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = Apple Development
