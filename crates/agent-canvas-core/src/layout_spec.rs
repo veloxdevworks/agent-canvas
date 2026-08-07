@@ -464,7 +464,7 @@ mod tests {
 
     fn committed_swift_path() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../platforms/macos/Shared/LayoutSpec.generated.swift")
+            .join("../../platforms/apple/Shared/LayoutSpec.generated.swift")
     }
 
     #[test]

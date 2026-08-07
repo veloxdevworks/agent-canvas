@@ -48,6 +48,7 @@ targets:
     sources:
       - path: AgentCanvas
       - path: Shared
+      - path: ../apple/Shared
     settings:
       base:
         PRODUCT_NAME: AgentCanvas
@@ -112,8 +113,9 @@ targets:
     platform: macOS
     sources:
       - path: AgentCanvasWidget
-      # Host-only cloud/OAuth stays out of the extension (sandbox + no browser auth).
       - path: Shared
+      # Host-only cloud/OAuth stays out of the extension (sandbox + no browser auth).
+      - path: ../apple/Shared
         excludes:
           - CloudAPIClient.swift
           - CloudConfigStore.swift
