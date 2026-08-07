@@ -74,6 +74,8 @@ enum CanvasPreviewRenderer {
             // Neutral desk so the squircle reads clearly in agent UIs.
             .padding(16)
             .background(Color(red: 0.22, green: 0.23, blue: 0.25))
+            // Keep MCP PNGs dark so agent screenshots stay consistent across hosts.
+            .environment(\.colorScheme, .dark)
 
         let scale: CGFloat = 2.0
         let renderer = ImageRenderer(content: view)

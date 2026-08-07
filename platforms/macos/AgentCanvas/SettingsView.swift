@@ -685,6 +685,7 @@ private struct CanvasSettingsDetail: View {
     var refreshTick: Int
 
     @EnvironmentObject private var reloadWatcher: ReloadWatcher
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var publishSlug = ""
     @State private var publishError: String?
@@ -949,6 +950,7 @@ private struct CanvasSettingsDetail: View {
         let tile = ContentClip.defaultTileSize(for: address.size)
         let scale = min(1.0, 320 / max(tile.width, 1))
         let entry = makePreviewEntry(address: address, document: document)
+        let isDark = colorScheme == .dark
 
         return VStack(alignment: .leading, spacing: 10) {
             Text("Preview")
@@ -959,7 +961,11 @@ private struct CanvasSettingsDetail: View {
                     .frame(width: tile.width, height: tile.height)
                     .scaleEffect(scale)
                     .frame(width: tile.width * scale, height: tile.height * scale)
-                    .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
+                    .shadow(
+                        color: .black.opacity(isDark ? 0.35 : 0.12),
+                        radius: 18,
+                        y: 8
+                    )
                 Spacer(minLength: 0)
             }
             .padding(.vertical, 20)
@@ -968,18 +974,17 @@ private struct CanvasSettingsDetail: View {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [
-                                Color(red: 0.32, green: 0.18, blue: 0.65),
-                                Color(red: 0.15, green: 0.42, blue: 0.88),
-                                Color(red: 0.48, green: 0.18, blue: 0.62)
-                            ],
+                            colors: previewDeskColors,
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
+                            .strokeBorder(
+                                Color.primary.opacity(isDark ? 0.12 : 0.08),
+                                lineWidth: 1
+                            )
                     )
             }
             if let t = document.updatedAt {
@@ -987,6 +992,30 @@ private struct CanvasSettingsDetail: View {
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
+        }
+    }
+
+    /// Neutral desk behind the widget tile — follows the Settings window appearance.
+    private var previewDeskColors: [Color] {
+        switch colorScheme {
+        case .light:
+            return [
+                Color(red: 0.88, green: 0.90, blue: 0.93),
+                Color(red: 0.78, green: 0.81, blue: 0.86),
+                Color(red: 0.84, green: 0.86, blue: 0.90)
+            ]
+        case .dark:
+            return [
+                Color(red: 0.20, green: 0.21, blue: 0.24),
+                Color(red: 0.14, green: 0.15, blue: 0.18),
+                Color(red: 0.18, green: 0.19, blue: 0.22)
+            ]
+        @unknown default:
+            return [
+                Color(red: 0.20, green: 0.21, blue: 0.24),
+                Color(red: 0.14, green: 0.15, blue: 0.18),
+                Color(red: 0.18, green: 0.19, blue: 0.22)
+            ]
         }
     }
 
