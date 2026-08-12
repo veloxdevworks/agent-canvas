@@ -220,6 +220,9 @@ private struct GeneralSettingsDetail: View {
     @State private var notificationNote = ""
     @State private var showNotificationSettingsButton = false
     @State private var notificationEnableInFlight = false
+    @State private var runOnStartup = LaunchAtLogin.isEnabled
+    @State private var runOnStartupNote = ""
+    @State private var showLoginItemsSettingsButton = false
 
     var body: some View {
         Form {
@@ -332,6 +335,54 @@ private struct GeneralSettingsDetail: View {
             }
 
             Section {
+                Toggle(
+                    "Run Canvas on startup",
+                    isOn: Binding(
+                        get: { runOnStartup },
+                        set: { newValue in
+                            do {
+                                let status = try LaunchAtLogin.setEnabled(newValue)
+                                runOnStartup = status == .enabled
+                                runOnStartupNote = LaunchAtLogin.statusNote(for: status)
+                                showLoginItemsSettingsButton = status == .requiresApproval
+                                    || status == .notFound
+                            } catch {
+                                runOnStartup = LaunchAtLogin.isEnabled
+                                runOnStartupNote = LaunchAtLogin.statusNote(
+                                    for: LaunchAtLogin.status,
+                                    error: error
+                                )
+                                showLoginItemsSettingsButton = true
+                            }
+                        }
+                    )
+                )
+                if !runOnStartupNote.isEmpty {
+                    Text(runOnStartupNote)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if showLoginItemsSettingsButton {
+                    Button("Open Login Items Settings…") {
+                        LaunchAtLogin.openLoginItemsSettings()
+                    }
+                }
+            } header: {
+                Text("Startup")
+            } footer: {
+                Text(
+                    "Starts the Agent Canvas menu bar host when you log in to this Mac, so widgets stay live without opening the app by hand."
+                )
+            }
+            .onAppear {
+                refreshLaunchAtLoginState()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                // User may have approved/denied the login item in System Settings.
+                refreshLaunchAtLoginState()
+            }
+
+            Section {
                 LabeledContent("Updates") {
                     Button("Check for Updates…") {
                         AppUpdater.shared.checkForUpdates()
@@ -386,6 +437,19 @@ private struct GeneralSettingsDetail: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This removes local content from every slot. This can’t be undone.")
+        }
+    }
+
+    private func refreshLaunchAtLoginState() {
+        let status = LaunchAtLogin.status
+        runOnStartup = status == .enabled
+        // Keep an existing error note until the next toggle; only refresh approval hints.
+        if status == .requiresApproval || status == .notFound {
+            runOnStartupNote = LaunchAtLogin.statusNote(for: status)
+            showLoginItemsSettingsButton = true
+        } else if status == .enabled || status == .notRegistered {
+            runOnStartupNote = ""
+            showLoginItemsSettingsButton = false
         }
     }
 }
