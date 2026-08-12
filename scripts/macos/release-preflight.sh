@@ -125,6 +125,7 @@ forbid_grep "$MENU" 'Button\("Privacy' "menu: Privacy not in menu bar"
 echo ""
 echo "==> Settings General UX"
 require_file "$SETTINGS"
+require_grep "$SETTINGS" 'Run Canvas on startup' "settings: Run Canvas on startup"
 require_grep "$SETTINGS" 'Check for Updates…' "settings: Check for Updates…"
 require_grep "$SETTINGS" 'LabeledContent\("Privacy"\)' "settings: Privacy"
 
@@ -170,6 +171,9 @@ else
   )
   if [[ -f "$MACOS/AgentCanvasTests/NotificationPrefsTests.swift" ]]; then
     TEST_ARGS+=(-only-testing:AgentCanvasTests/NotificationPrefsTests)
+  fi
+  if [[ -f "$MACOS/AgentCanvasTests/LaunchAtLoginTests.swift" ]]; then
+    TEST_ARGS+=(-only-testing:AgentCanvasTests/LaunchAtLoginTests)
   fi
   xcodebuild "${TEST_ARGS[@]}" >/dev/null
   green "  ok  AgentCanvasTests"

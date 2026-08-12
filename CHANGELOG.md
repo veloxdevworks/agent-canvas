@@ -7,6 +7,20 @@ Version tags match GitHub Releases (`vMAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-08-12
+
+### Added
+- **Run Canvas on startup:** Settings → General → Startup toggle registers the menu bar host as a login item (`SMAppService`) so Agent Canvas comes back after reboot without opening it from Applications
+- iOS subscribe-only app scaffold (sign-in + cloud subscribe → App Group / WidgetKit)
+
+### Fixed
+- Notification permission UX when enabling content-change alerts
+- Canvas preview chrome adapts for light and dark appearance
+- Notarized DMG includes an Applications symlink for drag-install
+
+### Changed
+- Shared Apple sources live under `platforms/apple`
+
 ## [0.2.9] - 2026-07-28
 
 ### Added
