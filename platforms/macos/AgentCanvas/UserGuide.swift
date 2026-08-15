@@ -34,7 +34,7 @@ enum UserGuide {
         (
             "Add widgets",
             "Right-click the desktop → Edit Widgets → search “Agent Canvas”. "
-                + "Add One, Two, or Three, then pick a size. After an upgrade, re-add widgets — old size-specific tiles go empty. iPhone does not offer Extra Large."
+                + "Add One through Twelve, then pick a size. After an upgrade, re-add widgets — old size-specific tiles go empty. iPhone does not offer Extra Large."
         ),
         (
             "Connect your agent",

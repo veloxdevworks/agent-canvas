@@ -583,7 +583,7 @@ mod tests {
             .insert("two".into(), vec!["lg".into(), "sm".into()]);
         store.write_placed_families(&snap).unwrap();
         let list = store.list().unwrap();
-        assert_eq!(list.len(), 3);
+        assert_eq!(list.len(), 12);
         let two = list.iter().find(|c| c.id == "two").unwrap();
         assert_eq!(two.placed_families, vec!["sm", "lg"]);
         assert_eq!(two.budget_source, "placed");

@@ -113,7 +113,7 @@ pub fn demo_document_kind(id: CanvasId, kind: DemoKind, size: WidgetSize) -> Can
     doc
 }
 
-/// Definitions matching an optional slot filter (`None` = all three).
+/// Definitions matching an optional slot filter (`None` = all twelve).
 /// `size` is only a content-flavor hint for callers; it does not select a file.
 pub fn matching_ids(_size: Option<WidgetSize>, slot: Option<CanvasSlot>) -> Vec<CanvasId> {
     CanvasId::ALL
@@ -445,16 +445,17 @@ fn chart_type_label(t: ChartType) -> &'static str {
 // ── Themed packs (size × slot) ──────────────────────────────────────────────
 
 fn themed(id: CanvasId, size: WidgetSize) -> CanvasDocument {
+    let recipe = id.slot.themed_recipe();
     match size {
-        WidgetSize::Small => demo_small(id.slot),
-        WidgetSize::Medium => demo_medium(id.slot),
-        WidgetSize::Large => demo_large(id.slot),
-        WidgetSize::ExtraLarge => demo_xl(id.slot),
+        WidgetSize::Small => demo_small(recipe),
+        WidgetSize::Medium => demo_medium(recipe),
+        WidgetSize::Large => demo_large(recipe),
+        WidgetSize::ExtraLarge => demo_xl(recipe),
     }
 }
 
 fn demo_small(slot: CanvasSlot) -> CanvasDocument {
-    let (title, metrics) = match slot {
+    let (title, metrics) = match slot.themed_recipe() {
         CanvasSlot::One => (
             "Build",
             vec![m("CI", "✓", Some("ok")), m("Queue", "2", Some("-1"))],
@@ -467,6 +468,7 @@ fn demo_small(slot: CanvasSlot) -> CanvasDocument {
             "Ship",
             vec![m("Deploys", "1", Some("today")), m("Canary", "ok", None)],
         ),
+        _ => unreachable!("themed_recipe is one/two/three"),
     };
     CanvasDocument {
         version: 1,
@@ -483,7 +485,7 @@ fn demo_small(slot: CanvasSlot) -> CanvasDocument {
 }
 
 fn demo_medium(slot: CanvasSlot) -> CanvasDocument {
-    match slot {
+    match slot.themed_recipe() {
         CanvasSlot::One => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
@@ -593,11 +595,12 @@ fn demo_medium(slot: CanvasSlot) -> CanvasDocument {
                 },
             ],
         },
+        _ => unreachable!("themed_recipe is one/two/three"),
     }
 }
 
 fn demo_large(slot: CanvasSlot) -> CanvasDocument {
-    match slot {
+    match slot.themed_recipe() {
         CanvasSlot::One => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
@@ -740,11 +743,12 @@ fn demo_large(slot: CanvasSlot) -> CanvasDocument {
                 },
             ],
         },
+        _ => unreachable!("themed_recipe is one/two/three"),
     }
 }
 
 fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
-    match slot {
+    match slot.themed_recipe() {
         CanvasSlot::One => CanvasDocument {
             version: 1,
             updated_at: chrono::Utc::now(),
@@ -913,6 +917,7 @@ fn demo_xl(slot: CanvasSlot) -> CanvasDocument {
                 },
             ],
         },
+        _ => unreachable!("themed_recipe is one/two/three"),
     }
 }
 

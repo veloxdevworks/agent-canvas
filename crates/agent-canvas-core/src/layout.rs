@@ -220,8 +220,8 @@ pub fn layout_guide_document() -> Value {
 
     json!({
         "version": 4,
-        "note": "Hard glance budgets. Canvas ids are compiled definitions (one|two|three); size is the placed WidgetKit family (or optional size= / default medium). Widget will clip beyond budgets; use strict=true on update_canvas to reject over-budget content so you can repair. Layout constants live in Rust layout_spec (portable).",
-        "idFormat": "one|two|three (aliases: sm-one, md-two, …)",
+        "note": "Hard glance budgets. Canvas ids are compiled definitions (one…twelve); size is the placed WidgetKit family (or optional size= / default medium). Widget will clip beyond budgets; use strict=true on update_canvas to reject over-budget content so you can repair. Layout constants live in Rust layout_spec (portable).",
+        "idFormat": crate::id::ID_FORMAT_HELP,
         "budgets": WidgetSize::ALL.map(|s| s.budget()),
         "sectionPriority": {
             "note": "Optional sections[].priority (lower = more important, default by type). Drop priority ≠ pack rank: pack allocates height to list before chart so charts shrink into remainder.",

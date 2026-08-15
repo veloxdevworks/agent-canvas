@@ -33,7 +33,7 @@ pub use history::{
     list as list_history, load as load_history, HistoryEntryMeta, HistorySource,
     MAX_HISTORY_ENTRIES,
 };
-pub use id::{CanvasId, CanvasSlot, ParsedCanvas};
+pub use id::{CanvasId, CanvasSlot, ParsedCanvas, ID_FORMAT_HELP};
 pub use layout::{
     density_report, density_warnings, layout_guide_document, predict_clip, DensityReport,
     PredictedClip, WidgetSize,

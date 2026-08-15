@@ -273,19 +273,18 @@ Single Widget Extension + `WidgetBundle`:
 @main
 struct AgentCanvasBundle: WidgetBundle {
     var body: some Widget {
-        CanvasOneWidget()
-        CanvasTwoWidget()
-        CanvasThreeWidget()
+        FirstTenCanvasWidgets() // WidgetBundleBuilder max 10 children
+        ExtraCanvasWidgets()    // eleven + twelve
     }
 }
 ```
 
 Each widget:
 
-- Unique `kind` string (`AgentCanvas.one`, etc.)
+- Unique `kind` string (`AgentCanvas.one` … `AgentCanvas.twelve`)
 - Same `CanvasTimelineProvider` + `CanvasView`
 - Differs only by which canvas ID / file it loads
-- Supports the full set of macOS widget families used in v1
+- Supports all four WidgetKit families (identity ≠ size)
 
 ---
 
@@ -295,7 +294,7 @@ Each widget:
 
 - Repo layout: `schema/`, Rust crates, `platforms/macos` Xcode project
 - App Group capability reserved (`group.<bundle-id>.agentcanvas`)
-- Three widget kinds + placeholder views (name + family size)
+- Twelve widget kinds + placeholder views (name + family size)
 - Golden empty JSON fixtures
 
 ### Phase 1 — Storage + timeline

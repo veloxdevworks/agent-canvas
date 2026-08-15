@@ -273,17 +273,18 @@ enum DemoContent {
     // MARK: - Themed packs
 
     private static func themed(_ address: CanvasAddress, size: CanvasSize) -> CanvasDocument {
+        let recipe = address.slot.themedRecipe
         switch size {
-        case .sm: return small(slot: address.slot)
-        case .md: return medium(slot: address.slot)
-        case .lg: return large(slot: address.slot)
-        case .xl: return xl(slot: address.slot)
+        case .sm: return small(slot: recipe)
+        case .md: return medium(slot: recipe)
+        case .lg: return large(slot: recipe)
+        case .xl: return xl(slot: recipe)
         }
     }
 
     private static func small(slot: CanvasSlot) -> CanvasDocument {
         var d = CanvasDocument.empty
-        switch slot {
+        switch slot.themedRecipe {
         case .one:
             d.title = "Build"
             d.sections = [
@@ -308,13 +309,15 @@ enum DemoContent {
                     MetricItem(label: "Canary", value: "ok", trend: nil),
                 ]),
             ]
+        default:
+            break
         }
         return d
     }
 
     private static func medium(slot: CanvasSlot) -> CanvasDocument {
         var d = CanvasDocument.empty
-        switch slot {
+        switch slot.themedRecipe {
         case .one:
             d.title = "Sprint pulse"
             d.sections = [
@@ -362,13 +365,15 @@ enum DemoContent {
                     ChartPoint(label: "5p", value: 18),
                 ]),
             ]
+        default:
+            break
         }
         return d
     }
 
     private static func large(slot: CanvasSlot) -> CanvasDocument {
         var d = CanvasDocument.empty
-        switch slot {
+        switch slot.themedRecipe {
         case .one:
             d.title = "Jira throughput"
             d.sections = [
@@ -435,13 +440,15 @@ enum DemoContent {
                 ]),
                 .text(content: "Spike at noon coincides with batch export job."),
             ]
+        default:
+            break
         }
         return d
     }
 
     private static func xl(slot: CanvasSlot) -> CanvasDocument {
         var d = CanvasDocument.empty
-        switch slot {
+        switch slot.themedRecipe {
         case .one:
             d.title = "Platform health"
             d.sections = [
@@ -524,6 +531,8 @@ enum DemoContent {
                 ]),
                 .text(content: "Ship window: Thu 14:00 PT · rollback plan linked in runbook."),
             ]
+        default:
+            break
         }
         return d
     }

@@ -39,22 +39,16 @@ enum AgentCanvasConstants {
     static let oauthScopes = "openid profile email offline_access canvas:read canvas:write"
 }
 
-/// Compiled canvas identity: `one` / `two` / `three`.
+/// Compiled canvas identity: `one` through `twelve`.
 /// Size is chosen when the user places the widget — not baked into the id.
 /// Keep in sync with Rust `CanvasId` / MCP tool docs.
 enum CanvasAddress: String, CaseIterable, Identifiable, Codable {
-    case one
-    case two
-    case three
+    case one, two, three, four, five, six, seven, eight, nine, ten, eleven, twelve
 
     var id: String { rawValue }
 
     var slot: CanvasSlot {
-        switch self {
-        case .one: return .one
-        case .two: return .two
-        case .three: return .three
-        }
+        CanvasSlot(rawValue: rawValue) ?? .one
     }
 
     var fileName: String { "\(rawValue).json" }
@@ -64,6 +58,9 @@ enum CanvasAddress: String, CaseIterable, Identifiable, Codable {
 
     /// Gallery title — definition name only (user picks size when placing).
     var displayName: String { slot.shortLabel }
+
+    /// Old 4×3 model only had size-baked files for one / two / three.
+    var hasLegacyAliases: Bool { slot.hasLegacyAliases }
 
     var galleryDescription: String {
         #if os(iOS)
@@ -81,9 +78,10 @@ enum CanvasAddress: String, CaseIterable, Identifiable, Codable {
         allCases.map(\.widgetKind)
     }
 
-    /// Legacy size-baked filenames for one-release alias reads.
+    /// Legacy size-baked filenames for one-release alias reads (one–three only).
     var legacyFileNames: [String] {
-        CanvasSize.allCases.map { "\($0.rawValue)-\(rawValue).json" }
+        guard hasLegacyAliases else { return [] }
+        return CanvasSize.allCases.map { "\($0.rawValue)-\(rawValue).json" }
     }
 
     /// Parse a definition id or a legacy size-first / slot-first alias.
@@ -92,6 +90,7 @@ enum CanvasAddress: String, CaseIterable, Identifiable, Codable {
     }
 
     /// Parse plus optional size hint from a legacy alias (`sm-one` → `.sm`).
+    /// Invented aliases like `sm-four` are rejected — those names never existed.
     static func parseFull(_ raw: String) -> (address: CanvasAddress, aliasSize: CanvasSize?)? {
         let s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
@@ -100,20 +99,21 @@ enum CanvasAddress: String, CaseIterable, Identifiable, Codable {
         if let direct = CanvasAddress(rawValue: s) {
             return (direct, nil)
         }
-        switch s {
-        case "1": return (.one, nil)
-        case "2": return (.two, nil)
-        case "3": return (.three, nil)
-        default: break
+        if let n = Int(s), (1...12).contains(n) {
+            return (CanvasAddress.allCases[n - 1], nil)
         }
         let parts = s.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)
         guard parts.count == 2 else { return nil }
         let left = String(parts[0])
         let right = String(parts[1])
-        if let size = CanvasSize.parse(left), let address = CanvasAddress(rawValue: right) {
+        if let size = CanvasSize.parse(left), let address = CanvasAddress(rawValue: right),
+           address.hasLegacyAliases
+        {
             return (address, size)
         }
-        if let address = CanvasAddress(rawValue: left), let size = CanvasSize.parse(right) {
+        if let address = CanvasAddress(rawValue: left), address.hasLegacyAliases,
+           let size = CanvasSize.parse(right)
+        {
             return (address, size)
         }
         return nil
@@ -186,13 +186,24 @@ enum CanvasSize: String, CaseIterable {
 }
 
 enum CanvasSlot: String, CaseIterable {
-    case one, two, three
+    case one, two, three, four, five, six, seven, eight, nine, ten, eleven, twelve
 
     var shortLabel: String {
+        rawValue.capitalized
+    }
+
+    /// Old 4×3 model only had size-baked files for one / two / three.
+    var hasLegacyAliases: Bool {
         switch self {
-        case .one: return "One"
-        case .two: return "Two"
-        case .three: return "Three"
+        case .one, .two, .three: return true
+        default: return false
         }
+    }
+
+    /// Cycle the three themed demo recipes across all twelve ids.
+    var themedRecipe: CanvasSlot {
+        let recipes: [CanvasSlot] = [.one, .two, .three]
+        let idx = CanvasSlot.allCases.firstIndex(of: self) ?? 0
+        return recipes[idx % 3]
     }
 }

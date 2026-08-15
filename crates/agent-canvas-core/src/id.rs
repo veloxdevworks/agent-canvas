@@ -1,41 +1,90 @@
-//! Named compiled canvas identities: `one` / `two` / `three`.
+//! Named compiled canvas identities: `one` through `twelve`.
 //!
 //! Size is **not** part of the id. The user picks a WidgetKit family when placing
 //! the widget. Old size-first ids (`sm-one`, `md-two`, …) and slot-first ids
-//! (`one-sm`) parse as **aliases** of the definition for one release.
+//! (`one-sm`) parse as **aliases** of the first three definitions only — the
+//! previous model was 4 sizes × 3 slots. There are no `sm-four` aliases.
 
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Result};
 use crate::layout::WidgetSize;
 
-/// Slot / compiled definition (three parallel surfaces).
+/// Help string for MCP / errors: twelve compiled ids; aliases only for one–three.
+pub const ID_FORMAT_HELP: &str = "one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve \
+     (aliases for one–three only: sm-one, md-two, …)";
+
+/// Slot / compiled definition (twelve parallel surfaces).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CanvasSlot {
     One,
     Two,
     Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    Eight,
+    Nine,
+    Ten,
+    Eleven,
+    Twelve,
 }
 
 impl CanvasSlot {
-    pub const ALL: [CanvasSlot; 3] = [CanvasSlot::One, CanvasSlot::Two, CanvasSlot::Three];
+    pub const ALL: [CanvasSlot; 12] = [
+        CanvasSlot::One,
+        CanvasSlot::Two,
+        CanvasSlot::Three,
+        CanvasSlot::Four,
+        CanvasSlot::Five,
+        CanvasSlot::Six,
+        CanvasSlot::Seven,
+        CanvasSlot::Eight,
+        CanvasSlot::Nine,
+        CanvasSlot::Ten,
+        CanvasSlot::Eleven,
+        CanvasSlot::Twelve,
+    ];
+
+    pub const NAMES: [&str; 12] = [
+        "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
+        "twelve",
+    ];
 
     pub fn as_str(self) -> &'static str {
-        match self {
-            CanvasSlot::One => "one",
-            CanvasSlot::Two => "two",
-            CanvasSlot::Three => "three",
-        }
+        Self::NAMES[self.index()]
+    }
+
+    pub fn index(self) -> usize {
+        Self::ALL
+            .iter()
+            .position(|&s| s == self)
+            .expect("CanvasSlot::ALL is exhaustive")
+    }
+
+    /// Old 4×3 model only had size-baked files for one / two / three.
+    pub fn has_legacy_aliases(self) -> bool {
+        matches!(self, CanvasSlot::One | CanvasSlot::Two | CanvasSlot::Three)
+    }
+
+    /// Cycle the three themed demo recipes across all twelve ids.
+    pub fn themed_recipe(self) -> CanvasSlot {
+        Self::ALL[self.index() % 3]
     }
 
     pub fn parse(s: &str) -> Option<Self> {
-        match s.trim().to_ascii_lowercase().as_str() {
-            "one" | "1" => Some(CanvasSlot::One),
-            "two" | "2" => Some(CanvasSlot::Two),
-            "three" | "3" => Some(CanvasSlot::Three),
-            _ => None,
+        let raw = s.trim().to_ascii_lowercase();
+        if let Some(i) = Self::NAMES.iter().position(|n| *n == raw) {
+            return Some(Self::ALL[i]);
         }
+        if let Ok(n) = raw.parse::<usize>() {
+            if (1..=12).contains(&n) {
+                return Some(Self::ALL[n - 1]);
+            }
+        }
+        None
     }
 }
 
@@ -49,14 +98,14 @@ pub struct ParsedCanvas {
     pub alias_size: Option<WidgetSize>,
 }
 
-/// Stable agent address: compiled definition only (`one`, `two`, `three`).
+/// Stable agent address: compiled definition only (`one` … `twelve`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CanvasId {
     pub slot: CanvasSlot,
 }
 
 impl CanvasId {
-    pub const ALL: [CanvasId; 3] = [
+    pub const ALL: [CanvasId; 12] = [
         CanvasId {
             slot: CanvasSlot::One,
         },
@@ -66,13 +115,40 @@ impl CanvasId {
         CanvasId {
             slot: CanvasSlot::Three,
         },
+        CanvasId {
+            slot: CanvasSlot::Four,
+        },
+        CanvasId {
+            slot: CanvasSlot::Five,
+        },
+        CanvasId {
+            slot: CanvasSlot::Six,
+        },
+        CanvasId {
+            slot: CanvasSlot::Seven,
+        },
+        CanvasId {
+            slot: CanvasSlot::Eight,
+        },
+        CanvasId {
+            slot: CanvasSlot::Nine,
+        },
+        CanvasId {
+            slot: CanvasSlot::Ten,
+        },
+        CanvasId {
+            slot: CanvasSlot::Eleven,
+        },
+        CanvasId {
+            slot: CanvasSlot::Twelve,
+        },
     ];
 
     pub fn new(slot: CanvasSlot) -> Self {
         Self { slot }
     }
 
-    /// Wire id: `one`, `two`, `three`.
+    /// Wire id: `one` … `twelve`.
     pub fn as_str(self) -> &'static str {
         self.slot.as_str()
     }
@@ -86,26 +162,28 @@ impl CanvasId {
         format!("AgentCanvas.{}", self.as_str())
     }
 
-    /// Legacy size-baked filenames for this definition (`sm-one.json`, …).
-    pub fn legacy_file_names(self) -> [&'static str; 4] {
+    /// Legacy size-baked filenames (`sm-one.json`, …). Empty for four–twelve.
+    pub fn legacy_file_names(self) -> &'static [&'static str] {
         match self.slot {
-            CanvasSlot::One => ["sm-one.json", "md-one.json", "lg-one.json", "xl-one.json"],
-            CanvasSlot::Two => ["sm-two.json", "md-two.json", "lg-two.json", "xl-two.json"],
-            CanvasSlot::Three => [
+            CanvasSlot::One => &["sm-one.json", "md-one.json", "lg-one.json", "xl-one.json"],
+            CanvasSlot::Two => &["sm-two.json", "md-two.json", "lg-two.json", "xl-two.json"],
+            CanvasSlot::Three => &[
                 "sm-three.json",
                 "md-three.json",
                 "lg-three.json",
                 "xl-three.json",
             ],
+            _ => &[],
         }
     }
 
-    /// Legacy size-first ids for this definition (`sm-one`, …).
-    pub fn legacy_ids(self) -> [&'static str; 4] {
+    /// Legacy size-first ids (`sm-one`, …). Empty for four–twelve.
+    pub fn legacy_ids(self) -> &'static [&'static str] {
         match self.slot {
-            CanvasSlot::One => ["sm-one", "md-one", "lg-one", "xl-one"],
-            CanvasSlot::Two => ["sm-two", "md-two", "lg-two", "xl-two"],
-            CanvasSlot::Three => ["sm-three", "md-three", "lg-three", "xl-three"],
+            CanvasSlot::One => &["sm-one", "md-one", "lg-one", "xl-one"],
+            CanvasSlot::Two => &["sm-two", "md-two", "lg-two", "xl-two"],
+            CanvasSlot::Three => &["sm-three", "md-three", "lg-three", "xl-three"],
+            _ => &[],
         }
     }
 
@@ -117,9 +195,9 @@ impl CanvasId {
     pub fn parse_full(s: &str) -> Result<ParsedCanvas> {
         let raw = s.trim().to_ascii_lowercase().replace('_', "-");
         if raw.is_empty() {
-            return Err(Error::UnknownCanvas(
-                "empty canvas id (expected one|two|three, or alias sm-one)".into(),
-            ));
+            return Err(Error::UnknownCanvas(format!(
+                "empty canvas id (expected {ID_FORMAT_HELP})"
+            )));
         }
 
         if let Some(slot) = CanvasSlot::parse(&raw) {
@@ -133,23 +211,27 @@ impl CanvasId {
             if let (Some(size), Some(slot)) =
                 (WidgetSize::parse_short(left), CanvasSlot::parse(right))
             {
-                return Ok(ParsedCanvas {
-                    id: CanvasId::new(slot),
-                    alias_size: Some(size),
-                });
+                if slot.has_legacy_aliases() {
+                    return Ok(ParsedCanvas {
+                        id: CanvasId::new(slot),
+                        alias_size: Some(size),
+                    });
+                }
             }
             if let (Some(slot), Some(size)) =
                 (CanvasSlot::parse(left), WidgetSize::parse_short(right))
             {
-                return Ok(ParsedCanvas {
-                    id: CanvasId::new(slot),
-                    alias_size: Some(size),
-                });
+                if slot.has_legacy_aliases() {
+                    return Ok(ParsedCanvas {
+                        id: CanvasId::new(slot),
+                        alias_size: Some(size),
+                    });
+                }
             }
         }
 
         Err(Error::UnknownCanvas(format!(
-            "{s} (expected one|two|three, or legacy alias sm|md|lg|xl-one|two|three)"
+            "{s} (expected {ID_FORMAT_HELP})"
         )))
     }
 }
@@ -193,6 +275,18 @@ mod tests {
     }
 
     #[test]
+    fn parse_twelve_and_numeric() {
+        let twelve = CanvasId::parse("twelve").unwrap();
+        assert_eq!(twelve.as_str(), "twelve");
+        assert_eq!(twelve.widget_kind(), "AgentCanvas.twelve");
+        assert_eq!(twelve.file_name(), "twelve.json");
+        assert_eq!(CanvasId::parse("12").unwrap().as_str(), "twelve");
+        assert_eq!(CanvasId::parse("4").unwrap().as_str(), "four");
+        assert_eq!(CanvasId::parse("FOUR").unwrap().as_str(), "four");
+        assert!(CanvasId::parse_full("twelve").unwrap().alias_size.is_none());
+    }
+
+    #[test]
     fn parse_size_first_alias() {
         let parsed = CanvasId::parse_full("sm-one").unwrap();
         assert_eq!(parsed.id.as_str(), "one");
@@ -210,6 +304,11 @@ mod tests {
     #[test]
     fn parse_all_legacy_aliases() {
         for id in CanvasId::ALL {
+            if !id.slot.has_legacy_aliases() {
+                assert!(id.legacy_ids().is_empty());
+                assert!(id.legacy_file_names().is_empty());
+                continue;
+            }
             for (legacy, size) in id.legacy_ids().iter().zip(WidgetSize::ALL) {
                 let parsed = CanvasId::parse_full(legacy).unwrap();
                 assert_eq!(parsed.id, id);
@@ -219,17 +318,32 @@ mod tests {
     }
 
     #[test]
-    fn all_three_unique() {
+    fn reject_invented_size_aliases() {
+        for raw in ["sm-four", "md-twelve", "four-sm", "twelve-xl"] {
+            let err = CanvasId::parse(raw).unwrap_err().to_string();
+            assert!(
+                err.contains("unknown") || err.contains("expected"),
+                "{raw} should not parse: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn all_twelve_unique() {
         let mut set = std::collections::HashSet::new();
         for id in CanvasId::ALL {
             assert!(set.insert(id.as_str()));
         }
-        assert_eq!(set.len(), 3);
+        assert_eq!(set.len(), 12);
+        assert_eq!(CanvasId::ALL.len(), 12);
+        assert_eq!(CanvasId::ALL.last().unwrap().as_str(), "twelve");
     }
 
     #[test]
     fn unknown_id_errors() {
-        let err = CanvasId::parse("four").unwrap_err().to_string();
-        assert!(err.contains("one|two|three") || err.contains("unknown"));
+        let err = CanvasId::parse("thirteen").unwrap_err().to_string();
+        assert!(err.contains("unknown") || err.contains("expected"));
+        assert!(CanvasId::parse("0").is_err());
+        assert!(CanvasId::parse("13").is_err());
     }
 }

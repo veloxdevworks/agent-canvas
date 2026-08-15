@@ -1,7 +1,7 @@
 //! Agent Canvas MCP server (stdio).
 //!
-//! Canvas ids are compiled definitions: one | two | three.
-//! Legacy size-first ids (sm-one, md-two, …) parse as aliases of the definition.
+//! Canvas ids are compiled definitions: one … twelve.
+//! Legacy size-first ids (sm-one, md-two, …) parse as aliases of one–three only.
 //! Size is the placed WidgetKit family (or optional `size` for preview/strict).
 
 use std::sync::Arc;
@@ -11,7 +11,7 @@ use agent_canvas_core::{
     decode_image_input, default_store, demo_document_kind, density_report, layout_guide_document,
     matching_ids, predict_clip, write_asset, BudgetSource, CanvasCloudClient, CanvasDocument,
     CanvasId, CanvasSlot, CanvasStore, CloudConfig, Cover, CoverFit, DemoKind, ResolvedBudget,
-    WidgetSize,
+    WidgetSize, ID_FORMAT_HELP,
 };
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use clap::{Parser, Subcommand};
@@ -47,7 +47,7 @@ enum Commands {
     Paths,
     /// Write a sample document to a canvas (dev/debug)
     Seed {
-        /// Definition id (one|two|three) or legacy alias (md-one)
+        /// Definition id (one…twelve) or legacy alias (md-one, one–three only)
         #[arg(default_value = "one")]
         canvas: String,
     },
@@ -62,7 +62,7 @@ enum Commands {
         /// sm | md | lg | xl | all  (default: all)
         #[arg(long, default_value = "all")]
         size: String,
-        /// one | two | three | all  (default: all)
+        /// one … twelve | all  (default: all)
         #[arg(long, default_value = "all")]
         slot: String,
         /// themed | metrics | header | text | list | bar | line | pie | gauge | full
@@ -209,7 +209,7 @@ fn parse_slot_filter(s: &str) -> anyhow::Result<Option<CanvasSlot>> {
         "all" | "*" => Ok(None),
         other => CanvasSlot::parse(other)
             .map(Some)
-            .ok_or_else(|| anyhow::anyhow!("invalid --slot {s:?} (one|two|three|all)")),
+            .ok_or_else(|| anyhow::anyhow!("invalid --slot {s:?} (one…twelve|all)")),
     }
 }
 
@@ -382,7 +382,7 @@ struct AgentCanvasMcp {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct CanvasArgs {
-    /// Definition id: one | two | three. Legacy aliases sm-one, md-two, … still accepted.
+    /// Definition id: one … twelve. Legacy aliases sm-one, md-two, … accepted for one–three only.
     canvas: String,
     /// Optional family for preview / density (sm|md|lg|xl). Defaults to the placed family, else medium.
     #[serde(default)]
@@ -391,7 +391,7 @@ struct CanvasArgs {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct UpdateCanvasArgs {
-    /// Definition id: one | two | three (aliases: sm-one, md-two, …).
+    /// Definition id: one … twelve (aliases sm-one, md-two, … for one–three only).
     canvas: String,
     /// Full canvas document object (NOT a string). Prefer starting from this minimal shape:
     /// {"version":1,"title":"Hello","sections":[{"type":"header","text":"Hello World","subtitle":"status"},{"type":"metrics","items":[{"label":"Status","value":"OK"}]}]}
@@ -413,7 +413,7 @@ struct UpdateCanvasArgs {
 /// Prefer this for simple updates — no full schema inventing required.
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct UpdateCanvasSimpleArgs {
-    /// Definition id: one | two | three (aliases: sm-one, md-two, …).
+    /// Definition id: one … twelve (aliases sm-one, md-two, … for one–three only).
     canvas: String,
     /// Widget title (optional).
     #[serde(default)]
@@ -442,7 +442,7 @@ struct EmptyArgs {}
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct SetCanvasCoverArgs {
-    /// Definition id: one | two | three (aliases: sm-one, md-two, …).
+    /// Definition id: one … twelve (aliases sm-one, md-two, … for one–three only).
     canvas: String,
     /// Raw base64 or data:image/png|jpeg;base64,… PNG/JPEG. Max 2 MiB / 4M pixels.
     #[serde(rename = "imageBase64")]
@@ -462,7 +462,7 @@ struct SetCanvasCoverArgs {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct ShareCanvasArgs {
-    /// Local definition id (one, two, three) or legacy alias.
+    /// Local definition id (one … twelve) or legacy alias (one–three).
     canvas: String,
     /// Optional human-readable slug (a-z0-9-). Default: derived from title or canvas id.
     #[serde(default)]
@@ -486,7 +486,7 @@ struct UnshareArgs {
     edit_token: Option<String>,
 }
 
-const ID_HELP: &str = "one|two|three (aliases: sm-one, md-two, lg-three, xl-one, …)";
+const ID_HELP: &str = ID_FORMAT_HELP;
 
 fn parse_size_arg(raw: Option<&str>) -> std::result::Result<Option<WidgetSize>, String> {
     match raw.map(str::trim).filter(|s| !s.is_empty()) {
@@ -572,7 +572,7 @@ impl AgentCanvasMcp {
 
     #[tool(
         description = "PREFERRED for simple updates (title/header/status text). Builds a valid canvas document for you — use this first when content is simple. \
-For charts/lists/full layouts use update_canvas instead. canvas: one|two|three (aliases sm-one, md-one, …). Optional size for density."
+For charts/lists/full layouts use update_canvas instead. canvas: one…twelve (aliases sm-one, md-one, … for one–three only). Optional size for density."
     )]
     async fn update_canvas_simple(
         &self,
@@ -617,7 +617,7 @@ For charts/lists/full layouts use update_canvas instead. canvas: one|two|three (
     #[tool(
         description = "Replace full content of one desktop canvas with a schema v1 document. \
 MINIMAL WORKING content: {\"version\":1,\"title\":\"Hello\",\"sections\":[{\"type\":\"header\",\"text\":\"Hello World\",\"subtitle\":\"status\"},{\"type\":\"metrics\",\"items\":[{\"label\":\"Status\",\"value\":\"OK\"}]}]}. \
-canvas is a definition id (one|two|three; aliases sm-one, md-two, …). Prefer update_canvas_simple for text/header/status-only updates. \
+canvas is a definition id (one…twelve; aliases sm-one, md-two, … for one–three only). Prefer update_canvas_simple for text/header/status-only updates. \
 Optional onOpen / list items[].action: expand|url|file|noop (url: http|https|mailto; file reveals in Finder). \
 Optional detail.sections for expand window (may include type=group). \
 For a full-bleed custom PNG/JPEG use set_canvas_cover(imageBase64) — do NOT embed large base64 in update_canvas (slow + bloats history). \
@@ -795,7 +795,9 @@ HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. 
         }))
     }
 
-    #[tool(description = "Clear a canvas. canvas: one|two|three (aliases sm-one, md-two, …).")]
+    #[tool(
+        description = "Clear a canvas. canvas: one…twelve (aliases sm-one, md-two, … for one–three only)."
+    )]
     async fn clear_canvas(
         &self,
         Parameters(args): Parameters<CanvasArgs>,
@@ -820,7 +822,7 @@ Use when a custom visual (diagram, illustrated status, bespoke chart) serves the
 Pass PNG/JPEG as base64 (or data: URL). Stored as a content-addressed asset; document keeps a short asset: ref. \
 Generate at the recommended 2× tile size from get_layout_guide.cover.targets. \
 Tradeoff: covers are not Dark Mode aware and do not scale with accessibility text — prefer sections for text. \
-canvas: one|two|three (aliases ok). Optional size for target-pixel warnings. alt required. Optional fit: cover|contain. Keeps existing sections for detail/fallback."
+canvas: one…twelve (aliases ok for one–three). Optional size for target-pixel warnings. alt required. Optional fit: cover|contain. Keeps existing sections for detail/fallback."
     )]
     async fn set_canvas_cover(
         &self,
@@ -966,7 +968,7 @@ canvas: one|two|three (aliases ok). Optional size for target-pixel warnings. alt
     }
 
     #[tool(
-        description = "Remove the full-bleed cover from a canvas; keeps sections and detail. canvas: one|two|three."
+        description = "Remove the full-bleed cover from a canvas; keeps sections and detail. canvas: one…twelve."
     )]
     async fn clear_canvas_cover(
         &self,
@@ -1035,7 +1037,7 @@ canvas: one|two|three (aliases ok). Optional size for target-pixel warnings. alt
     }
 
     #[tool(
-        description = "List compiled definitions (one/two/three) with hasContent, placedFamilies (from WidgetCenter), layoutHint, and last-render overflow. Unplaced definitions have no family — density defaults to medium."
+        description = "List compiled definitions (one…twelve) with hasContent, placedFamilies (from WidgetCenter), layoutHint, and last-render overflow. Unplaced definitions have no family — density defaults to medium."
     )]
     async fn list_canvases(
         &self,
@@ -1239,7 +1241,7 @@ canvas: local id previously passed to share_canvas."
     #[tool(
         description = "Render a PNG snapshot of a canvas using the same SwiftUI view as the live widget (clipping, density, hierarchy). \
 Call after update_canvas to verify the design is workable. Requires the Agent Canvas host app running in the menu bar. \
-Returns image/png plus JSON meta (truncated, droppedTypes, path). canvas: one|two|three. Optional size for the family to render (defaults to placed family, else medium)."
+Returns image/png plus JSON meta (truncated, droppedTypes, path). canvas: one…twelve. Optional size for the family to render (defaults to placed family, else medium)."
     )]
     async fn preview_canvas(
         &self,
@@ -1388,7 +1390,7 @@ impl ServerHandler for AgentCanvasMcp {
         };
         info.instructions = Some(
             format!(
-                "Agent Canvas: 3 compiled widget kinds (one/two/three), each supporting all WidgetKit families. Ids: {ID_HELP}. \
+                "Agent Canvas: 12 compiled widget kinds (one…twelve), each supporting all WidgetKit families. Ids: {ID_HELP}. \
                  PREFERRED simple path: update_canvas_simple(canvas=\"one\", header=\"Hello World\", status=\"OK\"). \
                  Full path: update_canvas with content object — minimal example: {MINIMAL_EXAMPLE}. \
                  You may generate your own PNG/JPEG and set it as a full-bleed cover via set_canvas_cover when a bespoke visual serves the request better than section primitives (see get_layout_guide.cover for target pixels). \

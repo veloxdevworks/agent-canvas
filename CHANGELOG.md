@@ -8,8 +8,8 @@ Version tags match GitHub Releases (`vMAJOR.MINOR.PATCH`).
 ## [Unreleased]
 
 ### Changed
-- **Multi-family widget kinds (PLAT-126):** compiled identities are `one` / `two` / `three` (`AgentCanvas.one`, …). Each kind supports Small, Medium, Large, and Extra Large. Size is chosen when you place the widget; the same document can show at two sizes without a second write.
-- MCP `canvas` accepts definition ids and still accepts legacy size-first ids (`sm-one`, …) as aliases. `list_canvases` reports `placedFamilies` from a WidgetCenter snapshot. Unplaced definitions have no family; density defaults to medium unless you pass `size=`.
+- **Multi-family widget kinds (PLAT-126):** compiled identities are `one` through `twelve` (`AgentCanvas.one`, … `AgentCanvas.twelve`). Each kind supports Small, Medium, Large, and Extra Large. Size is chosen when you place the widget; the same document can show at two sizes without a second write.
+- MCP `canvas` accepts those definition ids and still accepts legacy size-first ids (`sm-one`, …) as aliases of **one / two / three** only. `list_canvases` reports `placedFamilies` from a WidgetCenter snapshot. Unplaced definitions have no family; density defaults to medium unless you pass `size=`.
 - lastRender / preview artifacts are per `(definition, family)` (`one.md.render.json`, `previews/one.md.png`) so small and large placements do not overwrite each other.
 - Documents live at `canvases/{definition}.json`. Leftover `sm-one.json` / `md-one.json` files are read as aliases (prefer non-empty `md-*`, else first non-empty; never merge).
 

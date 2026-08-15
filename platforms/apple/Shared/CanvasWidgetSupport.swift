@@ -44,3 +44,39 @@ struct TwoWidget: Widget {
 struct ThreeWidget: Widget {
     var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .three) }
 }
+
+struct FourWidget: Widget {
+    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .four) }
+}
+
+struct FiveWidget: Widget {
+    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .five) }
+}
+
+struct SixWidget: Widget {
+    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .six) }
+}
+
+struct SevenWidget: Widget {
+    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .seven) }
+}
+
+struct EightWidget: Widget {
+    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .eight) }
+}
+
+struct NineWidget: Widget {
+    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .nine) }
+}
+
+struct TenWidget: Widget {
+    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .ten) }
+}
+
+struct ElevenWidget: Widget {
+    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .eleven) }
+}
+
+struct TwelveWidget: Widget {
+    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .twelve) }
+}
