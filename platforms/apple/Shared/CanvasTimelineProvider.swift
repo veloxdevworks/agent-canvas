@@ -39,13 +39,20 @@ struct CanvasTimelineProvider: TimelineProvider {
         )
         #if os(iOS)
         // Opportunistic self-refresh when the host app is not open (~45 min).
-        let next = Calendar.current.date(byAdding: .minute, value: 45, to: Date())
+        var next = Calendar.current.date(byAdding: .minute, value: 45, to: Date())
             ?? Date().addingTimeInterval(45 * 60)
         #else
         // Mac host forces reloads; long fallback is fine.
-        let next = Calendar.current.date(byAdding: .hour, value: 12, to: Date())
+        var next = Calendar.current.date(byAdding: .hour, value: 12, to: Date())
             ?? Date().addingTimeInterval(3600)
         #endif
+        // Flip to the stale indicator when last success ages past the documented threshold.
+        if let provenance = entry.provenance, !provenance.isStale, let synced = provenance.lastSyncedAt {
+            let staleAt = synced.addingTimeInterval(provenance.staleAfter)
+            if staleAt > Date(), staleAt < next {
+                next = staleAt
+            }
+        }
         completion(Timeline(entries: [entry], policy: .after(next)))
     }
 
@@ -57,8 +64,10 @@ struct CanvasTimelineProvider: TimelineProvider {
         family: WidgetFamily
     ) -> CanvasEntry {
         let size = CanvasSize(widgetFamily: family) ?? .defaultBudget
+        let provenance = isPlaceholder ? nil : SubscriptionProvenance.resolve(for: address)
         let hasTitle = (doc.title?.isEmpty == false)
-        let hasTimestamp = doc.updatedAt != nil
+        // Subscribed tiles use provenance instead of document.updatedAt (same chrome height).
+        let hasTimestamp = provenance != nil || doc.updatedAt != nil
 
         // Use the real offered height so packing matches the tile.
         let tile = displaySize.height > 1
@@ -111,7 +120,8 @@ struct CanvasTimelineProvider: TimelineProvider {
             document: doc,
             isPlaceholder: isPlaceholder,
             clip: clip,
-            displaySize: tile
+            displaySize: tile,
+            provenance: provenance
         )
     }
 }

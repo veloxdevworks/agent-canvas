@@ -104,10 +104,12 @@ struct SlotRow: View {
                         .font(.subheadline)
                         .foregroundStyle(.tertiary)
                 }
-                if let sub = subscription {
-                    Text(slugLabel(for: sub))
+                if let sub = subscription,
+                   let provenance = SubscriptionProvenance.resolve(subscription: sub)
+                {
+                    Text(provenance.compactLine)
                         .font(.caption2)
-                        .foregroundStyle(.tint)
+                        .foregroundStyle(provenance.isStale ? Color.orange : Color.accentColor)
                         .lineLimit(1)
                 }
             }
@@ -117,12 +119,5 @@ struct SlotRow: View {
                 .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 4)
-    }
-
-    private func slugLabel(for sub: CloudSubscription) -> String {
-        if let url = URL(string: sub.url) {
-            return url.lastPathComponent
-        }
-        return sub.url
     }
 }

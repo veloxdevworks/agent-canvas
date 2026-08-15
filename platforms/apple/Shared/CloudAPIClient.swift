@@ -344,17 +344,25 @@ enum CloudAPIClient {
         let code = http?.statusCode ?? 0
 
         var updated = sub
+        updated.canvas = address.rawValue
         updated.lastFetchAt = Date()
         updated.lastStatusCode = code
 
         if code == 304 {
+            let wasFailing = !(sub.lastError ?? "").isEmpty
             updated.lastError = nil
+            updated.lastSuccessAt = Date()
             try CloudSubscriptionStore.upsert(updated)
+            // Reload so stale chrome clears after a failed pull; 2xx reloads after upsert.
+            if wasFailing {
+                CanvasStorage.reload(address: address)
+            }
             return
         }
         if code == 410 {
             updated.lastError = "Gone (unpublished)"
             try CloudSubscriptionStore.upsert(updated)
+            CanvasStorage.reload(address: address)
             throw APIError.http(410, "Canvas unpublished")
         }
         if code == 401 || code == 403 {
@@ -364,24 +372,27 @@ enum CloudAPIClient {
                 : "Sign in with Velox required for this canvas."
             updated.lastError = message
             try CloudSubscriptionStore.upsert(updated)
+            CanvasStorage.reload(address: address)
             throw APIError.message(message)
         }
         guard (200...299).contains(code) else {
             let text = String(data: data, encoding: .utf8) ?? ""
             updated.lastError = "HTTP \(code)"
             try CloudSubscriptionStore.upsert(updated)
+            CanvasStorage.reload(address: address)
             throw APIError.http(code, String(text.prefix(400)))
         }
 
         let doc = try JSONDecoder.canvas.decode(CanvasDocument.self, from: data)
         try CanvasStorage.write(doc, address: address, source: .cloud)
-        CanvasStorage.reload(address: address)
 
         let etag = http?.value(forHTTPHeaderField: "ETag")?
             .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
         updated.etag = etag
         updated.lastError = nil
+        updated.lastSuccessAt = Date()
         try CloudSubscriptionStore.upsert(updated)
+        CanvasStorage.reload(address: address)
     }
 
     // MARK: - Helpers

@@ -719,8 +719,8 @@ private struct DevSettingsDetail: View {
                                 .font(.caption2)
                                 .foregroundStyle(.orange)
                                 .lineLimit(2)
-                        } else if let at = s.lastFetchAt {
-                            Text("Last fetch \(at.formatted(date: .abbreviated, time: .shortened))")
+                        } else if let at = s.lastSuccessAt ?? s.lastFetchAt {
+                            Text("Last synced \(at.formatted(date: .abbreviated, time: .shortened))")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }
@@ -1311,8 +1311,8 @@ private struct CanvasSettingsDetail: View {
                 Label(err, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.orange)
-            } else if let at = sub.lastFetchAt {
-                Text("Last fetch \(at.formatted())")
+            } else if let at = sub.lastSuccessAt ?? sub.lastFetchAt {
+                Text("Last synced \(at.formatted())")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -1574,7 +1574,8 @@ private struct CanvasSettingsDetail: View {
             etag: subscription?.etag,
             lastFetchAt: subscription?.lastFetchAt,
             lastError: subscription?.lastError,
-            lastStatusCode: subscription?.lastStatusCode
+            lastStatusCode: subscription?.lastStatusCode,
+            lastSuccessAt: subscription?.lastSuccessAt
         )
         do {
             try CloudSubscriptionStore.upsert(sub)
@@ -1752,8 +1753,9 @@ private struct SubscribeDeepLinkSheet: View {
 
 private func makePreviewEntry(address: CanvasAddress, size: CanvasSize, document: CanvasDocument) -> CanvasEntry {
     let tile = ContentClip.defaultTileSize(for: size)
+    let provenance = SubscriptionProvenance.resolve(for: address)
     let hasTitle = (document.title?.isEmpty == false) && size != .sm
-    let hasTimestamp = document.updatedAt != nil
+    let hasTimestamp = provenance != nil || document.updatedAt != nil
     let live = !document.isEmptyContent
     var budget = ContentClip.contentBudget(
         displaySize: tile,
@@ -1780,7 +1782,8 @@ private func makePreviewEntry(address: CanvasAddress, size: CanvasSize, document
         document: document,
         isPlaceholder: document.isEmptyContent,
         clip: clip,
-        displaySize: tile
+        displaySize: tile,
+        provenance: provenance
     )
 }
 

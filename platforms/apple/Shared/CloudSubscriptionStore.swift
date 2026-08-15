@@ -1,6 +1,6 @@
 import Foundation
 
-/// Per-slot URL subscription (PLAT-83 UI ahead of full pull daemon).
+/// Per-slot URL subscription. Pull daemon records ETag / last fetch / last success / last error.
 struct CloudSubscription: Codable, Equatable, Identifiable {
     var canvas: String
     /// Full URL to JSON (usually `…/api/v1/canvases/{slug}`).
@@ -8,9 +8,12 @@ struct CloudSubscription: Codable, Equatable, Identifiable {
     var pollIntervalSeconds: Int
     var enabled: Bool
     var etag: String?
+    /// Last pull attempt (success or failure).
     var lastFetchAt: Date?
     var lastError: String?
     var lastStatusCode: Int?
+    /// Last successful pull (HTTP 304 or 2xx). Used for widget last-synced + staleness.
+    var lastSuccessAt: Date? = nil
 
     var id: String { canvas }
 }
@@ -52,16 +55,36 @@ enum CloudSubscriptionStore {
     }
 
     static func upsert(_ sub: CloudSubscription) throws {
-        var items = load().filter { $0.canvas != sub.canvas }
-        items.append(sub)
+        var normalized = sub
+        normalized.canvas = canonicalCanvasId(sub.canvas)
+        var items = load().filter { !recordsMatch($0.canvas, normalized.canvas) }
+        items.append(normalized)
         try save(items)
     }
 
     static func remove(canvas: String) throws {
-        try save(load().filter { $0.canvas != canvas })
+        try save(load().filter { !recordsMatch($0.canvas, canvas) })
     }
 
     static func subscription(for canvas: String) -> CloudSubscription? {
-        load().first { $0.canvas == canvas }
+        let items = load()
+        if let exact = items.first(where: { $0.canvas == canvas }) {
+            return exact
+        }
+        return items.first { recordsMatch($0.canvas, canvas) }
+    }
+
+    /// Persist and look up by definition id (`one`…`twelve`).
+    /// Leftover size-baked keys (`md-one`) still match one / two / three.
+    static func canonicalCanvasId(_ raw: String) -> String {
+        CanvasAddress.parse(raw)?.rawValue ?? raw
+    }
+
+    static func recordsMatch(_ stored: String, _ query: String) -> Bool {
+        if stored == query { return true }
+        guard let a = CanvasAddress.parse(stored), let b = CanvasAddress.parse(query) else {
+            return false
+        }
+        return a == b
     }
 }

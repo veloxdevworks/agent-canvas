@@ -39,7 +39,10 @@ struct CanvasView: View {
             // Intrinsic height — detail lives in a ScrollView; maxHeight:.infinity + Spacer
             // collapse to zero there.
             if entry.document.isEmptyContent || entry.isPlaceholder {
-                emptyState(fillTile: false)
+                VStack(alignment: .leading, spacing: 8) {
+                    emptyState(fillTile: false)
+                    provenanceOverlay(padded: false)
+                }
             } else if let cover = entry.document.cover {
                 detailCoverStack(cover: cover)
             } else {
@@ -51,6 +54,7 @@ struct CanvasView: View {
                 Group {
                     if entry.document.isEmptyContent || entry.isPlaceholder {
                         emptyState(fillTile: true)
+                            .overlay(alignment: .bottomLeading) { provenanceOverlay(padded: true) }
                     } else if let cover = entry.document.cover {
                         coverTile(cover: cover, tile: geo.size, clip: clip)
                     } else {
@@ -92,6 +96,7 @@ struct CanvasView: View {
             )
             .frame(width: tile.width, height: tile.height)
             .clipped()
+            .overlay(alignment: .bottom) { coverProvenanceBar() }
         } else {
             VStack(alignment: .leading, spacing: 5) {
                 Text("Cover unavailable")
@@ -199,7 +204,7 @@ struct CanvasView: View {
     private func packedClip(tile: CGSize) -> ContentClip.Result {
         let doc = entry.document
         let hasTitle = showsDocumentTitle
-        let hasTimestamp = doc.updatedAt != nil
+        let hasTimestamp = showsProvenance || doc.updatedAt != nil
         let live = !entry.isPlaceholder
 
         // Prefer fitting everything first; only reserve overflow chrome when needed.
@@ -242,7 +247,7 @@ struct CanvasView: View {
                 sectionView(section, clip: clip, documentSectionIndex: docIndex)
             }
 
-            if fillTile && (showOverflow || entry.document.updatedAt != nil) {
+            if fillTile && (showOverflow || showsProvenance || entry.document.updatedAt != nil) {
                 Spacer(minLength: 4)
             }
 
@@ -255,7 +260,9 @@ struct CanvasView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            if let updated = entry.document.updatedAt {
+            if let provenance = entry.provenance, showsProvenance {
+                provenanceLine(provenance)
+            } else if let updated = entry.document.updatedAt {
                 Text(lastUpdatedLabel(updated))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
@@ -278,6 +285,51 @@ struct CanvasView: View {
             fillTile: fillTile,
             edgeInset: edgeInset
         )
+    }
+
+    private var showsProvenance: Bool {
+        !entry.isPlaceholder && entry.provenance != nil
+    }
+
+    @ViewBuilder
+    private func provenanceOverlay(padded: Bool) -> some View {
+        if let provenance = entry.provenance, showsProvenance {
+            provenanceLine(provenance)
+                .padding(padded ? edgeInset : 0)
+        }
+    }
+
+    @ViewBuilder
+    private func coverProvenanceBar() -> some View {
+        if let provenance = entry.provenance, showsProvenance {
+            provenanceLine(provenance, onCover: true)
+                .padding(.horizontal, edgeInset)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.black.opacity(0.45))
+        }
+    }
+
+    @ViewBuilder
+    private func provenanceLine(_ provenance: SubscriptionProvenance, onCover: Bool = false) -> some View {
+        HStack(spacing: 4) {
+            if provenance.isStale {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            Text(provenance.compactLine)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+        }
+        .font(.caption2)
+        .foregroundStyle(provenanceForeground(stale: provenance.isStale, onCover: onCover))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityLabel(Text(provenance.accessibilityLabel))
+    }
+
+    private func provenanceForeground(stale: Bool, onCover: Bool) -> Color {
+        if stale { return .orange }
+        return onCover ? Color.white.opacity(0.92) : Color.secondary
     }
 
     private func lastUpdatedLabel(_ date: Date) -> String {

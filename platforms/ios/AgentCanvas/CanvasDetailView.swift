@@ -37,7 +37,8 @@ struct CanvasDetailView: View {
                     document: document,
                     isPlaceholder: false,
                     clip: ContentClip.apply(document: document, size: previewSize),
-                    displaySize: CGSize(width: 0, height: ContentClip.defaultTileHeight(for: previewSize))
+                    displaySize: CGSize(width: 0, height: ContentClip.defaultTileHeight(for: previewSize)),
+                    provenance: SubscriptionProvenance.resolve(for: address)
                 )
 
                 CanvasView(
