@@ -113,12 +113,10 @@ struct SettingsView: View {
                 #endif
             }
 
-            ForEach(CanvasSize.allCases, id: \.rawValue) { size in
-                Section(size.galleryLabel) {
-                    ForEach(CanvasAddress.allCases.filter { $0.size == size }) { address in
-                        sidebarRow(address)
-                            .tag(SettingsDestination.canvas(address))
-                    }
+            Section("Canvases") {
+                ForEach(CanvasAddress.allCases) { address in
+                    sidebarRow(address)
+                        .tag(SettingsDestination.canvas(address))
                 }
             }
         }
@@ -148,7 +146,7 @@ struct SettingsView: View {
                 Text(label)
                     .font(.body)
                     .lineLimit(1)
-                Text(address.rawValue)
+                Text(sidebarSubtitle(address))
                     .font(.caption2.monospaced())
                     .foregroundStyle(.tertiary)
             }
@@ -171,6 +169,14 @@ struct SettingsView: View {
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label), \(address.rawValue), \(filled ? "has content" : "empty")")
+    }
+
+    private func sidebarSubtitle(_ address: CanvasAddress) -> String {
+        let placed = PlacedFamiliesStore.families(for: address)
+        if placed.isEmpty {
+            return "\(address.rawValue) · not placed"
+        }
+        return "\(address.rawValue) · \(placed.map(\.rawValue).joined(separator: ","))"
     }
 
     // MARK: Detail
@@ -786,7 +792,7 @@ private struct CanvasSettingsDetail: View {
         return CloudSubscriptionStore.subscription(for: address.rawValue)
     }
 
-    /// Canvas JSON title when set; otherwise the slot display name (e.g. "Small 1").
+    /// Canvas JSON title when set; otherwise the definition name (e.g. "One").
     private var resolvedTitle: String {
         if let title = document.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
             return title
@@ -1011,9 +1017,10 @@ private struct CanvasSettingsDetail: View {
     }
 
     private var previewBlock: some View {
-        let tile = ContentClip.defaultTileSize(for: address.size)
+        let previewSize = PlacedFamiliesStore.budgetSize(for: address)
+        let tile = ContentClip.defaultTileSize(for: previewSize)
         let scale = min(1.0, 320 / max(tile.width, 1))
-        let entry = makePreviewEntry(address: address, document: document)
+        let entry = makePreviewEntry(address: address, size: previewSize, document: document)
         let isDark = colorScheme == .dark
 
         return VStack(alignment: .leading, spacing: 10) {
@@ -1051,6 +1058,14 @@ private struct CanvasSettingsDetail: View {
                             )
                     )
             }
+            let placed = PlacedFamiliesStore.families(for: address)
+            Text(
+                placed.isEmpty
+                    ? "Not placed — preview uses medium. Add the widget and pick a size."
+                    : "Placed: \(placed.map(\.galleryLabel).joined(separator: ", ")). Same document at every size."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
             if let t = document.updatedAt {
                 Text("Updated \(t.formatted(date: .abbreviated, time: .shortened))")
                     .font(.caption2)
@@ -1636,7 +1651,7 @@ private struct SubscribeDeepLinkSheet: View {
     var onComplete: (CanvasAddress) -> Void
     var onCancel: () -> Void
 
-    @State private var selected: CanvasAddress = .mdOne
+    @State private var selected: CanvasAddress = .one
     @State private var busy = false
     @State private var errorText: String?
     @ObservedObject private var oauth = VeloxOAuthSession.shared
@@ -1735,32 +1750,33 @@ private struct SubscribeDeepLinkSheet: View {
 
 // MARK: - Preview entry
 
-private func makePreviewEntry(address: CanvasAddress, document: CanvasDocument) -> CanvasEntry {
-    let tile = ContentClip.defaultTileSize(for: address.size)
-    let hasTitle = (document.title?.isEmpty == false) && address.size != .sm
+private func makePreviewEntry(address: CanvasAddress, size: CanvasSize, document: CanvasDocument) -> CanvasEntry {
+    let tile = ContentClip.defaultTileSize(for: size)
+    let hasTitle = (document.title?.isEmpty == false) && size != .sm
     let hasTimestamp = document.updatedAt != nil
     let live = !document.isEmptyContent
     var budget = ContentClip.contentBudget(
         displaySize: tile,
-        size: address.size,
+        size: size,
         hasTitle: hasTitle && live,
         hasTimestamp: hasTimestamp && live,
         reserveOverflowLine: false
     )
-    var clip = ContentClip.apply(document: document, size: address.size, maxHeight: budget)
+    var clip = ContentClip.apply(document: document, size: size, maxHeight: budget)
     if clip.truncated {
         budget = ContentClip.contentBudget(
             displaySize: tile,
-            size: address.size,
+            size: size,
             hasTitle: hasTitle && live,
             hasTimestamp: hasTimestamp && live,
             reserveOverflowLine: true
         )
-        clip = ContentClip.apply(document: document, size: address.size, maxHeight: budget)
+        clip = ContentClip.apply(document: document, size: size, maxHeight: budget)
     }
     return CanvasEntry(
         date: Date(),
         address: address,
+        size: size,
         document: document,
         isPlaceholder: document.isEmptyContent,
         clip: clip,

@@ -75,7 +75,8 @@ enum CloudShareIndex {
     }
 
     static func record(forCanvas canvas: String) -> CloudShareRecord? {
-        load().first { $0.canvas == canvas }
+        let key = CanvasAddress.parse(canvas)?.rawValue ?? canvas
+        return load().first { CanvasAddress.parse($0.canvas)?.rawValue == key || $0.canvas == canvas }
     }
 
     static func record(forSlug slug: String) -> CloudShareRecord? {

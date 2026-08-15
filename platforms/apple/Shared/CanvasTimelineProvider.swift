@@ -10,7 +10,8 @@ struct CanvasTimelineProvider: TimelineProvider {
             document: .empty,
             isPlaceholder: true,
             recordRender: false,
-            displaySize: context.displaySize
+            displaySize: context.displaySize,
+            family: context.family
         )
     }
 
@@ -21,7 +22,8 @@ struct CanvasTimelineProvider: TimelineProvider {
                 document: doc,
                 isPlaceholder: false,
                 recordRender: false,
-                displaySize: context.displaySize
+                displaySize: context.displaySize,
+                family: context.family
             )
         )
     }
@@ -32,7 +34,8 @@ struct CanvasTimelineProvider: TimelineProvider {
             document: doc,
             isPlaceholder: false,
             recordRender: true,
-            displaySize: context.displaySize
+            displaySize: context.displaySize,
+            family: context.family
         )
         #if os(iOS)
         // Opportunistic self-refresh when the host app is not open (~45 min).
@@ -50,9 +53,10 @@ struct CanvasTimelineProvider: TimelineProvider {
         document doc: CanvasDocument,
         isPlaceholder: Bool,
         recordRender: Bool,
-        displaySize: CGSize
+        displaySize: CGSize,
+        family: WidgetFamily
     ) -> CanvasEntry {
-        let size = address.size
+        let size = CanvasSize(widgetFamily: family) ?? .defaultBudget
         let hasTitle = (doc.title?.isEmpty == false)
         let hasTimestamp = doc.updatedAt != nil
 
@@ -97,12 +101,13 @@ struct CanvasTimelineProvider: TimelineProvider {
                 listItemsTotal: clip.listItemsTotal,
                 updatedAt: Date()
             )
-            CanvasStorage.writeLastRender(report, address: address)
+            CanvasStorage.writeLastRender(report, address: address, size: size)
         }
 
         return CanvasEntry(
             date: Date(),
             address: address,
+            size: size,
             document: doc,
             isPlaceholder: isPlaceholder,
             clip: clip,

@@ -671,19 +671,29 @@ impl SpacerSize {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CanvasSummary {
-    /// Size-first id: `sm-one`, `md-two`, …
+    /// Definition id: `one`, `two`, `three`.
     pub id: String,
-    pub size: String,
     pub slot: String,
     pub has_content: bool,
     pub updated_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    /// Density guide for this canvas's fixed size.
+    /// WidgetKit families currently placed for this definition (`sm`/`md`/`lg`/`xl`).
+    /// Empty when the host has not reported a placement (unplaced).
+    #[serde(default)]
+    pub placed_families: Vec<String>,
+    /// Size used for `layoutHint` / truncated — placed family, else default `md`.
+    pub budget_size: String,
+    /// `placed` when WidgetCenter reported a family; `default` when unplaced (medium).
+    pub budget_source: String,
+    /// Density guide for `budgetSize`.
     pub layout_hint: String,
-    /// Last widget render reported overflow (Phase B).
+    /// Last widget render overflow for `budgetSize`, when known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub truncated: Option<bool>,
+    /// Per-family last-render reports (small and large do not overwrite each other).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub last_renders: Vec<LastRender>,
 }
 
 /// Written by the widget after each timeline build (Phase B).

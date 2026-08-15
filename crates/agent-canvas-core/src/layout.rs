@@ -220,8 +220,8 @@ pub fn layout_guide_document() -> Value {
 
     json!({
         "version": 4,
-        "note": "Hard glance budgets. Canvas ids are size-first (sm-one…). Widget will clip beyond budgets; use strict=true on update_canvas to reject over-budget content so you can repair. Layout constants live in Rust layout_spec (portable).",
-        "idFormat": "sm|md|lg|xl - one|two|three",
+        "note": "Hard glance budgets. Canvas ids are compiled definitions (one…twelve); size is the placed WidgetKit family (or optional size= / default medium). Widget will clip beyond budgets; use strict=true on update_canvas to reject over-budget content so you can repair. Layout constants live in Rust layout_spec (portable).",
+        "idFormat": crate::id::ID_FORMAT_HELP,
         "budgets": WidgetSize::ALL.map(|s| s.budget()),
         "sectionPriority": {
             "note": "Optional sections[].priority (lower = more important, default by type). Drop priority ≠ pack rank: pack allocates height to list before chart so charts shrink into remainder.",
@@ -273,7 +273,7 @@ pub fn layout_guide_document() -> Value {
             "note": "Portable curated names only — never SF Symbol / Lucide strings. Section type=icon for composition; shorthand icon on header/list/metrics for leading glyphs."
         },
         "agentTips": [
-            "Call get_layout_guide or trust size in the canvas id before writing.",
+            "Call get_layout_guide or list_canvases (placedFamilies) before writing. Unplaced definitions budget as medium unless you pass size=.",
             "Call get_canvas after writes to read lastRender (truncated? dropped sections).",
             "If densityReport.overBudget, shrink content and retry (or use strict=true to fail fast).",
             "Prefer fewer high-signal sections; never dump long documents into a tile.",
@@ -614,5 +614,23 @@ mod tests {
         assert!(clip.will_truncate_sections);
         let charts_dropped = clip.dropped_types.iter().filter(|t| *t == "chart").count();
         assert!(charts_dropped >= 1, "md should drop at least one chart");
+    }
+
+    #[test]
+    fn same_document_clips_by_family() {
+        let mut doc = CanvasDocument::empty();
+        doc.title = Some("Shared".into());
+        for i in 0..6 {
+            doc.sections.push(Section::Text {
+                content: format!("block {i} {}", "x".repeat(40)),
+                tone: None,
+                emphasis: None,
+                priority: None,
+            });
+        }
+        let sm = predict_clip(&doc, WidgetSize::Small);
+        let xl = predict_clip(&doc, WidgetSize::ExtraLarge);
+        assert!(sm.shown_section_count < xl.shown_section_count || sm.will_truncate_sections);
+        assert!(sm.will_truncate_sections);
     }
 }

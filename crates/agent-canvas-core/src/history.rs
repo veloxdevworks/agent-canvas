@@ -275,7 +275,6 @@ pub fn delete_entry(root: &Path, id: CanvasId, entry_id: &str) -> Result<()> {
 mod tests {
     use super::*;
     use crate::id::CanvasSlot;
-    use crate::layout::WidgetSize;
     use crate::schema::{MetricItem, Section};
 
     fn temp_root() -> PathBuf {
@@ -310,7 +309,7 @@ mod tests {
     #[test]
     fn archives_on_change_and_lists() {
         let root = temp_root();
-        let id = CanvasId::new(WidgetSize::Small, CanvasSlot::One);
+        let id = CanvasId::new(CanvasSlot::One);
         let a = sample_doc("A", "1");
         let b = sample_doc("B", "2");
         let archived = archive_if_needed(&root, id, &a, &b, HistorySource::Mcp)
@@ -328,7 +327,7 @@ mod tests {
     #[test]
     fn skips_identical_and_empty() {
         let root = temp_root();
-        let id = CanvasId::new(WidgetSize::Small, CanvasSlot::One);
+        let id = CanvasId::new(CanvasSlot::One);
         let a = sample_doc("A", "1");
         assert!(archive_if_needed(&root, id, &a, &a, HistorySource::Host)
             .unwrap()
@@ -353,7 +352,7 @@ mod tests {
     #[test]
     fn prunes_to_max() {
         let root = temp_root();
-        let id = CanvasId::new(WidgetSize::Medium, CanvasSlot::Two);
+        let id = CanvasId::new(CanvasSlot::Two);
         for i in 0..MAX_HISTORY_ENTRIES + 5 {
             let prev = sample_doc("T", &format!("{i}"));
             let next = sample_doc("T", &format!("{}", i + 1));
@@ -377,7 +376,7 @@ mod tests {
     #[test]
     fn delete_entry_removes_file() {
         let root = temp_root();
-        let id = CanvasId::new(WidgetSize::Large, CanvasSlot::One);
+        let id = CanvasId::new(CanvasSlot::One);
         let a = sample_doc("A", "1");
         let b = sample_doc("B", "2");
         let eid = archive_if_needed(&root, id, &a, &b, HistorySource::Host)

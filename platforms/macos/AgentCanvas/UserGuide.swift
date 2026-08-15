@@ -23,18 +23,18 @@ enum UserGuide {
 
     /// Paste into Cursor / Claude after MCP is connected.
     static let examplePrompt = """
-    Update Agent Canvas canvas `md-one` with:
+    Update Agent Canvas canvas `one` with:
     - a short header titled “Sprint pulse”
     - 3 metrics (e.g. closed, cycle time, WIP)
     - a small bar chart for the last 5 weekdays
-    Keep it glanceable — this is a medium widget, not a document.
+    Keep it glanceable — budget for the size you placed (medium if you have not placed it yet).
     """
 
     static let steps: [(title: String, body: String)] = [
         (
             "Add widgets",
             "Right-click the desktop → Edit Widgets → search “Agent Canvas”. "
-                + "Add sizes you want (e.g. Medium · One). Each widget has a fixed id like md-one."
+                + "Add One through Twelve, then pick a size. After an upgrade, re-add widgets — old size-specific tiles go empty. iPhone does not offer Extra Large."
         ),
         (
             "Connect your agent",
@@ -44,7 +44,7 @@ enum UserGuide {
         ),
         (
             "Ask the agent to update a canvas",
-            "In Cursor or Claude, ask it to update a canvas by id (e.g. md-one). "
+            "In Cursor or Claude, ask it to update a canvas by id (e.g. one). "
                 + "Keep Agent Canvas running in the menu bar so widgets reload."
         ),
     ]

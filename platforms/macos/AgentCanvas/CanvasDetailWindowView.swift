@@ -101,6 +101,7 @@ struct CanvasDetailWindowView: View {
             let entry = CanvasEntry(
                 date: Date(),
                 address: address,
+                size: PlacedFamiliesStore.budgetSize(for: address),
                 document: CanvasDocument(
                     version: document.version,
                     updatedAt: document.updatedAt,

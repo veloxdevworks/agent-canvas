@@ -65,7 +65,7 @@ struct SettingsView: View {
                 LabeledContent("Version") {
                     Text(Bundle.main.shortVersion)
                 }
-                Text("Subscribe cloud canvases to fixed widget slots. Add widgets from the Home Screen → Edit Widgets → Agent Canvas.")
+                Text("Subscribe cloud canvases to One, Two, or Three. Add widgets from the Home Screen → Edit Widgets → Agent Canvas, then pick a size. Re-add after upgrades; iPhone does not offer Extra Large.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

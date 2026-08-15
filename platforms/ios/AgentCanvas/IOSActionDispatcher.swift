@@ -29,14 +29,14 @@ enum IOSActionDispatcher {
             return .subscribe(slug: slug)
 
         case let .document(id):
-            guard let address = CanvasAddress(rawValue: id) else {
+            guard let address = CanvasAddress.parse(id) else {
                 return .handledExternally
             }
             let doc = CanvasStorage.load(address: address)
             return perform(doc.resolvedOnOpen, canvasId: id)
 
         case let .item(id, section, item, version):
-            guard let address = CanvasAddress(rawValue: id) else {
+            guard let address = CanvasAddress.parse(id) else {
                 return .handledExternally
             }
             let doc = CanvasStorage.load(address: address)

@@ -325,7 +325,7 @@ enum CloudAPIClient {
     /// GET subscription URL → write into local canvas slot (one-shot; poller later).
     static func fetchSubscription(_ sub: CloudSubscription) async throws {
         try requireFeature()
-        guard let address = CanvasAddress(rawValue: sub.canvas) else {
+        guard let address = CanvasAddress.parse(sub.canvas) else {
             throw APIError.message("Invalid canvas id \(sub.canvas)")
         }
         guard let url = URL(string: sub.url) else { throw APIError.badURL }

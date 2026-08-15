@@ -1,14 +1,17 @@
 //! Agent Canvas MCP server (stdio).
 //!
-//! Canvas ids are size-first: sm-one, md-two, lg-three, xl-one, … (12 surfaces).
+//! Canvas ids are compiled definitions: one … twelve.
+//! Legacy size-first ids (sm-one, md-two, …) parse as aliases of one–three only.
+//! Size is the placed WidgetKit family (or optional `size` for preview/strict).
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use agent_canvas_core::{
     decode_image_input, default_store, demo_document_kind, density_report, layout_guide_document,
-    matching_ids, predict_clip, write_asset, CanvasCloudClient, CanvasDocument, CanvasId,
-    CanvasSlot, CanvasStore, CloudConfig, Cover, CoverFit, DemoKind, WidgetSize,
+    matching_ids, predict_clip, write_asset, BudgetSource, CanvasCloudClient, CanvasDocument,
+    CanvasId, CanvasSlot, CanvasStore, CloudConfig, Cover, CoverFit, DemoKind, ResolvedBudget,
+    WidgetSize, ID_FORMAT_HELP,
 };
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use clap::{Parser, Subcommand};
@@ -44,8 +47,8 @@ enum Commands {
     Paths,
     /// Write a sample document to a canvas (dev/debug)
     Seed {
-        /// Size-first id, default md-one
-        #[arg(default_value = "md-one")]
+        /// Definition id (one…twelve) or legacy alias (md-one, one–three only)
+        #[arg(default_value = "one")]
         canvas: String,
     },
     /// Seed demos. Pick **where** (size/slot) and **what** (content kind).
@@ -59,7 +62,7 @@ enum Commands {
         /// sm | md | lg | xl | all  (default: all)
         #[arg(long, default_value = "all")]
         size: String,
-        /// one | two | three | all  (default: all)
+        /// one … twelve | all  (default: all)
         #[arg(long, default_value = "all")]
         slot: String,
         /// themed | metrics | header | text | list | bar | line | pie | gauge | full
@@ -90,28 +93,36 @@ async fn main() -> anyhow::Result<()> {
                 Ok(c) => println!("api_url={}", c.api_base),
                 Err(e) => println!("api_url=(invalid: {e})"),
             }
+            let placed = store.read_placed_families();
             for id in CanvasId::ALL {
+                let families = placed.families_for(id);
+                let fam = if families.is_empty() {
+                    "unplaced (budget md)".to_string()
+                } else {
+                    families
+                        .iter()
+                        .map(|s| s.short())
+                        .collect::<Vec<_>>()
+                        .join(",")
+                };
                 println!(
-                    "  {} -> {} (kind={} size={})",
+                    "  {} -> {} (kind={} placed={})",
                     id.as_str(),
                     store.path_for(id).display(),
                     id.widget_kind(),
-                    id.size.short()
+                    fam
                 );
             }
         }
         Commands::Seed { canvas } => {
-            let id = CanvasId::parse(&canvas)?;
+            let parsed = CanvasId::parse_full(&canvas)?;
+            let id = parsed.id;
             let mut doc = CanvasDocument::empty();
             doc.title = Some(format!("{} sample", id.as_str()));
             doc.sections = vec![
                 agent_canvas_core::Section::Header {
                     text: format!("Hello ({})", id.as_str()),
-                    subtitle: Some(format!(
-                        "{} · slot {}",
-                        id.size.display_label(),
-                        id.slot.as_str()
-                    )),
+                    subtitle: Some(format!("slot {}", id.slot.as_str())),
                     icon: None,
                     tone: None,
                     emphasis: None,
@@ -119,8 +130,8 @@ async fn main() -> anyhow::Result<()> {
                 },
                 agent_canvas_core::Section::Text {
                     content: format!(
-                        "Seed for fixed size {}. Use update_canvas(\"{}\", …).",
-                        id.size.short(),
+                        "Seed for definition {}. Use update_canvas(\"{}\", …). Size is chosen when the widget is placed.",
+                        id.as_str(),
                         id.as_str()
                     ),
                     tone: None,
@@ -150,26 +161,26 @@ async fn main() -> anyhow::Result<()> {
             })?;
             let ids = matching_ids(size_f, slot_f);
             if ids.is_empty() {
-                anyhow::bail!("no canvases match size={size:?} slot={slot:?}");
+                anyhow::bail!("no canvases match slot={slot:?}");
             }
+            let flavor = size_f.unwrap_or(WidgetSize::Medium);
             println!(
-                "Seeding {} canvas(es) size={} slot={} content={}",
+                "Seeding {} definition(s) flavor={} slot={} content={}",
                 ids.len(),
-                size,
+                flavor.short(),
                 slot,
                 kind.as_str()
             );
             let mut last = String::new();
             for id in ids {
-                let doc = demo_document_kind(id, kind);
+                let doc = demo_document_kind(id, kind, flavor);
                 let n = doc.sections.len();
                 let _written = store.write(id, doc)?;
                 last = id.as_str().to_string();
                 println!(
-                    "  {}  size={} slot={}  kind={}  sections={}",
+                    "  {}  flavor={}  kind={}  sections={}",
                     id.as_str(),
-                    id.size.short(),
-                    id.slot.as_str(),
+                    flavor.short(),
                     kind.as_str(),
                     n
                 );
@@ -198,7 +209,7 @@ fn parse_slot_filter(s: &str) -> anyhow::Result<Option<CanvasSlot>> {
         "all" | "*" => Ok(None),
         other => CanvasSlot::parse(other)
             .map(Some)
-            .ok_or_else(|| anyhow::anyhow!("invalid --slot {s:?} (one|two|three|all)")),
+            .ok_or_else(|| anyhow::anyhow!("invalid --slot {s:?} (one…twelve|all)")),
     }
 }
 
@@ -371,13 +382,16 @@ struct AgentCanvasMcp {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct CanvasArgs {
-    /// Size-first id: sm-one | sm-two | sm-three | md-one | … | xl-three
+    /// Definition id: one … twelve. Legacy aliases sm-one, md-two, … accepted for one–three only.
     canvas: String,
+    /// Optional family for preview / density (sm|md|lg|xl). Defaults to the placed family, else medium.
+    #[serde(default)]
+    size: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct UpdateCanvasArgs {
-    /// Size-first id: sm-one | md-two | lg-one | xl-three | …
+    /// Definition id: one … twelve (aliases sm-one, md-two, … for one–three only).
     canvas: String,
     /// Full canvas document object (NOT a string). Prefer starting from this minimal shape:
     /// {"version":1,"title":"Hello","sections":[{"type":"header","text":"Hello World","subtitle":"status"},{"type":"metrics","items":[{"label":"Status","value":"OK"}]}]}
@@ -391,12 +405,15 @@ struct UpdateCanvasArgs {
     /// Default false: write succeeds but densityReport.overBudget warns; widget still clips.
     #[serde(default)]
     strict: bool,
+    /// Optional family for strict/density (sm|md|lg|xl). Defaults to the placed family, else medium.
+    #[serde(default)]
+    size: Option<String>,
 }
 
 /// Prefer this for simple updates — no full schema inventing required.
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct UpdateCanvasSimpleArgs {
-    /// Size-first id: sm-one | md-two | lg-one | xl-three | …
+    /// Definition id: one … twelve (aliases sm-one, md-two, … for one–three only).
     canvas: String,
     /// Widget title (optional).
     #[serde(default)]
@@ -415,6 +432,9 @@ struct UpdateCanvasSimpleArgs {
     /// Optional metric label when `status` is set (default "Status").
     #[serde(default)]
     status_label: Option<String>,
+    /// Optional family for density (sm|md|lg|xl). Defaults to the placed family, else medium.
+    #[serde(default)]
+    size: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -422,7 +442,7 @@ struct EmptyArgs {}
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct SetCanvasCoverArgs {
-    /// Size-first id: sm-one | md-two | lg-one | xl-three | …
+    /// Definition id: one … twelve (aliases sm-one, md-two, … for one–three only).
     canvas: String,
     /// Raw base64 or data:image/png|jpeg;base64,… PNG/JPEG. Max 2 MiB / 4M pixels.
     #[serde(rename = "imageBase64")]
@@ -435,11 +455,14 @@ struct SetCanvasCoverArgs {
     /// Optional document title to set alongside the cover.
     #[serde(default)]
     title: Option<String>,
+    /// Optional family for cover target-pixel warnings (sm|md|lg|xl).
+    #[serde(default)]
+    size: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct ShareCanvasArgs {
-    /// Local size-first canvas id (sm-one, md-one, …).
+    /// Local definition id (one … twelve) or legacy alias (one–three).
     canvas: String,
     /// Optional human-readable slug (a-z0-9-). Default: derived from title or canvas id.
     #[serde(default)]
@@ -463,8 +486,73 @@ struct UnshareArgs {
     edit_token: Option<String>,
 }
 
-const ID_HELP: &str =
-    "sm-one|sm-two|sm-three|md-one|md-two|md-three|lg-one|lg-two|lg-three|xl-one|xl-two|xl-three";
+const ID_HELP: &str = ID_FORMAT_HELP;
+
+fn parse_size_arg(raw: Option<&str>) -> std::result::Result<Option<WidgetSize>, String> {
+    match raw.map(str::trim).filter(|s| !s.is_empty()) {
+        None => Ok(None),
+        Some(s) => WidgetSize::parse(s)
+            .map(Some)
+            .ok_or_else(|| format!("invalid size `{s}` (expected sm|md|lg|xl)")),
+    }
+}
+
+fn resolve_canvas(
+    store: &CanvasStore,
+    canvas: &str,
+    size_arg: Option<&str>,
+) -> std::result::Result<(CanvasId, ResolvedBudget, Vec<String>), Value> {
+    let parsed = CanvasId::parse_full(canvas).map_err(|e| {
+        json!({
+            "ok": false,
+            "error": "invalid_canvas_id",
+            "message": e.to_string(),
+            "hint": format!("canvas must be one of: {ID_HELP}"),
+        })
+    })?;
+    let requested = parse_size_arg(size_arg).map_err(|message| {
+        json!({
+            "ok": false,
+            "error": "invalid_size",
+            "message": message,
+            "hint": "size must be sm|md|lg|xl (or small|medium|large|extraLarge)",
+        })
+    })?;
+    let budget = store.resolve_budget(parsed.id, requested, parsed.alias_size);
+    let placed: Vec<String> = store
+        .read_placed_families()
+        .families_for(parsed.id)
+        .into_iter()
+        .map(|s| s.short().to_string())
+        .collect();
+    Ok((parsed.id, budget, placed))
+}
+
+fn budget_note(budget: ResolvedBudget, placed: &[String]) -> String {
+    match budget.source {
+        BudgetSource::Requested => format!(
+            "Density uses requested size {}.",
+            budget.size.short()
+        ),
+        BudgetSource::Alias => format!(
+            "Density uses legacy alias size {}. Pass size= to override. Placed families: {}.",
+            budget.size.short(),
+            if placed.is_empty() {
+                "none (unplaced)".into()
+            } else {
+                placed.join(",")
+            }
+        ),
+        BudgetSource::Placed => format!(
+            "Density uses placed family {} (placements: {}).",
+            budget.size.short(),
+            placed.join(",")
+        ),
+        BudgetSource::Default => {
+            "Definition is not placed. Density uses the documented default budget (medium). Pass size= for preview/strict, or place the widget so WidgetCenter can report the family.".into()
+        }
+    }
+}
 
 #[tool_router]
 impl AgentCanvasMcp {
@@ -484,23 +572,19 @@ impl AgentCanvasMcp {
 
     #[tool(
         description = "PREFERRED for simple updates (title/header/status text). Builds a valid canvas document for you — use this first when content is simple. \
-For charts/lists/full layouts use update_canvas instead. canvas: size-first id (sm-one, md-one, …)."
+For charts/lists/full layouts use update_canvas instead. canvas: one…twelve (aliases sm-one, md-one, … for one–three only). Optional size for density."
     )]
     async fn update_canvas_simple(
         &self,
         Parameters(args): Parameters<UpdateCanvasSimpleArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let id = match CanvasId::parse(&args.canvas) {
-            Ok(id) => id,
-            Err(e) => {
-                return tool_error(json!({
-                    "ok": false,
-                    "error": "invalid_canvas_id",
-                    "message": e.to_string(),
-                    "hint": format!("canvas must be one of: {ID_HELP}"),
-                }));
-            }
+        let store = self.store.lock().await;
+        let (id, budget, placed) = match resolve_canvas(&store, &args.canvas, args.size.as_deref())
+        {
+            Ok(v) => v,
+            Err(e) => return tool_error(e),
         };
+        drop(store);
 
         let mut sections = vec![json!({
             "type": "header",
@@ -527,13 +611,13 @@ For charts/lists/full layouts use update_canvas instead. canvas: size-first id (
             "sections": sections,
         });
 
-        self.write_content(id, content, false).await
+        self.write_content(id, content, false, budget, placed).await
     }
 
     #[tool(
         description = "Replace full content of one desktop canvas with a schema v1 document. \
 MINIMAL WORKING content: {\"version\":1,\"title\":\"Hello\",\"sections\":[{\"type\":\"header\",\"text\":\"Hello World\",\"subtitle\":\"status\"},{\"type\":\"metrics\",\"items\":[{\"label\":\"Status\",\"value\":\"OK\"}]}]}. \
-canvas is size-first (sm-one, md-two, …). Prefer update_canvas_simple for text/header/status-only updates. \
+canvas is a definition id (one…twelve; aliases sm-one, md-two, … for one–three only). Prefer update_canvas_simple for text/header/status-only updates. \
 Optional onOpen / list items[].action: expand|url|file|noop (url: http|https|mailto; file reveals in Finder). \
 Optional detail.sections for expand window (may include type=group). \
 For a full-bleed custom PNG/JPEG use set_canvas_cover(imageBase64) — do NOT embed large base64 in update_canvas (slow + bloats history). \
@@ -547,10 +631,11 @@ HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. 
         &self,
         Parameters(args): Parameters<UpdateCanvasArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let id = match CanvasId::parse(&args.canvas) {
-            Ok(id) => id,
+        let store = self.store.lock().await;
+        let (id, budget, placed) = match resolve_canvas(&store, &args.canvas, args.size.as_deref())
+        {
+            Ok(v) => v,
             Err(e) => {
-                let store = self.store.lock().await;
                 log_tool_call(
                     &store,
                     json!({
@@ -559,19 +644,16 @@ HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. 
                         "ok": false,
                         "error": "invalid_canvas_id",
                         "canvas": args.canvas,
-                        "message": e.to_string(),
+                        "message": e.get("message").cloned().unwrap_or(json!("")),
                     }),
                 );
-                return tool_error(json!({
-                    "ok": false,
-                    "error": "invalid_canvas_id",
-                    "message": e.to_string(),
-                    "hint": format!("canvas must be one of: {ID_HELP}"),
-                }));
+                return tool_error(e);
             }
         };
+        drop(store);
 
-        self.write_content(id, args.content, args.strict).await
+        self.write_content(id, args.content, args.strict, budget, placed)
+            .await
     }
 
     async fn write_content(
@@ -579,6 +661,8 @@ HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. 
         id: CanvasId,
         content: Value,
         strict: bool,
+        budget: ResolvedBudget,
+        placed: Vec<String>,
     ) -> Result<CallToolResult, McpError> {
         let shape = content_shape_summary(&content);
         let doc = match parse_canvas_content(content) {
@@ -602,7 +686,7 @@ HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. 
                     "error": "invalid_content",
                     "message": msg,
                     "canvas": id.as_str(),
-                    "size": id.size.short(),
+                    "size": budget.size.short(),
                     "contentShape": shape,
                     "example": serde_json::from_str::<Value>(MINIMAL_EXAMPLE).unwrap_or(json!({})),
                     "tip": "Or call update_canvas_simple(canvas, header, status) for simple text/status widgets."
@@ -628,23 +712,26 @@ HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. 
                 "error": "validation",
                 "message": e.to_string(),
                 "canvas": id.as_str(),
-                "size": id.size.short(),
+                "size": budget.size.short(),
             }));
         }
 
-        let report = density_report(&doc, id.size);
-        let clip = predict_clip(&doc, id.size);
+        let report = density_report(&doc, budget.size);
+        let clip = predict_clip(&doc, budget.size);
 
         if strict && report.over_budget {
             return tool_error(json!({
                 "ok": false,
                 "error": "over_budget",
                 "canvas": id.as_str(),
-                "size": id.size.short(),
+                "size": budget.size.short(),
+                "budgetSource": budget.source.as_str(),
+                "placedFamilies": placed,
                 "densityReport": report,
                 "predictedClip": clip,
-                "sizeGuide": id.size.guide(),
+                "sizeGuide": budget.size.guide(),
                 "hint": report.repair_hint,
+                "note": budget_note(budget, &placed),
             }));
         }
 
@@ -675,7 +762,7 @@ HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. 
             store.root().join(".reload-request"),
             format!("{}\n{}", id.as_str(), written.updated_at),
         );
-        let last_render = store.read_last_render(id);
+        let last_render = store.read_last_render(id, budget.size);
         log_tool_call(
             &store,
             json!({
@@ -690,20 +777,27 @@ HARD budgets: sm≤2 sections no charts; md≤4/4/8; lg≤6/8/12; xl≤8/12/20. 
         json_result(json!({
             "ok": true,
             "canvas": id.as_str(),
-            "size": id.size.short(),
+            "size": budget.size.short(),
+            "budgetSource": budget.source.as_str(),
+            "placedFamilies": placed,
             "slot": id.slot.as_str(),
             "path": store.path_for(id).to_string_lossy(),
             "updatedAt": written.updated_at,
             "widgetKind": id.widget_kind(),
-            "sizeGuide": id.size.guide(),
+            "sizeGuide": budget.size.guide(),
             "densityReport": report,
             "predictedClip": clip,
             "lastRender": last_render,
-            "note": "Widget clips to size budget (priority order). Host reloads WidgetKit when running. Use strict=true to fail instead of clip."
+            "note": format!(
+                "Widget clips to the placed family (or requested/default size). Host reloads WidgetKit when running. Use strict=true to fail instead of clip. {}",
+                budget_note(budget, &placed)
+            )
         }))
     }
 
-    #[tool(description = "Clear a canvas. canvas: size-first id (sm-one, md-two, …).")]
+    #[tool(
+        description = "Clear a canvas. canvas: one…twelve (aliases sm-one, md-two, … for one–three only)."
+    )]
     async fn clear_canvas(
         &self,
         Parameters(args): Parameters<CanvasArgs>,
@@ -728,23 +822,19 @@ Use when a custom visual (diagram, illustrated status, bespoke chart) serves the
 Pass PNG/JPEG as base64 (or data: URL). Stored as a content-addressed asset; document keeps a short asset: ref. \
 Generate at the recommended 2× tile size from get_layout_guide.cover.targets. \
 Tradeoff: covers are not Dark Mode aware and do not scale with accessibility text — prefer sections for text. \
-canvas: size-first id. alt required. Optional fit: cover|contain. Keeps existing sections for detail/fallback."
+canvas: one…twelve (aliases ok for one–three). Optional size for target-pixel warnings. alt required. Optional fit: cover|contain. Keeps existing sections for detail/fallback."
     )]
     async fn set_canvas_cover(
         &self,
         Parameters(args): Parameters<SetCanvasCoverArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let id = match CanvasId::parse(&args.canvas) {
-            Ok(id) => id,
-            Err(e) => {
-                return tool_error(json!({
-                    "ok": false,
-                    "error": "invalid_canvas_id",
-                    "message": e.to_string(),
-                    "hint": format!("canvas must be one of: {ID_HELP}"),
-                }));
-            }
+        let store = self.store.lock().await;
+        let (id, budget, placed) = match resolve_canvas(&store, &args.canvas, args.size.as_deref())
+        {
+            Ok(v) => v,
+            Err(e) => return tool_error(e),
         };
+        drop(store);
         if args.alt.trim().is_empty() {
             return tool_error(json!({
                 "ok": false,
@@ -828,7 +918,7 @@ canvas: size-first id. alt required. Optional fit: cover|contain. Keeps existing
             format!("{}\n{}", id.as_str(), written.updated_at),
         );
 
-        let spec = id.size.layout_spec();
+        let spec = budget.size.layout_spec();
         let target_w = (spec.tile_width * 2.0) as u32;
         let target_h = (spec.tile_height * 2.0) as u32;
         let aspect_img = meta.width as f64 / meta.height.max(1) as f64;
@@ -859,7 +949,9 @@ canvas: size-first id. alt required. Optional fit: cover|contain. Keeps existing
         json_result(json!({
             "ok": true,
             "canvas": id.as_str(),
-            "size": id.size.short(),
+            "size": budget.size.short(),
+            "budgetSource": budget.source.as_str(),
+            "placedFamilies": placed,
             "cover": {
                 "source": asset_ref,
                 "alt": args.alt,
@@ -876,7 +968,7 @@ canvas: size-first id. alt required. Optional fit: cover|contain. Keeps existing
     }
 
     #[tool(
-        description = "Remove the full-bleed cover from a canvas; keeps sections and detail. canvas: size-first id."
+        description = "Remove the full-bleed cover from a canvas; keeps sections and detail. canvas: one…twelve."
     )]
     async fn clear_canvas_cover(
         &self,
@@ -910,33 +1002,42 @@ canvas: size-first id. alt required. Optional fit: cover|contain. Keeps existing
     }
 
     #[tool(
-        description = "Get canvas content, sizeGuide, densityReport for current content, and lastRender from the widget (truncated? dropped sections). Use after update_canvas to verify what actually fit."
+        description = "Get canvas content, sizeGuide, densityReport for current content, and lastRender from the widget (truncated? dropped sections). Use after update_canvas to verify what actually fit. Optional size for density when unplaced or placed at multiple families."
     )]
     async fn get_canvas(
         &self,
         Parameters(args): Parameters<CanvasArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let id = CanvasId::parse(&args.canvas).map_err(map_err)?;
         let store = self.store.lock().await;
+        let (id, budget, placed) = match resolve_canvas(&store, &args.canvas, args.size.as_deref())
+        {
+            Ok(v) => v,
+            Err(e) => return tool_error(e),
+        };
         let doc = store.read(id).map_err(map_err)?;
-        let report = density_report(&doc, id.size);
-        let clip = predict_clip(&doc, id.size);
-        let last_render = store.read_last_render(id);
+        let report = density_report(&doc, budget.size);
+        let clip = predict_clip(&doc, budget.size);
+        let last_render = store.read_last_render(id, budget.size);
+        let last_renders = store.read_last_renders(id);
         json_result(json!({
             "canvas": id.as_str(),
-            "size": id.size.short(),
+            "size": budget.size.short(),
+            "budgetSource": budget.source.as_str(),
+            "placedFamilies": placed,
             "slot": id.slot.as_str(),
             "content": doc,
-            "sizeGuide": id.size.guide(),
+            "sizeGuide": budget.size.guide(),
             "densityReport": report,
             "predictedClip": clip,
             "lastRender": last_render,
-            "tip": "If lastRender.truncated, rewrite with fewer/higher-priority sections for this size."
+            "lastRenders": last_renders,
+            "note": budget_note(budget, &placed),
+            "tip": "If lastRender.truncated, rewrite with fewer/higher-priority sections for this family. lastRenders is per placed family so small and large do not overwrite."
         }))
     }
 
     #[tool(
-        description = "List all 12 canvases with hasContent, layoutHint, and truncated (from last widget render). Prefer ids the user actually placed."
+        description = "List compiled definitions (one…twelve) with hasContent, placedFamilies (from WidgetCenter), layoutHint, and last-render overflow. Unplaced definitions have no family — density defaults to medium."
     )]
     async fn list_canvases(
         &self,
@@ -947,6 +1048,8 @@ canvas: size-first id. alt required. Optional fit: cover|contain. Keeps existing
         json_result(json!({
             "canvases": list,
             "idFormat": ID_HELP,
+            "defaultBudget": "md",
+            "defaultBudgetNote": "Unplaced definitions have no family. Density uses medium unless you pass size=.",
             "budgets": {
                 "sm": WidgetSize::Small.budget(),
                 "md": WidgetSize::Medium.budget(),
@@ -970,7 +1073,7 @@ canvas: size-first id. alt required. Optional fit: cover|contain. Keeps existing
     #[tool(
         description = "DEV ONLY — requires AGENT_CANVAS_CLOUD_PUBLISH=1 (debug builds; release needs --features cloud-publish). \
 Publish a local canvas to Agent Canvas Cloud. Returns publicUrl + editToken (Keychain). \
-AGENT_CANVAS_API_URL. canvas: local id (md-one); optional slug."
+AGENT_CANVAS_API_URL. canvas: local id (one); optional slug."
     )]
     async fn share_canvas(
         &self,
@@ -1138,23 +1241,20 @@ canvas: local id previously passed to share_canvas."
     #[tool(
         description = "Render a PNG snapshot of a canvas using the same SwiftUI view as the live widget (clipping, density, hierarchy). \
 Call after update_canvas to verify the design is workable. Requires the Agent Canvas host app running in the menu bar. \
-Returns image/png plus JSON meta (truncated, droppedTypes, path). canvas: size-first id (sm-one, md-two, …)."
+Returns image/png plus JSON meta (truncated, droppedTypes, path). canvas: one…twelve. Optional size for the family to render (defaults to placed family, else medium)."
     )]
     async fn preview_canvas(
         &self,
         Parameters(args): Parameters<CanvasArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let id = match CanvasId::parse(&args.canvas) {
-            Ok(id) => id,
-            Err(e) => {
-                return tool_error(json!({
-                    "ok": false,
-                    "error": "invalid_canvas_id",
-                    "message": e.to_string(),
-                    "hint": format!("canvas must be one of: {ID_HELP}"),
-                }));
-            }
+        let store = self.store.lock().await;
+        let (id, budget, placed) = match resolve_canvas(&store, &args.canvas, args.size.as_deref())
+        {
+            Ok(v) => v,
+            Err(e) => return tool_error(e),
         };
+        let size = budget.size;
+        drop(store);
 
         let token = format!(
             "{}-{}",
@@ -1164,7 +1264,7 @@ Returns image/png plus JSON meta (truncated, droppedTypes, path). canvas: size-f
 
         {
             let store = self.store.lock().await;
-            if let Err(e) = store.request_preview(id, &token) {
+            if let Err(e) = store.request_preview(id, size, &token) {
                 return tool_error(json!({
                     "ok": false,
                     "error": "request_failed",
@@ -1179,6 +1279,7 @@ Returns image/png plus JSON meta (truncated, droppedTypes, path). canvas: size-f
                     "tool": "preview_canvas",
                     "phase": "requested",
                     "canvas": id.as_str(),
+                    "size": size.short(),
                     "token": token,
                 }),
             );
@@ -1189,14 +1290,15 @@ Returns image/png plus JSON meta (truncated, droppedTypes, path). canvas: size-f
         loop {
             {
                 let store = self.store.lock().await;
-                if store.preview_token_matches(id, &token) {
-                    let png_path = store.preview_png_path(id);
+                if store.preview_token_matches(id, size, &token) {
+                    let png_path = store.preview_png_path(id, size);
                     match std::fs::read(&png_path) {
                         Ok(bytes) if !bytes.is_empty() => {
-                            let meta = store.read_preview_meta(id).unwrap_or_else(|| {
+                            let meta = store.read_preview_meta(id, size).unwrap_or_else(|| {
                                 json!({
                                     "ok": true,
                                     "canvas": id.as_str(),
+                                    "size": size.short(),
                                     "path": png_path.to_string_lossy(),
                                 })
                             });
@@ -1204,10 +1306,12 @@ Returns image/png plus JSON meta (truncated, droppedTypes, path). canvas: size-f
                             if let Some(obj) = out.as_object_mut() {
                                 obj.insert("ok".into(), json!(true));
                                 obj.insert("canvas".into(), json!(id.as_str()));
+                                obj.insert("size".into(), json!(size.short()));
+                                obj.insert("placedFamilies".into(), json!(placed));
                                 obj.insert("path".into(), json!(png_path.to_string_lossy()));
                                 obj.insert(
                                     "note".into(),
-                                    json!("PNG is a host-side snapshot of CanvasView at fixed family size — not a live desktop screencap."),
+                                    json!("PNG is a host-side snapshot of CanvasView at the requested/placed family — not a live desktop screencap."),
                                 );
                             }
                             log_tool_call(
@@ -1227,7 +1331,7 @@ Returns image/png plus JSON meta (truncated, droppedTypes, path). canvas: size-f
                         }
                         Err(_) => {
                             // meta may still report failure
-                            if let Some(meta) = store.read_preview_meta(id) {
+                            if let Some(meta) = store.read_preview_meta(id, size) {
                                 if meta.get("token").and_then(|t| t.as_str())
                                     == Some(token.as_str())
                                     && meta.get("ok") == Some(&json!(false))
@@ -1262,7 +1366,9 @@ Returns image/png plus JSON meta (truncated, droppedTypes, path). canvas: size-f
                     "ok": false,
                     "error": "timeout",
                     "canvas": id.as_str(),
-                    "path": store.preview_png_path(id).to_string_lossy(),
+                    "path": store.preview_png_path(id, size).to_string_lossy(),
+                    "size": size.short(),
+                    "placedFamilies": placed,
                     "hint": "Agent Canvas host must be running (menu bar) to render previews. Open the app, then retry preview_canvas. Text-only fallback: get_canvas → lastRender + densityReport.",
                     "dataRoot": store.root().to_string_lossy(),
                 }));
@@ -1284,8 +1390,8 @@ impl ServerHandler for AgentCanvasMcp {
         };
         info.instructions = Some(
             format!(
-                "Agent Canvas: 12 fixed-size desktop widgets. Ids: {ID_HELP}. \
-                 PREFERRED simple path: update_canvas_simple(canvas=\"sm-one\", header=\"Hello World\", status=\"OK\"). \
+                "Agent Canvas: 12 compiled widget kinds (one…twelve), each supporting all WidgetKit families. Ids: {ID_HELP}. \
+                 PREFERRED simple path: update_canvas_simple(canvas=\"one\", header=\"Hello World\", status=\"OK\"). \
                  Full path: update_canvas with content object — minimal example: {MINIMAL_EXAMPLE}. \
                  You may generate your own PNG/JPEG and set it as a full-bleed cover via set_canvas_cover when a bespoke visual serves the request better than section primitives (see get_layout_guide.cover for target pixels). \
                  After updates call preview_canvas(canvas) to get a PNG of the real widget layout (host app must be running).\

@@ -169,7 +169,7 @@ fn verify_png_idat(bytes: &[u8]) -> Result<()> {
         }
         return Ok(());
     }
-    let bpp = ((u32::from(ihdr.bit_depth) * samples + 7) / 8) as usize;
+    let bpp = (u32::from(ihdr.bit_depth) * samples).div_ceil(8) as usize;
     let row = 1 + (ihdr.width as usize).saturating_mul(bpp);
     let expected = (ihdr.height as usize).saturating_mul(row);
     if raw.len() != expected {
@@ -387,7 +387,7 @@ pub fn write_asset(root: &Path, bytes: &[u8]) -> Result<(String, ImageMeta)> {
     let meta = validate_image_bytes(bytes)?;
     let mut hasher = Sha256::new();
     hasher.update(bytes);
-    let hash = hex_encode(&hasher.finalize());
+    let hash = hex_encode(hasher.finalize());
     let filename = format!("{hash}.{}", meta.format.ext());
     let dir = assets_dir(root);
     fs::create_dir_all(&dir)?;
@@ -524,10 +524,15 @@ pub fn gc(root: &Path) -> Result<usize> {
     }
     let mut live = HashSet::new();
     for id in CanvasId::ALL {
-        let path = root.join("canvases").join(id.file_name());
-        if let Ok(raw) = fs::read_to_string(&path) {
-            if let Ok(doc) = serde_json::from_str::<CanvasDocument>(&raw) {
-                live.extend(collect_asset_refs(&doc));
+        let mut paths = vec![root.join("canvases").join(id.file_name())];
+        for name in id.legacy_file_names() {
+            paths.push(root.join("canvases").join(name));
+        }
+        for path in paths {
+            if let Ok(raw) = fs::read_to_string(&path) {
+                if let Ok(doc) = serde_json::from_str::<CanvasDocument>(&raw) {
+                    live.extend(collect_asset_refs(&doc));
+                }
             }
         }
         let hist = root.join("history").join(id.as_str());
@@ -555,10 +560,8 @@ pub fn gc(root: &Path) -> Result<usize> {
             continue;
         };
         let key = format!("asset:{name}");
-        if !live.contains(&key) {
-            if fs::remove_file(&path).is_ok() {
-                removed += 1;
-            }
+        if !live.contains(&key) && fs::remove_file(&path).is_ok() {
+            removed += 1;
         }
     }
     Ok(removed)

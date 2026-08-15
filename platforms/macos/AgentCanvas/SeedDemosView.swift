@@ -195,7 +195,7 @@ struct SeedDemosView: View {
             return AddressSummary(
                 id: address.rawValue,
                 name: address.displayName,
-                size: address.size,
+                size: PlacedFamiliesStore.budgetSize(for: address),
                 hasContent: !doc.isEmptyContent,
                 detail: detail
             )
@@ -206,7 +206,7 @@ struct SeedDemosView: View {
         let targets = DemoContent.addresses(size: seedSize, slot: seedSlot)
         guard !targets.isEmpty else { return }
         for address in targets {
-            let doc = DemoContent.document(for: address, kind: seedKind)
+            let doc = DemoContent.document(for: address, kind: seedKind, size: seedSize ?? .md)
             try? CanvasStorage.write(doc, address: address, source: .seed)
             CanvasStorage.reload(address: address)
             reloadWatcher.syncLastSeen(address: address)
