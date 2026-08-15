@@ -10,13 +10,13 @@ Product site and downloads: *coming soon* (this repo is the open source / engine
 
 ## Why it exists
 
-Agents are good at fetching data and drafting summaries, but they have nowhere durable and glanceable to put the result. Agent Canvas gives them a small set of **named, size-aware surfaces** (`sm-one`, `md-two`, …) so updates land where the user already looks—without inventing layout engines or fighting multi-size widget thrash.
+Agents are good at fetching data and drafting summaries, but they have nowhere durable and glanceable to put the result. Agent Canvas gives them a small set of **named compiled surfaces** (`one`, `two`, `three`) so updates land where the user already looks. Size is chosen when you place the widget—not baked into the id.
 
 **Principles (v1)**
 
 - **Native where it shows** — system widgets, system chrome  
 - **Declarative content** — JSON schema; agents never touch SwiftUI  
-- **Fixed addresses** — size × slot, not unlimited instances  
+- **Fixed addresses** — compiled kinds `one` / `two` / `three`, not unlimited instances 
 - **Local by default** — data under `~/.velox/canvas`; cloud publish is optional and Release-gated (see below)  
 - **Density-aware** — hard budgets per size; agents get clip feedback and optional PNG previews  
 
@@ -29,7 +29,7 @@ Privacy details: [`PRIVACY.md`](./PRIVACY.md). Third-party notices: [`NOTICE`](.
 | Area | Status |
 |------|--------|
 | **macOS host** | Menu bar app (stays running with zero windows); status, how-to, connect wizard |
-| **Widgets** | 12 WidgetKit kinds: **sm / md / lg / xl** × **one / two / three** |
+| **Widgets** | 3 WidgetKit kinds (`one` / `two` / `three`), each supporting Small / Medium / Large / Extra Large |
 | **MCP server** | Local stdio (`agent-canvas-mcp`) for Cursor, Claude Desktop, etc. |
 | **Content** | Schema v1: header, text, metrics, chart, list, image, spacer, progress, divider, keyValue, badges; optional `tone`/`emphasis`; detail-only `group`; optional `onOpen` / list `action` and `detail`; optional full-bleed `cover` |
 | **Agent feedback** | Density reports, predicted clip (reference packer), last-render meta, **`preview_canvas`** (PNG of the real tile); cover aspect warnings from `set_canvas_cover` |
@@ -40,14 +40,13 @@ Privacy details: [`PRIVACY.md`](./PRIVACY.md). Third-party notices: [`NOTICE`](.
 
 ### Canvas ids
 
-| | **one** | **two** | **three** |
-|--|---------|---------|-----------|
-| **sm** | `sm-one` | `sm-two` | `sm-three` |
-| **md** | `md-one` | `md-two` | `md-three` |
-| **lg** | `lg-one` | `lg-two` | `lg-three` |
-| **xl** | `xl-one` | `xl-two` | `xl-three` |
+Compiled identities: **`one`**, **`two`**, **`three`**. Files live at `canvases/{id}.json`. The same document can be placed at more than one WidgetKit family; the widget clips with `context.family`.
 
-The id encodes density: updating `sm-one` always means a small glance surface.
+Legacy size-first ids (`sm-one`, `md-two`, …) still parse as aliases of the definition for one release. If both `sm-one.json` and `md-one.json` exist and `one.json` does not, Agent Canvas prefers a **non-empty `md-*`**, else the first non-empty file in sm → md → lg → xl order. Conflicting alias files are never merged.
+
+**Upgrade:** old WidgetKit kinds (`AgentCanvas.sm-one`, …) cannot be remapped. **Re-add** widgets from Edit Widgets. iPhone does not offer Extra Large.
+
+MCP `list_canvases` reports `placedFamilies` from a WidgetCenter snapshot (`placed-families.json`). Unplaced definitions have no family; density defaults to **medium** unless you pass `size=`.
 
 ### MCP tools (summary)
 
@@ -125,14 +124,14 @@ just macos-run
 
 just build-rust
 just mcp-serve                    # or point Cursor/Claude at target/release/agent-canvas-mcp
-just mcp-seed canvas=md-one
+just mcp-seed canvas=one
 ```
 
 Useful recipes: `just --list`, `just macos-diagnose`, `just macos-widgets-reset`, `just mcp-paths`.
 
 ## Develop (iOS)
 
-Subscribe-only companion: Velox sign-in, map cloud canvases to the same 12 slots, WidgetKit via App Group storage. No MCP on iOS.
+Subscribe-only companion: Velox sign-in, map cloud canvases to the same three definitions, WidgetKit via App Group storage. No MCP on iOS.
 
 Requires Xcode, Just, and XcodeGen. Enable the App Group `group.com.velox.agentcanvas` on the app + widget App IDs in the Apple Developer portal (or let Xcode manage it with Automatic signing).
 

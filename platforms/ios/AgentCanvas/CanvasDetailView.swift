@@ -29,13 +29,15 @@ struct CanvasDetailView: View {
                         .lineLimit(2)
                 }
 
+                let previewSize = PlacedFamiliesStore.budgetSize(for: address)
                 let entry = CanvasEntry(
                     date: Date(),
                     address: address,
+                    size: previewSize,
                     document: document,
                     isPlaceholder: false,
-                    clip: ContentClip.apply(document: document, size: address.size),
-                    displaySize: CGSize(width: 0, height: ContentClip.defaultTileHeight(for: address.size))
+                    clip: ContentClip.apply(document: document, size: previewSize),
+                    displaySize: CGSize(width: 0, height: ContentClip.defaultTileHeight(for: previewSize))
                 )
 
                 CanvasView(

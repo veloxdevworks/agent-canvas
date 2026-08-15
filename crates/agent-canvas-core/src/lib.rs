@@ -33,7 +33,7 @@ pub use history::{
     list as list_history, load as load_history, HistoryEntryMeta, HistorySource,
     MAX_HISTORY_ENTRIES,
 };
-pub use id::{CanvasId, CanvasSlot};
+pub use id::{CanvasId, CanvasSlot, ParsedCanvas};
 pub use layout::{
     density_report, density_warnings, layout_guide_document, predict_clip, DensityReport,
     PredictedClip, WidgetSize,
@@ -43,4 +43,7 @@ pub use packer::{estimated_height, pack, PackResult};
 pub use schema::*;
 pub use schema_gen::{generate_canvas_schema, generate_canvas_schema_string};
 pub use section_meta::{SectionKind, SectionMeta, SECTION_META};
-pub use storage::{canvas_data_dir, default_store, CanvasStore};
+pub use storage::{
+    canvas_data_dir, default_store, BudgetSource, CanvasStore, PlacedFamiliesSnapshot,
+    ResolvedBudget, DEFAULT_BUDGET_SIZE,
+};

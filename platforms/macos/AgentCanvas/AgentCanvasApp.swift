@@ -112,7 +112,7 @@ private struct DetailWindowRoot: View {
 
     var body: some View {
         Group {
-            if let id, let address = CanvasAddress(rawValue: id) {
+            if let id, let address = CanvasAddress.parse(id) {
                 CanvasDetailWindowView(address: address)
             } else {
                 ProgressView()
@@ -154,13 +154,13 @@ private struct DetailWindowRoot: View {
         case .howTo, .subscribe:
             return nil
         case let .document(canvasId):
-            guard let address = CanvasAddress(rawValue: canvasId) else { return nil }
+            guard let address = CanvasAddress.parse(canvasId) else { return nil }
             if case .expand = CanvasStorage.load(address: address).resolvedOnOpen {
                 return canvasId
             }
             return nil
         case let .item(canvasId, section, item, version):
-            guard let address = CanvasAddress(rawValue: canvasId) else { return nil }
+            guard let address = CanvasAddress.parse(canvasId) else { return nil }
             let doc = CanvasStorage.load(address: address)
             guard section < doc.sections.count,
                   case let .list(_, items, _) = doc.sections[section],
@@ -280,6 +280,7 @@ final class ReloadWatcher: ObservableObject {
         HostRuntime.reloadWatcher = self
         CanvasStorage.ensureDirectories()
         CanvasStorage.mirrorAllAndReload()
+        PlacedFamiliesStore.snapshotFromWidgetCenter()
         seedLastSeen()
         refreshCanvasCounts()
         isWatching = true

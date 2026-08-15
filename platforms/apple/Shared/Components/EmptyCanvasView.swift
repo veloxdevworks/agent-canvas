@@ -6,7 +6,7 @@ struct EmptyCanvasView: View {
     var fillTile: Bool = true
     var edgeInset: CGFloat
 
-    private var size: CanvasSize { address.size }
+    var size: CanvasSize = .defaultBudget
 
     private var detail: String {
         "Click here to learn how to use."
@@ -21,7 +21,7 @@ struct EmptyCanvasView: View {
     }
 
     private var accessibilityText: String {
-        "No content. \(detail)"
+        "No content on \(address.displayName). \(detail)"
     }
 
     var body: some View {

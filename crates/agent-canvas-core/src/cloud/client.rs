@@ -142,7 +142,7 @@ impl CanvasCloudClient {
                     .as_deref()
                     .filter(|t| !t.is_empty())
                     .unwrap_or(canvas.as_str());
-                normalize_slug(hint).unwrap_or_else(|_| format!("{}-board", canvas.size.short()))
+                normalize_slug(hint).unwrap_or_else(|_| format!("{}-board", canvas.as_str()))
             }
         };
 
@@ -455,7 +455,7 @@ mod tests {
         client
             .shares
             .upsert(ShareRecord {
-                canvas: "md-one".into(),
+                canvas: "one".into(),
                 slug: "demo".into(),
                 public_url: format!("{}/c/demo", server.uri()),
                 api_url: format!("{}/api/v1/canvases/demo", server.uri()),

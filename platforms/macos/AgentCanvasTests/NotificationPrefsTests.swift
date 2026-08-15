@@ -12,27 +12,27 @@ final class NotificationPrefsTests: XCTestCase {
 
     func testDefaultsOffAndUnmuted() {
         XCTAssertFalse(NotificationPrefs.notificationsEnabled)
-        XCTAssertFalse(NotificationPrefs.isMuted(.mdOne))
+        XCTAssertFalse(NotificationPrefs.isMuted(.one))
     }
 
     func testMutePersistsPerCanvas() {
-        NotificationPrefs.setMuted(.mdOne, true)
-        XCTAssertTrue(NotificationPrefs.isMuted(.mdOne))
-        XCTAssertFalse(NotificationPrefs.isMuted(.mdTwo))
-        NotificationPrefs.setMuted(.mdOne, false)
-        XCTAssertFalse(NotificationPrefs.isMuted(.mdOne))
+        NotificationPrefs.setMuted(.one, true)
+        XCTAssertTrue(NotificationPrefs.isMuted(.one))
+        XCTAssertFalse(NotificationPrefs.isMuted(.two))
+        NotificationPrefs.setMuted(.one, false)
+        XCTAssertFalse(NotificationPrefs.isMuted(.one))
     }
 
     func testDisplayTitleFallsBackToSlotName() {
         let empty = CanvasDocument.empty
         XCTAssertEqual(
-            CanvasChangeNotifier.displayTitle(for: empty, address: .smOne),
-            CanvasAddress.smOne.displayName
+            CanvasChangeNotifier.displayTitle(for: empty, address: .one),
+            CanvasAddress.one.displayName
         )
         var titled = CanvasDocument.empty
         titled.title = "  Build status  "
         XCTAssertEqual(
-            CanvasChangeNotifier.displayTitle(for: titled, address: .smOne),
+            CanvasChangeNotifier.displayTitle(for: titled, address: .one),
             "Build status"
         )
     }

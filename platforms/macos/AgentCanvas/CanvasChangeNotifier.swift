@@ -222,7 +222,7 @@ final class CanvasChangeNotifier: NSObject {
 
     nonisolated static func handleNotificationResponse(_ response: UNNotificationResponse) {
         let info = response.notification.request.content.userInfo
-        guard let id = info[canvasIdKey] as? String, CanvasAddress(rawValue: id) != nil else { return }
+        guard let id = info[canvasIdKey] as? String, CanvasAddress.parse(id) != nil else { return }
         DispatchQueue.main.async {
             AppDelegate.pendingDetailId = id
             NotificationCenter.default.post(name: .agentCanvasOpenDetail, object: id)

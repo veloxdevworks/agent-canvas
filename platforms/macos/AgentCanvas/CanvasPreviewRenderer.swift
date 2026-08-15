@@ -29,40 +29,42 @@ enum CanvasPreviewRenderer {
         return e
     }()
 
-    /// Render + write `previews/{id}.png`, `{id}.token`, `{id}.meta.json`.
+    /// Render + write `previews/{id}.{size}.png`, `{id}.{size}.token`, `{id}.{size}.meta.json`.
     @discardableResult
     static func render(request: PreviewRequest) -> Result {
         CanvasStorage.ensureDirectories()
         let address = request.address
-        let tile = ContentClip.defaultTileSize(for: address.size)
+        let size = request.size
+        let tile = ContentClip.defaultTileSize(for: size)
         let doc = CanvasStorage.load(address: address)
 
-        let hasTitle = (doc.title?.isEmpty == false) && address.size != .sm
+        let hasTitle = (doc.title?.isEmpty == false) && size != .sm
         let hasTimestamp = doc.updatedAt != nil
         let live = !doc.isEmptyContent
         // Prefer fitting everything first; only reserve overflow chrome when needed.
         var budget = ContentClip.contentBudget(
             displaySize: tile,
-            size: address.size,
+            size: size,
             hasTitle: hasTitle && live,
             hasTimestamp: hasTimestamp && live,
             reserveOverflowLine: false
         )
-        var clip = ContentClip.apply(document: doc, size: address.size, maxHeight: budget)
+        var clip = ContentClip.apply(document: doc, size: size, maxHeight: budget)
         if clip.truncated {
             budget = ContentClip.contentBudget(
                 displaySize: tile,
-                size: address.size,
+                size: size,
                 hasTitle: hasTitle && live,
                 hasTimestamp: hasTimestamp && live,
                 reserveOverflowLine: true
             )
-            clip = ContentClip.apply(document: doc, size: address.size, maxHeight: budget)
+            clip = ContentClip.apply(document: doc, size: size, maxHeight: budget)
         }
 
         let entry = CanvasEntry(
             date: Date(),
             address: address,
+            size: size,
             document: doc,
             isPlaceholder: doc.isEmptyContent,
             clip: clip,
@@ -101,12 +103,12 @@ enum CanvasPreviewRenderer {
                 error: "ImageRenderer returned no image (is the host UI process alive?)",
                 updatedAt: Date()
             )
-            writeMeta(fail, address: address)
-            writeToken(request.token, address: address)
+            writeMeta(fail, address: address, size: size)
+            writeToken(request.token, address: address, size: size)
             return fail
         }
 
-        let pngURL = CanvasStorage.previewPNGURL(for: address)
+        let pngURL = CanvasStorage.previewPNGURL(for: address, size: size)
         do {
             let rep = NSBitmapImageRep(cgImage: cgImage)
             guard let data = rep.representation(using: .png, properties: [:]) else {
@@ -134,8 +136,8 @@ enum CanvasPreviewRenderer {
                 error: "write failed: \(error.localizedDescription)",
                 updatedAt: Date()
             )
-            writeMeta(fail, address: address)
-            writeToken(request.token, address: address)
+            writeMeta(fail, address: address, size: size)
+            writeToken(request.token, address: address, size: size)
             return fail
         }
 
@@ -143,7 +145,7 @@ enum CanvasPreviewRenderer {
         if !doc.isEmptyContent {
             let report = LastRenderReport(
                 canvas: address.rawValue,
-                size: address.size.rawValue,
+                size: size.rawValue,
                 truncated: clip.truncated,
                 shownSectionCount: clip.shown.count,
                 droppedSectionCount: clip.droppedTypes.count,
@@ -152,7 +154,7 @@ enum CanvasPreviewRenderer {
                 listItemsTotal: clip.listItemsTotal,
                 updatedAt: Date()
             )
-            CanvasStorage.writeLastRender(report, address: address)
+            CanvasStorage.writeLastRender(report, address: address, size: size)
         }
 
         let ok = Result(
@@ -170,19 +172,19 @@ enum CanvasPreviewRenderer {
             error: nil,
             updatedAt: Date()
         )
-        writeMeta(ok, address: address)
-        writeToken(request.token, address: address)
-        NSLog("AgentCanvas: preview \(address.rawValue) → \(pngURL.lastPathComponent) token=\(request.token.prefix(8))…")
+        writeMeta(ok, address: address, size: size)
+        writeToken(request.token, address: address, size: size)
+        NSLog("AgentCanvas: preview \(address.rawValue).\(size.rawValue) → \(pngURL.lastPathComponent) token=\(request.token.prefix(8))…")
         return ok
     }
 
-    private static func writeToken(_ token: String, address: CanvasAddress) {
-        let url = CanvasStorage.previewTokenURL(for: address)
+    private static func writeToken(_ token: String, address: CanvasAddress, size: CanvasSize) {
+        let url = CanvasStorage.previewTokenURL(for: address, size: size)
         try? token.data(using: .utf8)?.write(to: url, options: .atomic)
     }
 
-    private static func writeMeta(_ result: Result, address: CanvasAddress) {
-        let url = CanvasStorage.previewMetaURL(for: address)
+    private static func writeMeta(_ result: Result, address: CanvasAddress, size: CanvasSize) {
+        let url = CanvasStorage.previewMetaURL(for: address, size: size)
         guard let data = try? encoder.encode(result) else { return }
         try? data.write(to: url, options: .atomic)
     }

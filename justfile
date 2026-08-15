@@ -89,8 +89,8 @@ mcp-paths:
 #   export AGENT_CANVAS_CLOUD_PUBLISH=1
 #   export AGENT_CANVAS_API_URL=https://canvas.velox.test
 
-# Seed sample content into a canvas (default: md-one)
-mcp-seed canvas="md-one":
+# Seed sample content into a canvas (default: one)
+mcp-seed canvas="one":
     cargo run --quiet --manifest-path {{root}}/Cargo.toml -p agent-canvas-mcp -- seed {{canvas}}
 
 # Seed demos: where (size/slot) + what (content).
@@ -326,7 +326,7 @@ macos-reload:
     # Touch reload request so the host's 1s watcher reloads WidgetKit
     dir="$HOME/.velox/canvas"
     mkdir -p "$dir"
-    printf 'md-one\n%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$dir/.reload-request"
+    printf 'one\n%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$dir/.reload-request"
     echo "Wrote $dir/.reload-request — host app will reload within ~1s if running"
 
 # ── Release ─────────────────────────────────────────────────────────────────

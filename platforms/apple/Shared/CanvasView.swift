@@ -23,7 +23,7 @@ struct CanvasView: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var size: CanvasSize { entry.address.size }
+    private var size: CanvasSize { entry.size }
 
     private var resolvedInteraction: CanvasActionInteractionMode {
         if isPreview { return .inert }
@@ -274,6 +274,7 @@ struct CanvasView: View {
     private func emptyState(fillTile: Bool) -> some View {
         EmptyCanvasView(
             address: entry.address,
+            size: entry.size,
             fillTile: fillTile,
             edgeInset: edgeInset
         )

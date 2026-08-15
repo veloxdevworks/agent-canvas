@@ -12,7 +12,7 @@ use crate::id::CanvasId;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ShareRecord {
-    /// Local widget id that was published (e.g. md-one).
+    /// Local widget id that was published (e.g. one).
     pub canvas: String,
     pub slug: String,
     pub public_url: String,
@@ -74,8 +74,9 @@ impl ShareIndex {
     }
 
     pub fn get_by_canvas(&self, canvas: CanvasId) -> Result<Option<ShareRecord>> {
-        let key = canvas.as_str();
-        Ok(self.load()?.shares.into_iter().find(|s| s.canvas == key))
+        Ok(self.load()?.shares.into_iter().find(|s| {
+            CanvasId::parse(&s.canvas).ok() == Some(canvas) || s.canvas == canvas.as_str()
+        }))
     }
 
     pub fn upsert(&self, record: ShareRecord) -> Result<()> {
@@ -114,7 +115,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let idx = ShareIndex::new(dir.path());
         idx.upsert(ShareRecord {
-            canvas: "md-one".into(),
+            canvas: "one".into(),
             slug: "demo".into(),
             public_url: "https://example/c/demo".into(),
             api_url: "https://example/api/v1/canvases/demo".into(),

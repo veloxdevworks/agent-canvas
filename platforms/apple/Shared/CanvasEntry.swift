@@ -5,6 +5,8 @@ import WidgetKit
 struct CanvasEntry: TimelineEntry {
     let date: Date
     let address: CanvasAddress
+    /// Family this entry was packed for (`context.family` on the widget).
+    let size: CanvasSize
     let document: CanvasDocument
     let isPlaceholder: Bool
     let clip: ContentClip.Result

@@ -104,7 +104,7 @@ Agents spawn MCP over **stdio** as a child process. That process is **not** sign
 
 | OS | Path |
 |----|------|
-| macOS / all | `~/.velox/canvas/canvases/{sm-one,md-one,…}.json` |
+| macOS / all | `~/.velox/canvas/canvases/{one,two,three}.json` |
 | Override | `AGENT_CANVAS_DATA_DIR` or MCP `--data-dir` |
 
 **macOS widget read path (v1, shipped in scaffold):**

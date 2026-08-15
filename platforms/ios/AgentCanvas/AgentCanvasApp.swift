@@ -19,6 +19,7 @@ struct AgentCanvasApp: App {
                 }
                 .onAppear {
                     sync.scheduleBackgroundRefresh()
+                    PlacedFamiliesStore.snapshotFromWidgetCenter()
                     Task { await sync.syncAll(reason: .launch) }
                 }
                 .onChange(of: oauth.isSignedIn) { signedIn in
@@ -50,6 +51,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     func applicationDidBecomeActive(_ application: UIApplication) {
         Task { @MainActor in
             await SubscriptionSync.shared.syncAll(reason: .foreground)
+            PlacedFamiliesStore.snapshotFromWidgetCenter()
             SubscriptionSync.shared.startForegroundPolling()
         }
     }
@@ -114,7 +116,7 @@ final class DeepLinkRouter: ObservableObject {
         let outcome = IOSActionDispatcher.handleOpenURL(url)
         switch outcome {
         case let .expand(id):
-            detailAddress = CanvasAddress(rawValue: id)
+            detailAddress = CanvasAddress.parse(id)
         case .showHowTo:
             showHowTo = true
         case let .subscribe(slug):

@@ -48,29 +48,29 @@ enum DemoKind: String, CaseIterable, Identifiable {
 
 /// Size-aware demo documents (keep recipes aligned with crates/agent-canvas-core/src/demos.rs).
 enum DemoContent {
-    static func document(for address: CanvasAddress, kind: DemoKind) -> CanvasDocument {
+    static func document(for address: CanvasAddress, kind: DemoKind, size: CanvasSize = .md) -> CanvasDocument {
         var doc: CanvasDocument
         switch kind {
         case .themed:
-            doc = themed(address)
+            doc = themed(address, size: size)
         case .metrics:
-            doc = metricsOnly(address)
+            doc = metricsOnly(address, size: size)
         case .header:
-            doc = headerOnly(address)
+            doc = headerOnly(address, size: size)
         case .text:
-            doc = textOnly(address)
+            doc = textOnly(address, size: size)
         case .list:
-            doc = listOnly(address)
+            doc = listOnly(address, size: size)
         case .bar:
-            doc = chartOnly(address, type: .bar, title: "Bar demo")
+            doc = chartOnly(address, type: .bar, title: "Bar demo", size: size)
         case .line:
-            doc = chartOnly(address, type: .line, title: "Line demo")
+            doc = chartOnly(address, type: .line, title: "Line demo", size: size)
         case .pie:
-            doc = chartOnly(address, type: .pie, title: "Pie demo")
+            doc = chartOnly(address, type: .pie, title: "Pie demo", size: size)
         case .gauge:
-            doc = chartOnly(address, type: .gauge, title: "Gauge demo")
+            doc = chartOnly(address, type: .gauge, title: "Gauge demo", size: size)
         case .full:
-            doc = fullBoard(address)
+            doc = fullBoard(address, size: size)
         }
         if let t = doc.title, !t.contains(address.rawValue) {
             doc.title = "\(address.rawValue) · \(kind.shortLabel) · \(t)"
@@ -81,17 +81,19 @@ enum DemoContent {
     }
 
     static func addresses(size: CanvasSize?, slot: CanvasSlot?) -> [CanvasAddress] {
-        CanvasAddress.allCases.filter { a in
-            (size == nil || a.size == size) && (slot == nil || a.slot == slot)
+        // Size is a content flavor, not a file selector — one document per definition.
+        _ = size
+        return CanvasAddress.allCases.filter { a in
+            slot == nil || a.slot == slot
         }
     }
 
     // MARK: - Explicit kinds
 
-    private static func metricsOnly(_ address: CanvasAddress) -> CanvasDocument {
+    private static func metricsOnly(_ address: CanvasAddress, size: CanvasSize) -> CanvasDocument {
         var d = CanvasDocument.empty
         d.title = "Metrics"
-        if address.size == .sm {
+        if size == .sm {
             d.sections = [
                 .metrics(items: [
                     MetricItem(label: "A", value: "12", trend: "+2"),
@@ -111,22 +113,22 @@ enum DemoContent {
         return d
     }
 
-    private static func headerOnly(_ address: CanvasAddress) -> CanvasDocument {
+    private static func headerOnly(_ address: CanvasAddress, size: CanvasSize) -> CanvasDocument {
         var d = CanvasDocument.empty
         d.sections = [
             .header(
-                text: "\(address.size.galleryLabel) header",
+                text: "\(size.galleryLabel) header",
                 subtitle: "slot \(address.slot.shortLabel) · header-only seed"
             ),
         ]
         return d
     }
 
-    private static func textOnly(_ address: CanvasAddress) -> CanvasDocument {
+    private static func textOnly(_ address: CanvasAddress, size: CanvasSize) -> CanvasDocument {
         var d = CanvasDocument.empty
         d.title = "Text"
         let body: String
-        switch address.size {
+        switch size {
         case .sm: body = "Short glance note."
         case .md: body = "Medium body copy for agent text sections. Soft-wraps across a couple of lines."
         default:
@@ -139,7 +141,7 @@ enum DemoContent {
         return d
     }
 
-    private static func listOnly(_ address: CanvasAddress) -> CanvasDocument {
+    private static func listOnly(_ address: CanvasAddress, size: CanvasSize) -> CanvasDocument {
         var d = CanvasDocument.empty
         d.title = "List"
         // Same real queue on every size — packing decides how many rows show.
@@ -151,8 +153,8 @@ enum DemoContent {
             ListItem(primary: "Flaky e2e", secondary: "ENG-4770", badge: "P3"),
             ListItem(primary: "Bump deps", secondary: "ENG-5101", badge: "LOW"),
         ]
-        let listTitle: String? = address.size == .sm ? nil : "Queue"
-        let subtitle: String? = address.size == .sm ? nil : "list seed"
+        let listTitle: String? = size == .sm ? nil : "Queue"
+        let subtitle: String? = size == .sm ? nil : "list seed"
         d.sections = [
             .header(text: "Open items", subtitle: subtitle),
             .list(title: listTitle, items: items),
@@ -163,7 +165,8 @@ enum DemoContent {
     private static func chartOnly(
         _ address: CanvasAddress,
         type: ChartType,
-        title: String
+        title: String,
+        size: CanvasSize
     ) -> CanvasDocument {
         var d = CanvasDocument.empty
         d.title = title
@@ -182,7 +185,7 @@ enum DemoContent {
                 ChartPoint(label: "Jobs", value: 7),
             ]
         case .line:
-            if address.size == .sm {
+            if size == .sm {
                 data = [
                     ChartPoint(label: "M", value: 4),
                     ChartPoint(label: "T", value: 7),
@@ -202,7 +205,7 @@ enum DemoContent {
                 ]
             }
         case .bar:
-            if address.size == .sm {
+            if size == .sm {
                 data = [
                     ChartPoint(label: "M", value: 3),
                     ChartPoint(label: "T", value: 5),
@@ -229,13 +232,13 @@ enum DemoContent {
         return d
     }
 
-    private static func fullBoard(_ address: CanvasAddress) -> CanvasDocument {
+    private static func fullBoard(_ address: CanvasAddress, size: CanvasSize) -> CanvasDocument {
         var d = CanvasDocument.empty
         d.title = "Full board"
         d.sections = [
             .header(
                 text: "Full board",
-                subtitle: "\(address.size.galleryLabel) · all primitives"
+                subtitle: "\(size.galleryLabel) · all primitives"
             ),
             .metrics(items: [
                 MetricItem(label: "Closed", value: "47", trend: "+12%"),
@@ -269,8 +272,8 @@ enum DemoContent {
 
     // MARK: - Themed packs
 
-    private static func themed(_ address: CanvasAddress) -> CanvasDocument {
-        switch address.size {
+    private static func themed(_ address: CanvasAddress, size: CanvasSize) -> CanvasDocument {
+        switch size {
         case .sm: return small(slot: address.slot)
         case .md: return medium(slot: address.slot)
         case .lg: return large(slot: address.slot)

@@ -8,12 +8,12 @@ struct HowToView: View {
                 labeled("2", "Tap + and paste a canvas slug or API URL, then pick a slot.")
                 labeled(
                     "3",
-                    "On the Home Screen, long-press → Edit Widgets → add an Agent Canvas size/slot that matches."
+                    "On the Home Screen, long-press → Edit Widgets → add One, Two, or Three and pick a size. Re-add widgets after this upgrade. iPhone does not offer Extra Large."
                 )
                 labeled("4", "Open the app anytime to sync; background refresh keeps tiles roughly current.")
             }
             Section("Tips") {
-                Text("Widgets are fixed addresses (sm-one, md-two, …). Subscribe the same id you place on the Home Screen.")
+                Text("Widgets are compiled identities (one, two, three). Subscribe the same id you place on the Home Screen. Size is chosen when you add the widget.")
                 Text("Public canvases work signed out for fetch, but sign-in is required for private/org canvases.")
             }
         }

@@ -4,7 +4,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("unknown canvas id: {0} (expected size-first id like sm-one)")]
+    #[error("unknown canvas id: {0} (expected one|two|three, or alias sm-one)")]
     UnknownCanvas(String),
 
     #[error("schema validation failed: {0}")]

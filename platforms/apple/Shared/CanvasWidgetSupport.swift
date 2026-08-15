@@ -2,7 +2,7 @@ import WidgetKit
 import SwiftUI
 
 /// Shared configuration factory — WidgetKit is picky about parameterized `Widget` types
-/// in a `WidgetBundle`, so each address gets a thin wrapper below.
+/// in a `WidgetBundle`, so each definition gets a thin wrapper below.
 enum CanvasWidgetFactory {
     static func configuration(for address: CanvasAddress) -> some WidgetConfiguration {
         StaticConfiguration(
@@ -27,56 +27,20 @@ enum CanvasWidgetFactory {
         }
         .configurationDisplayName(address.displayName)
         .description(address.galleryDescription)
-        .supportedFamilies([address.widgetFamily])
+        .supportedFamilies(CanvasAddress.allSupportedFamilies)
         // Use the full tile; system content margins shrink the offer and fight packing.
         .contentMarginsDisabled()
     }
 }
 
-// MARK: - Small
-
-struct SmOneWidget: Widget {
-    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .smOne) }
-}
-struct SmTwoWidget: Widget {
-    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .smTwo) }
-}
-struct SmThreeWidget: Widget {
-    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .smThree) }
+struct OneWidget: Widget {
+    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .one) }
 }
 
-// MARK: - Medium
-
-struct MdOneWidget: Widget {
-    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .mdOne) }
-}
-struct MdTwoWidget: Widget {
-    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .mdTwo) }
-}
-struct MdThreeWidget: Widget {
-    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .mdThree) }
+struct TwoWidget: Widget {
+    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .two) }
 }
 
-// MARK: - Large
-
-struct LgOneWidget: Widget {
-    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .lgOne) }
-}
-struct LgTwoWidget: Widget {
-    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .lgTwo) }
-}
-struct LgThreeWidget: Widget {
-    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .lgThree) }
-}
-
-// MARK: - Extra Large
-
-struct XlOneWidget: Widget {
-    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .xlOne) }
-}
-struct XlTwoWidget: Widget {
-    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .xlTwo) }
-}
-struct XlThreeWidget: Widget {
-    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .xlThree) }
+struct ThreeWidget: Widget {
+    var body: some WidgetConfiguration { CanvasWidgetFactory.configuration(for: .three) }
 }

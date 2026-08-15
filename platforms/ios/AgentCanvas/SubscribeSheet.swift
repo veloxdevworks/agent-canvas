@@ -8,7 +8,7 @@ struct SubscribeSheet: View {
     @EnvironmentObject private var router: DeepLinkRouter
 
     @State private var slugOrURL: String = ""
-    @State private var selected: CanvasAddress = .mdOne
+    @State private var selected: CanvasAddress = .one
     @State private var errorText: String?
     @State private var busy = false
 

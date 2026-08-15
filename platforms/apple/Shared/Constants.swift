@@ -16,6 +16,8 @@ enum AgentCanvasConstants {
     static let previewRequestFileName = ".preview-request"
     static let previewsSubdir = "previews"
     static let assetsSubdir = "assets"
+    /// Host snapshot of WidgetCenter placements for MCP density budgeting.
+    static let placedFamiliesFileName = "placed-families.json"
     /// Matches Rust `MAX_IMAGE_PIXELS`.
     static let maxImagePixels: Int = 4_000_000
     /// Matches Rust `MAX_IMAGE_BYTES`.
@@ -37,73 +39,98 @@ enum AgentCanvasConstants {
     static let oauthScopes = "openid profile email offline_access canvas:read canvas:write"
 }
 
-/// Size-first canvas address: `sm-one`, `md-two`, `lg-three`, `xl-one`, …
+/// Compiled canvas identity: `one` / `two` / `three`.
+/// Size is chosen when the user places the widget — not baked into the id.
 /// Keep in sync with Rust `CanvasId` / MCP tool docs.
 enum CanvasAddress: String, CaseIterable, Identifiable, Codable {
-    case smOne = "sm-one"
-    case smTwo = "sm-two"
-    case smThree = "sm-three"
-    case mdOne = "md-one"
-    case mdTwo = "md-two"
-    case mdThree = "md-three"
-    case lgOne = "lg-one"
-    case lgTwo = "lg-two"
-    case lgThree = "lg-three"
-    case xlOne = "xl-one"
-    case xlTwo = "xl-two"
-    case xlThree = "xl-three"
+    case one
+    case two
+    case three
 
     var id: String { rawValue }
 
-    var size: CanvasSize {
-        switch self {
-        case .smOne, .smTwo, .smThree: return .sm
-        case .mdOne, .mdTwo, .mdThree: return .md
-        case .lgOne, .lgTwo, .lgThree: return .lg
-        case .xlOne, .xlTwo, .xlThree: return .xl
-        }
-    }
-
     var slot: CanvasSlot {
         switch self {
-        case .smOne, .mdOne, .lgOne, .xlOne: return .one
-        case .smTwo, .mdTwo, .lgTwo, .xlTwo: return .two
-        case .smThree, .mdThree, .lgThree, .xlThree: return .three
+        case .one: return .one
+        case .two: return .two
+        case .three: return .three
         }
     }
 
     var fileName: String { "\(rawValue).json" }
 
-    /// WidgetKit kind — unique per size+slot so instances never thrash size meta.
+    /// WidgetKit kind — unique per definition; each kind supports all four families.
     var widgetKind: String { "AgentCanvas.\(rawValue)" }
 
-    /// Gallery title — ASCII hyphen so names search cleanly in Edit Widgets.
-    var displayName: String {
-        "\(size.galleryLabel) - \(slot.shortLabel)"
-    }
+    /// Gallery title — definition name only (user picks size when placing).
+    var displayName: String { slot.shortLabel }
 
     var galleryDescription: String {
         #if os(iOS)
-        "Fixed \(size.galleryLabel.lowercased()) agent canvas (slot \(slot.shortLabel.lowercased())). "
-            + "Id: \(rawValue)."
+        "Agent canvas \(displayName). Pick a size when you add it. Id: \(rawValue). iPhone does not offer Extra Large."
         #else
-        "Fixed \(size.galleryLabel.lowercased()) agent canvas (slot \(slot.shortLabel.lowercased())). "
-            + "MCP id: \(rawValue)."
+        "Agent canvas \(displayName). Pick a size when you add it. MCP id: \(rawValue)."
         #endif
     }
 
-    /// Single WidgetFamily — not multi-size.
-    var widgetFamily: WidgetFamily {
-        size.widgetFamily
+    static var allSupportedFamilies: [WidgetFamily] {
+        [.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge]
     }
 
     static var allKinds: [String] {
         allCases.map(\.widgetKind)
     }
+
+    /// Legacy size-baked filenames for one-release alias reads.
+    var legacyFileNames: [String] {
+        CanvasSize.allCases.map { "\($0.rawValue)-\(rawValue).json" }
+    }
+
+    /// Parse a definition id or a legacy size-first / slot-first alias.
+    static func parse(_ raw: String) -> CanvasAddress? {
+        parseFull(raw)?.address
+    }
+
+    /// Parse plus optional size hint from a legacy alias (`sm-one` → `.sm`).
+    static func parseFull(_ raw: String) -> (address: CanvasAddress, aliasSize: CanvasSize?)? {
+        let s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: "_", with: "-")
+        if s.isEmpty { return nil }
+        if let direct = CanvasAddress(rawValue: s) {
+            return (direct, nil)
+        }
+        switch s {
+        case "1": return (.one, nil)
+        case "2": return (.two, nil)
+        case "3": return (.three, nil)
+        default: break
+        }
+        let parts = s.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)
+        guard parts.count == 2 else { return nil }
+        let left = String(parts[0])
+        let right = String(parts[1])
+        if let size = CanvasSize.parse(left), let address = CanvasAddress(rawValue: right) {
+            return (address, size)
+        }
+        if let address = CanvasAddress(rawValue: left), let size = CanvasSize.parse(right) {
+            return (address, size)
+        }
+        return nil
+    }
+
+    static func from(widgetKind: String) -> CanvasAddress? {
+        let prefix = "AgentCanvas."
+        guard widgetKind.hasPrefix(prefix) else { return nil }
+        return parse(String(widgetKind.dropFirst(prefix.count)))
+    }
 }
 
 enum CanvasSize: String, CaseIterable {
     case sm, md, lg, xl
+
+    /// Documented default budget when a definition is unplaced.
+    static let defaultBudget: CanvasSize = .md
 
     var widgetFamily: WidgetFamily {
         switch self {
@@ -111,6 +138,28 @@ enum CanvasSize: String, CaseIterable {
         case .md: return .systemMedium
         case .lg: return .systemLarge
         case .xl: return .systemExtraLarge
+        }
+    }
+
+    init?(widgetFamily: WidgetFamily) {
+        switch widgetFamily {
+        case .systemSmall: self = .sm
+        case .systemMedium: self = .md
+        case .systemLarge: self = .lg
+        case .systemExtraLarge: self = .xl
+        default: return nil
+        }
+    }
+
+    static func parse(_ raw: String) -> CanvasSize? {
+        let s = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch s {
+        case "sm", "s", "small", "systemsmall": return .sm
+        case "md", "m", "med", "medium", "systemmedium": return .md
+        case "lg", "l", "large", "systemlarge": return .lg
+        case "xl", "extralarge", "extra", "extra_large", "extra-large", "systemextralarge":
+            return .xl
+        default: return nil
         }
     }
 

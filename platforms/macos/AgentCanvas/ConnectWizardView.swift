@@ -797,7 +797,7 @@ struct ConnectWizardView: View {
                 title: already ? "Already connected" : "Try it out",
                 body: already
                     ? "Agent Canvas is already set up for Claude. You can copy a starter message, or run setup again if something broke."
-                    : "Add an Agent Canvas widget to your desktop if you haven’t, then ask Claude to update a canvas by name (for example sm-one or md-one).",
+                    : "Add an Agent Canvas widget to your desktop if you haven’t, then ask Claude to update a canvas by name (for example one or two).",
                 bullets: [
                     "Desktop → right-click → Edit Widgets → search Agent Canvas",
                     "Leave Agent Canvas in the menu bar so widgets stay live",
@@ -934,7 +934,7 @@ struct ConnectWizardView: View {
                     : "Add a widget if you haven’t, then paste a starter message into Cursor.",
                 bullets: [
                     "Desktop → Edit Widgets → Agent Canvas",
-                    "Ask Cursor to update a canvas id like md-one",
+                    "Ask Cursor to update a canvas id like one",
                 ],
                 primary: WizardAction(title: "Copy a starter message", handler: {
                     UserGuide.copyExamplePrompt()

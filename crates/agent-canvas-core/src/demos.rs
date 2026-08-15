@@ -93,31 +93,31 @@ impl DemoKind {
 
 /// Build a demo document for a canvas + content kind.
 pub fn demo_document(id: CanvasId) -> CanvasDocument {
-    demo_document_kind(id, DemoKind::Themed)
+    demo_document_kind(id, DemoKind::Themed, WidgetSize::Medium)
 }
 
-pub fn demo_document_kind(id: CanvasId, kind: DemoKind) -> CanvasDocument {
+pub fn demo_document_kind(id: CanvasId, kind: DemoKind, size: WidgetSize) -> CanvasDocument {
     let mut doc = match kind {
-        DemoKind::Themed => themed(id),
-        DemoKind::Metrics => metrics_only(id),
-        DemoKind::Header => header_only(id),
-        DemoKind::Text => text_only(id),
-        DemoKind::List => list_only(id),
-        DemoKind::Bar => chart_only(id, ChartType::Bar, "Bar demo"),
-        DemoKind::Line => chart_only(id, ChartType::Line, "Line demo"),
-        DemoKind::Pie => chart_only(id, ChartType::Pie, "Pie demo"),
-        DemoKind::Gauge => chart_only(id, ChartType::Gauge, "Gauge demo"),
-        DemoKind::Full => full_board(id),
+        DemoKind::Themed => themed(id, size),
+        DemoKind::Metrics => metrics_only(id, size),
+        DemoKind::Header => header_only(id, size),
+        DemoKind::Text => text_only(id, size),
+        DemoKind::List => list_only(id, size),
+        DemoKind::Bar => chart_only(id, ChartType::Bar, "Bar demo", size),
+        DemoKind::Line => chart_only(id, ChartType::Line, "Line demo", size),
+        DemoKind::Pie => chart_only(id, ChartType::Pie, "Pie demo", size),
+        DemoKind::Gauge => chart_only(id, ChartType::Gauge, "Gauge demo", size),
+        DemoKind::Full => full_board(id, size),
     };
     stamp_id(&mut doc, id, kind);
     doc
 }
 
-/// All canvas ids matching optional size/slot filters (`None` = all).
-pub fn matching_ids(size: Option<WidgetSize>, slot: Option<CanvasSlot>) -> Vec<CanvasId> {
+/// Definitions matching an optional slot filter (`None` = all three).
+/// `size` is only a content-flavor hint for callers; it does not select a file.
+pub fn matching_ids(_size: Option<WidgetSize>, slot: Option<CanvasSlot>) -> Vec<CanvasId> {
     CanvasId::ALL
         .into_iter()
-        .filter(|id| size.map(|s| id.size == s).unwrap_or(true))
         .filter(|id| slot.map(|s| id.slot == s).unwrap_or(true))
         .collect()
 }
@@ -133,7 +133,7 @@ fn stamp_id(doc: &mut CanvasDocument, id: CanvasId, kind: DemoKind) {
 
 // ── Kind builders ───────────────────────────────────────────────────────────
 
-fn metrics_only(id: CanvasId) -> CanvasDocument {
+fn metrics_only(_id: CanvasId, size: WidgetSize) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
@@ -142,7 +142,7 @@ fn metrics_only(id: CanvasId) -> CanvasDocument {
         detail: None,
         title: Some("Metrics".into()),
         sections: vec![Section::Metrics {
-            items: match id.size {
+            items: match size {
                 WidgetSize::Small => vec![m("A", "12", Some("+2")), m("B", "4", Some("-1"))],
                 _ => vec![
                     m("Closed", "47", Some("+12%")),
@@ -156,7 +156,7 @@ fn metrics_only(id: CanvasId) -> CanvasDocument {
     }
 }
 
-fn header_only(id: CanvasId) -> CanvasDocument {
+fn header_only(id: CanvasId, size: WidgetSize) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
@@ -165,7 +165,7 @@ fn header_only(id: CanvasId) -> CanvasDocument {
         detail: None,
         title: None,
         sections: vec![Section::Header {
-            text: format!("{} header", id.size.display_label()),
+            text: format!("{} header", size.display_label()),
             subtitle: Some(format!("slot {} · header-only seed", id.slot.as_str())),
             icon: None,
             tone: None,
@@ -175,7 +175,7 @@ fn header_only(id: CanvasId) -> CanvasDocument {
     }
 }
 
-fn text_only(id: CanvasId) -> CanvasDocument {
+fn text_only(id: CanvasId, size: WidgetSize) -> CanvasDocument {
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
@@ -193,7 +193,7 @@ fn text_only(id: CanvasId) -> CanvasDocument {
                 priority: None,
             },
             Section::Text {
-                content: match id.size {
+                content: match size {
                     WidgetSize::Small => "Short glance note.".into(),
                     WidgetSize::Medium => {
                         "Medium body copy for agent text sections. Soft-wraps across a couple of lines."
@@ -211,7 +211,7 @@ fn text_only(id: CanvasId) -> CanvasDocument {
     }
 }
 
-fn list_only(id: CanvasId) -> CanvasDocument {
+fn list_only(_id: CanvasId, size: WidgetSize) -> CanvasDocument {
     // Same real queue on every size so sm/md show actual issues, not "Top item" stubs.
     // Row-fit packing decides how many are visible; footer reports "+N more in list".
     let items = vec![
@@ -230,7 +230,7 @@ fn list_only(id: CanvasId) -> CanvasDocument {
         li("Bump deps", "ENG-5101", "LOW"),
     ];
     // sm: no list section title — every point of height is a row.
-    let list_title = match id.size {
+    let list_title = match size {
         WidgetSize::Small => None,
         _ => Some("Queue".into()),
     };
@@ -268,7 +268,7 @@ fn list_only(id: CanvasId) -> CanvasDocument {
         sections: vec![
             Section::Header {
                 text: "Open items".into(),
-                subtitle: match id.size {
+                subtitle: match size {
                     WidgetSize::Small => None,
                     _ => Some("Tap a row on md+".into()),
                 },
@@ -286,7 +286,12 @@ fn list_only(id: CanvasId) -> CanvasDocument {
     }
 }
 
-fn chart_only(id: CanvasId, chart_type: ChartType, title: &str) -> CanvasDocument {
+fn chart_only(
+    _id: CanvasId,
+    chart_type: ChartType,
+    title: &str,
+    size: WidgetSize,
+) -> CanvasDocument {
     let data = match chart_type {
         ChartType::Gauge => vec![p("Budget", 78.0), p("Max", 100.0)],
         ChartType::Pie => vec![
@@ -295,7 +300,7 @@ fn chart_only(id: CanvasId, chart_type: ChartType, title: &str) -> CanvasDocumen
             p("Mobile", 18.0),
             p("Jobs", 7.0),
         ],
-        ChartType::Line => match id.size {
+        ChartType::Line => match size {
             WidgetSize::Small => vec![
                 p("M", 4.0),
                 p("T", 7.0),
@@ -313,7 +318,7 @@ fn chart_only(id: CanvasId, chart_type: ChartType, title: &str) -> CanvasDocumen
                 p("24", 14.0),
             ],
         },
-        ChartType::Bar => match id.size {
+        ChartType::Bar => match size {
             WidgetSize::Small => vec![
                 p("M", 3.0),
                 p("T", 5.0),
@@ -358,8 +363,8 @@ fn chart_only(id: CanvasId, chart_type: ChartType, title: &str) -> CanvasDocumen
     }
 }
 
-fn full_board(id: CanvasId) -> CanvasDocument {
-    // Dense content; widget renderer clips by size.sectionCap.
+fn full_board(_id: CanvasId, size: WidgetSize) -> CanvasDocument {
+    // Dense content; widget renderer clips by family budget.
     CanvasDocument {
         version: 1,
         updated_at: chrono::Utc::now(),
@@ -370,7 +375,7 @@ fn full_board(id: CanvasId) -> CanvasDocument {
         sections: vec![
             Section::Header {
                 text: "Full board".into(),
-                subtitle: Some(format!("{} · all primitives", id.size.display_label())),
+                subtitle: Some(format!("{} · all primitives", size.display_label())),
                 icon: None,
                 tone: None,
                 emphasis: None,
@@ -439,8 +444,8 @@ fn chart_type_label(t: ChartType) -> &'static str {
 
 // ── Themed packs (size × slot) ──────────────────────────────────────────────
 
-fn themed(id: CanvasId) -> CanvasDocument {
-    match id.size {
+fn themed(id: CanvasId, size: WidgetSize) -> CanvasDocument {
+    match size {
         WidgetSize::Small => demo_small(id.slot),
         WidgetSize::Medium => demo_medium(id.slot),
         WidgetSize::Large => demo_large(id.slot),

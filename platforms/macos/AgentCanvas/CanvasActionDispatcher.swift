@@ -33,7 +33,7 @@ enum CanvasActionDispatcher {
             return .subscribe(slug: slug)
 
         case let .document(id):
-            guard let address = CanvasAddress(rawValue: id) else {
+            guard let address = CanvasAddress.parse(id) else {
                 status("Unknown canvas id \(id)")
                 return .handledExternally
             }
@@ -42,7 +42,7 @@ enum CanvasActionDispatcher {
             return perform(action, canvasId: id, context: "onOpen")
 
         case let .item(id, section, item, version):
-            guard let address = CanvasAddress(rawValue: id) else {
+            guard let address = CanvasAddress.parse(id) else {
                 status("Unknown canvas id \(id)")
                 return .handledExternally
             }
