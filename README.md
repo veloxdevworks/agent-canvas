@@ -77,6 +77,8 @@ cargo run -p agent-canvas-mcp -- stdio
 
 **Host UI:** API base URL, default poll interval, Velox OAuth (PKCE public client → `agentcanvas://oauth/callback`), share/subscription overview, per-slot publish & subscribe on each canvas page. Canvas web can open `agentcanvas://subscribe?slug={slug}` to pick a slot and pull.
 
+**Subscribed widgets:** the tile shows the shared slug and last successful pull (absolute time — WidgetKit snapshots cannot use relative “N minutes ago”). Subscriptions key off the definition id (`one`…`twelve`), so Small and Large placements of the same canvas share one provenance line. If a pull fails, or last success is older than **15 minutes** (or 3× that subscription’s poll interval if longer), the last-known content stays and an orange **outdated** mark warns that the desktop view may be stale. Local (non-subscribed) widgets are unchanged.
+
 **Tokens (separate Keychain services):**
 
 - User OAuth access/refresh — `com.velox.agentcanvas.oauth`
@@ -146,7 +148,7 @@ just ios-test                   # packing conformance
 just ios-xcode                  # open Xcode
 ```
 
-Widgets: Home Screen → Edit Widgets → **Agent Canvas**. Data lives in the App Group (`group.com.velox.agentcanvas/canvas`). Sync runs on launch / foreground; `BGAppRefresh` is opportunistic (~15–60 min). Deep links: `agentcanvas://subscribe?slug=…`, `agentcanvas://canvas/{id}`.
+Widgets: Home Screen → Edit Widgets → **Agent Canvas**. Data lives in the App Group (`group.com.velox.agentcanvas/canvas`). Sync runs on launch / foreground; `BGAppRefresh` is opportunistic (~15–60 min). Subscribed tiles show slug + last sync and an outdated warning when pull is failing or older than 15 minutes. Deep links: `agentcanvas://subscribe?slug=…`, `agentcanvas://canvas/{id}`.
 
 ### Repo layout
 

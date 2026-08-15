@@ -121,7 +121,8 @@ struct CanvasDetailWindowView: View {
                     listItemsTotal: totalListItems,
                     cover: false
                 ),
-                displaySize: CGSize(width: Self.idealWidth, height: Self.maxHeight)
+                displaySize: CGSize(width: Self.idealWidth, height: Self.maxHeight),
+                provenance: SubscriptionProvenance.resolve(for: address)
             )
 
             CanvasView(

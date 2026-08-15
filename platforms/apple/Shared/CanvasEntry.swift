@@ -12,4 +12,6 @@ struct CanvasEntry: TimelineEntry {
     let clip: ContentClip.Result
     /// WidgetKit’s offered size for this family — used to pack so ideal height fits.
     let displaySize: CGSize
+    /// Present only for cloud-subscribed slots (slug / last sync / stale). Local tiles stay nil.
+    let provenance: SubscriptionProvenance? = nil
 }

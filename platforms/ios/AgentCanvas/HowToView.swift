@@ -14,6 +14,7 @@ struct HowToView: View {
             }
             Section("Tips") {
                 Text("Widgets are compiled identities (one through twelve). Subscribe the same id you place on the Home Screen. Size is chosen when you add the widget.")
+                Text("Subscribed widgets show the slug and last sync. An orange outdated mark means the last pull failed or is older than 15 minutes — last-known content stays.")
                 Text("Public canvases work signed out for fetch, but sign-in is required for private/org canvases.")
             }
         }

@@ -7,6 +7,9 @@ Version tags match GitHub Releases (`vMAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+### Added
+- **Subscribed widget provenance:** subscribed tiles show the shared slug and last successful pull. If a pull fails, or last success is older than 15 minutes (or 3× the poll interval if longer), an orange outdated mark appears — last-known content stays. Provenance keys off the definition id (`one`…`twelve`), so the same subscription chrome shows at every placed family (PLAT-103 / US-039)
+
 ### Changed
 - **Multi-family widget kinds (PLAT-126):** compiled identities are `one` through `twelve` (`AgentCanvas.one`, … `AgentCanvas.twelve`). Each kind supports Small, Medium, Large, and Extra Large. Size is chosen when you place the widget; the same document can show at two sizes without a second write.
 - MCP `canvas` accepts those definition ids and still accepts legacy size-first ids (`sm-one`, …) as aliases of **one / two / three** only. `list_canvases` reports `placedFamilies` from a WidgetCenter snapshot. Unplaced definitions have no family; density defaults to medium unless you pass `size=`.

@@ -38,8 +38,9 @@ enum CanvasPreviewRenderer {
         let tile = ContentClip.defaultTileSize(for: size)
         let doc = CanvasStorage.load(address: address)
 
+        let provenance = SubscriptionProvenance.resolve(for: address)
         let hasTitle = (doc.title?.isEmpty == false) && size != .sm
-        let hasTimestamp = doc.updatedAt != nil
+        let hasTimestamp = provenance != nil || doc.updatedAt != nil
         let live = !doc.isEmptyContent
         // Prefer fitting everything first; only reserve overflow chrome when needed.
         var budget = ContentClip.contentBudget(
@@ -68,7 +69,8 @@ enum CanvasPreviewRenderer {
             document: doc,
             isPlaceholder: doc.isEmptyContent,
             clip: clip,
-            displaySize: tile
+            displaySize: tile,
+            provenance: provenance
         )
 
         let view = CanvasView(entry: entry, isPreview: true)
