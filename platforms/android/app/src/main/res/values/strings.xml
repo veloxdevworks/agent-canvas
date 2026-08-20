@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Agent Canvas</string>
+    <string name="widget_description">Agent Canvas glance tile. Assign a bundled fixture from the host app.</string>
+    <string name="widget_one">One</string>
+    <string name="widget_two">Two</string>
+    <string name="widget_three">Three</string>
+    <string name="widget_four">Four</string>
+    <string name="widget_five">Five</string>
+    <string name="widget_six">Six</string>
+    <string name="widget_seven">Seven</string>
+    <string name="widget_eight">Eight</string>
+    <string name="widget_nine">Nine</string>
+    <string name="widget_ten">Ten</string>
+    <string name="widget_eleven">Eleven</string>
+    <string name="widget_twelve">Twelve</string>
+</resources>

@@ -37,6 +37,7 @@ Privacy details: [`PRIVACY.md`](./PRIVACY.md). Third-party notices: [`NOTICE`](.
 | **Data** | `~/.velox/canvas/canvases/{id}.json`; assets under `~/.velox/canvas/assets/` |
 | **Distribution** | Direct / developer install (not Mac App Store) |
 | **iOS (subscribe)** | Sign-in + cloud subscribe → App Group + WidgetKit (`platforms/ios`); no MCP |
+| **Android (fixtures)** | Host + 12 Glance widgets (`platforms/android`); bundled schema fixtures only — no cloud, no MCP |
 
 ### Canvas ids
 
@@ -150,6 +151,17 @@ just ios-xcode                  # open Xcode
 
 Widgets: Home Screen → Edit Widgets → **Agent Canvas**. Data lives in the App Group (`group.com.velox.agentcanvas/canvas`). Sync runs on launch / foreground; `BGAppRefresh` is opportunistic (~15–60 min). Subscribed tiles show slug + last sync and an outdated warning when pull is failing or older than 15 minutes. Deep links: `agentcanvas://subscribe?slug=…`, `agentcanvas://canvas/{id}`.
 
+## Develop (Android)
+
+Fixtures-only Glance host for dogfooding schema tiles. No cloud, no sign-in, no MCP. See [`platforms/android/README.md`](./platforms/android/README.md).
+
+```bash
+just android-assemble
+# or: cd platforms/android && ./gradlew :app:assembleDebug
+```
+
+Open `platforms/android` in Android Studio, run the host, pick a fixture + definition (`one`…`twelve`) + size, then **Pin to definition**. Home screen → Widgets → **Agent Canvas** → One–Twelve.
+
 ### Repo layout
 
 ```
@@ -161,7 +173,8 @@ agent-canvas/
 ├── platforms/
 │   ├── apple/Shared/       # SwiftUI renderer + schema + cloud client (macOS + iOS)
 │   ├── macos/              # Host + WidgetKit (XcodeGen)
-│   └── ios/                # Subscribe-only app + WidgetKit (XcodeGen)
+│   ├── ios/                # Subscribe-only app + WidgetKit (XcodeGen)
+│   └── android/            # Fixtures-only Compose host + Glance widgets
 ├── scripts/macos/          # install, diagnose, icons
 └── plan.md
 ```

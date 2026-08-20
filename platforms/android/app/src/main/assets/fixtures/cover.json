@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "title": "Cover demo",
+  "cover": {
+    "source": "asset:0000000000000000000000000000000000000000000000000000000000000001.png",
+    "alt": "Pipeline diagram",
+    "fit": "cover"
+  },
+  "onOpen": { "type": "expand" },
+  "sections": [
+    {
+      "type": "header",
+      "text": "Fallback header",
+      "subtitle": "Shown if cover decode fails"
+    },
+    {
+      "type": "metrics",
+      "items": [{ "label": "Status", "value": "OK" }]
+    }
+  ],
+  "detail": {
+    "sections": [
+      {
+        "type": "header",
+        "text": "Deploy pipeline",
+        "subtitle": "Detail still uses sections"
+      },
+      {
+        "type": "text",
+        "content": "Cover owns the glance tile; detail window shows this richer layout."
+      }
+    ]
+  }
+}

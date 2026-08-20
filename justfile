@@ -12,6 +12,7 @@ set dotenv-load := false
 root := justfile_directory()
 macos := root / "platforms/macos"
 ios := root / "platforms/ios"
+android := root / "platforms/android"
 install_dir := env_var_or_default("INSTALL_DIR", home_dir() / "Applications")
 
 default:
@@ -308,6 +309,22 @@ ios-run: ios-build
     xcrun simctl install "$IOS_SIM_UDID" "$APP"
     xcrun simctl launch "$IOS_SIM_UDID" com.velox.agentcanvas.ios
     echo "Launched Agent Canvas on simulator $IOS_SIM_UDID"
+
+# ── Android project ─────────────────────────────────────────────────────────
+
+# Assemble the fixtures-only debug APK (Compose host + Glance widgets)
+android-assemble:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{android}}"
+    ./gradlew :app:assembleDebug
+
+# JVM unit tests (parser + density packer)
+android-test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{android}}"
+    ./gradlew :app:testDebugUnitTest
 
 # ── Widget registration reliability ─────────────────────────────────────────
 
