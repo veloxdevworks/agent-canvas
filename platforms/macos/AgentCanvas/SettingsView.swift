@@ -804,9 +804,9 @@ private struct CanvasSettingsDetail: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 metaBlock
-                notificationsBlock
                 previewBlock
                 historyBlock
+                notificationsBlock
                 #if DEBUG
                 if CloudFeature.isEnabled {
                     if let share {

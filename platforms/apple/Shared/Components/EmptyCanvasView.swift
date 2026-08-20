@@ -3,10 +3,9 @@ import SwiftUI
 /// Size-aware empty chrome for glance tiles and detail/preview when a canvas has no content.
 struct EmptyCanvasView: View {
     let address: CanvasAddress
+    var size: CanvasSize = .defaultBudget
     var fillTile: Bool = true
     var edgeInset: CGFloat
-
-    var size: CanvasSize = .defaultBudget
 
     private var detail: String {
         "Click here to learn how to use."

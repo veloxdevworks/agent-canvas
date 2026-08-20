@@ -5,8 +5,10 @@ import SwiftUI
 @main
 struct AgentCanvasBundle: WidgetBundle {
     var body: some Widget {
-        FirstTenCanvasWidgets()
-        ExtraCanvasWidgets()
+        // Nested types are WidgetBundle, not Widget. Use their `body`
+        // (opaque Widget) so the builder stays under the 10-child limit.
+        FirstTenCanvasWidgets().body
+        ExtraCanvasWidgets().body
     }
 }
 
