@@ -95,7 +95,7 @@ object CanvasActionSerializer : KSerializer<CanvasAction> {
                     ?: throw SerializationException("action.file requires path"),
             )
             "noop" -> CanvasAction.Noop
-            other -> throw SerializationException("Unknown action type: $other")
+            else -> throw SerializationException("Unknown action type: ${obj["type"]}")
         }
     }
 

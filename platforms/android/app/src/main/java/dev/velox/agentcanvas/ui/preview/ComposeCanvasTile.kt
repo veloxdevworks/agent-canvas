@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Help
+import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CalendarMonth
@@ -26,11 +28,9 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Help
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.InsertChart
-import androidx.compose.material.icons.outlined.InsertDriveFile
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Lock
@@ -590,7 +590,7 @@ private fun IconName.vector() = when (this) {
     IconName.Close -> Icons.Outlined.Close
     IconName.Warning, IconName.Alert -> Icons.Outlined.Warning
     IconName.Info -> Icons.Outlined.Info
-    IconName.Help -> Icons.Outlined.Help
+    IconName.Help -> Icons.AutoMirrored.Outlined.Help
     IconName.Sparkle -> Icons.Outlined.AutoAwesome
     IconName.Search -> Icons.Outlined.Search
     IconName.Link -> Icons.Outlined.Link
@@ -606,7 +606,7 @@ private fun IconName.vector() = when (this) {
     IconName.Person -> Icons.Outlined.Person
     IconName.People -> Icons.Outlined.People
     IconName.Folder -> Icons.Outlined.Folder
-    IconName.File -> Icons.Outlined.InsertDriveFile
+    IconName.File -> Icons.AutoMirrored.Outlined.InsertDriveFile
     IconName.Image -> Icons.Outlined.Image
     IconName.Chart -> Icons.Outlined.InsertChart
     IconName.Settings -> Icons.Outlined.Settings

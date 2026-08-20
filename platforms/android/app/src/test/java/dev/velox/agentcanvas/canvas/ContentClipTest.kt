@@ -26,7 +26,7 @@ class ContentClipTest {
     }
 
     @Test
-    fun smallDropsChartsByRank() {
+    fun tightBudgetKeepsHeaderAndDropsChart() {
         val doc = CanvasDocument(
             version = 1,
             sections = listOf(
@@ -38,9 +38,11 @@ class ContentClipTest {
                 ),
             ),
         )
-        val clip = ContentClip.apply(doc, CanvasSize.Small, maxHeight = 80f)
+        val clip = ContentClip.apply(doc, CanvasSize.Small, maxHeight = 20f)
         assertTrue(clip.shown.any { it is CanvasSection.Header })
-        assertTrue(clip.droppedTypes.contains("chart") || clip.shown.none { it is CanvasSection.Chart })
+        assertTrue(clip.shown.none { it is CanvasSection.Chart })
+        assertTrue(clip.truncated)
+        assertTrue(clip.droppedTypes.contains("chart"))
     }
 
     @Test
