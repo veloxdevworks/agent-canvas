@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "title": "Mix by type",
+  "sections": [
+    {
+      "type": "header",
+      "text": "Traffic mix",
+      "subtitle": "Share of requests"
+    },
+    {
+      "type": "chart",
+      "chartType": "pie",
+      "title": "By surface",
+      "data": [
+        { "label": "API", "value": 45 },
+        { "label": "Web", "value": 30 },
+        { "label": "Mobile", "value": 18 },
+        { "label": "Jobs", "value": 7 }
+      ]
+    },
+    {
+      "type": "metrics",
+      "items": [
+        { "label": "RPS", "value": "1.2k", "trend": "+8%" },
+        { "label": "Cache", "value": "91%", "trend": "+2%" }
+      ]
+    }
+  ]
+}

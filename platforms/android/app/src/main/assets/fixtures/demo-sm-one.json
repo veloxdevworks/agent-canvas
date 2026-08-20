@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "title": "Build",
+  "sections": [
+    {
+      "type": "metrics",
+      "items": [
+        { "label": "CI", "value": "✓", "trend": "green" },
+        { "label": "Queue", "value": "2", "trend": "-1" }
+      ]
+    }
+  ]
+}

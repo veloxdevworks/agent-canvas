@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@drawable/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AgentCanvas">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.AgentCanvas">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".widget.OneWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_one">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/agent_canvas_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.TwoWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_two">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/agent_canvas_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.ThreeWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_three">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/agent_canvas_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.FourWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_four">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/agent_canvas_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.FiveWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_five">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/agent_canvas_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.SixWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_six">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/agent_canvas_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.SevenWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_seven">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/agent_canvas_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.EightWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_eight">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/agent_canvas_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.NineWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_nine">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/agent_canvas_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.TenWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_ten">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/agent_canvas_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.ElevenWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_eleven">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/agent_canvas_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.TwelveWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_twelve">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/agent_canvas_widget_info" />
+        </receiver>
+    </application>
+</manifest>
